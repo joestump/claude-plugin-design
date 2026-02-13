@@ -135,13 +135,12 @@ const HTML_TAGS = new Set([
 const JSX_COMPONENTS = new Set([
   'StatusBadge', 'DateBadge', 'DomainBadge', 'PriorityBadge', 'SeverityBadge',
   'RFCLevelBadge', 'RequirementBox', 'Field', 'FieldGroup',
-  'GherkinScenario', 'Tabs', 'TabItem', 'Admonition',
+  'Tabs', 'TabItem', 'Admonition',
 ]);
 
 function isKnownTag(tagName) {
   if (HTML_TAGS.has(tagName.toLowerCase())) return true;
   if (JSX_COMPONENTS.has(tagName)) return true;
-  if (/^[A-Z]/.test(tagName)) return true;
   return false;
 }
 

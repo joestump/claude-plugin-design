@@ -11,17 +11,33 @@ You are creating a new ADR using the MADR (Markdown Architectural Decision Recor
 
 ## Process
 
-1. **Determine the next ADR number**: Scan `docs/decisions/` for existing `ADR-XXXX-*.md` files and increment to the next number. Start at ADR-0001 if none exist.
+1. **Determine the next ADR number**: Scan `docs/decisions/` for existing `ADR-XXXX-*.md` files and increment to the next number. Start at ADR-0001 if none exist. Create `docs/decisions/` if it does not exist. If `$ARGUMENTS` is empty, use `AskUserQuestion` to ask the user what decision they want to document.
 
-2. **Create a Claude Team** with `TeamCreate` to draft and review the ADR:
+2. **Inform the user**: Tell the user: "Creating a drafting team to write and review the ADR. This takes a minute or two."
+
+3. **Create a Claude Team** with `TeamCreate` to draft and review the ADR:
    - Spawn a **drafter** agent (`general-purpose`) to write the ADR based on the user's description: `$ARGUMENTS`
    - Spawn an **architect** agent (`general-purpose`) to review the drafter's output for completeness, accuracy, and adherence to MADR format
    - The architect MUST review and approve the ADR before it is finalized
    - The drafter should research the codebase (read relevant files, understand the current architecture) before writing
+   - If `TeamCreate` fails, fall back to single-agent mode: draft the ADR directly, then self-review against the architect's checklist in the Rules section before writing.
 
-3. **Write the ADR** to `docs/decisions/ADR-XXXX-short-title.md`
+4. **Write the ADR** to `docs/decisions/ADR-XXXX-short-title.md`
 
-4. **Clean up** the team when done.
+5. **Clean up** the team when done.
+
+6. **Summarize** what happened (files created, decision documented, review outcome).
+
+7. **Suggest CLAUDE.md integration**: Suggest to the user that they add an Architecture Context section to their CLAUDE.md referencing `docs/decisions/` so future Claude sessions are aware of past decisions.
+
+### Team Handoff Protocol
+1. The drafter writes the ADR to the target path
+2. The drafter sends a message to the architect: "Draft ready for review at [path]"
+3. The architect reads the file, reviews against the checklist below, and either:
+   a. Sends "APPROVED" to the lead, or
+   b. Sends specific revision requests to the drafter
+4. Maximum 2 revision rounds. After that, the architect approves with noted concerns.
+5. The lead agent finalizes only after receiving "APPROVED"
 
 ## MADR Template
 
@@ -88,6 +104,7 @@ Chosen option: "{option}", because {justification}.
 ## Rules
 
 - ADR numbers MUST be sequential and zero-padded to 4 digits: ADR-0001, ADR-0002, etc.
+- MUST include at least 2 considered options with substantive pros and cons for each
 - Status starts as `proposed` -- the user decides when to mark `accepted`
 - The architect agent MUST review the ADR for:
   - Completeness of all required sections (Context, Options, Outcome, Pros/Cons)

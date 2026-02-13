@@ -8,8 +8,8 @@
 
 console.log('Building documentation content...\n');
 
-// Build RFC mapping first (needed by transforms)
-require('./build-rfc-mapping');
+// Build spec mapping first (needed by transforms)
+require('./build-spec-mapping');
 
 // Transform OpenSpecs
 require('./transform-openspecs');

@@ -2,8 +2,8 @@
  * Design Plugin - Docusaurus Custom Styles
  *
  * Styles for ADR and OpenSpec documentation components.
- * Includes badge components, RFC keyword highlighting,
- * Gherkin step highlighting, and dark mode support.
+ * Includes badge components, RFC 2119 keyword highlighting,
+ * and dark mode support.
  */
 
 :root {
@@ -133,50 +133,6 @@
 [data-theme='dark'] .rfc-keyword.optional {
   background-color: rgba(23, 162, 184, 0.2);
   color: #bee5eb;
-}
-
-/* ============================================
-   Gherkin Step Highlighting
-   ============================================ */
-.gherkin-step {
-  font-weight: 700;
-  padding: 0.1rem 0.25rem;
-  border-radius: 0.2rem;
-}
-.gherkin-step.given {
-  background-color: rgba(108, 117, 125, 0.12);
-  color: #495057;
-}
-.gherkin-step.when {
-  background-color: rgba(23, 162, 184, 0.12);
-  color: #0c5460;
-}
-.gherkin-step.then {
-  background-color: rgba(40, 167, 69, 0.12);
-  color: #155724;
-}
-.gherkin-step.and,
-.gherkin-step.but {
-  background-color: rgba(108, 117, 125, 0.08);
-  color: #495057;
-}
-
-[data-theme='dark'] .gherkin-step.given {
-  background-color: rgba(108, 117, 125, 0.2);
-  color: #ced4da;
-}
-[data-theme='dark'] .gherkin-step.when {
-  background-color: rgba(23, 162, 184, 0.2);
-  color: #bee5eb;
-}
-[data-theme='dark'] .gherkin-step.then {
-  background-color: rgba(40, 167, 69, 0.2);
-  color: #c3e6cb;
-}
-[data-theme='dark'] .gherkin-step.and,
-[data-theme='dark'] .gherkin-step.but {
-  background-color: rgba(108, 117, 125, 0.15);
-  color: #ced4da;
 }
 
 /* ============================================
@@ -320,44 +276,3 @@
   color: var(--ifm-color-emphasis-900);
 }
 
-/* ============================================
-   Gherkin Scenario
-   ============================================ */
-.gherkin-scenario {
-  border: 1px solid var(--ifm-color-emphasis-300);
-  border-radius: 0.5rem;
-  margin: 1rem 0;
-  overflow: hidden;
-}
-.gherkin-scenario-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1rem;
-  background-color: var(--ifm-color-emphasis-100);
-  border-bottom: 1px solid var(--ifm-color-emphasis-300);
-}
-.gherkin-scenario-title {
-  font-weight: 600;
-  font-size: 0.95rem;
-}
-.gherkin-scenario-tags {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-.gherkin-tag {
-  display: inline-block;
-  padding: 0.2rem 0.5rem;
-  border-radius: 0.25rem;
-  font-size: 0.7rem;
-  font-family: var(--ifm-font-family-monospace);
-  background-color: var(--ifm-color-primary-lightest);
-  color: var(--ifm-color-primary-darkest);
-}
-.gherkin-scenario-body {
-  padding: 1rem;
-}
-.gherkin-scenario-body pre {
-  margin: 0;
-}

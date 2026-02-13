@@ -9,7 +9,6 @@ import RFCLevelBadge from '@site/src/components/RFCLevelBadge';
 import RequirementBox from '@site/src/components/RequirementBox';
 import Field from '@site/src/components/Field';
 import FieldGroup from '@site/src/components/FieldGroup';
-import GherkinScenario from '@site/src/components/GherkinScenario';
 
 export default {
   ...MDXComponents,
@@ -22,5 +21,4 @@ export default {
   RequirementBox,
   Field,
   FieldGroup,
-  GherkinScenario,
 };

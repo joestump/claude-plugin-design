@@ -1,25 +1,25 @@
 #!/usr/bin/env node
 /**
- * Build RFC-to-Spec Mapping
+ * Build Spec ID Mapping
  *
- * Scans all OpenSpec files to extract RFC ID prefixes and generates
+ * Scans all OpenSpec files to extract spec ID prefixes and generates
  * a mapping from prefix to spec URL path.
  *
- * Output: src/data/rfc-mapping.json
+ * Output: src/data/spec-mapping.json
  */
 
 const fs = require('fs');
 const path = require('path');
 
 const SPECS_SOURCE = path.join(__dirname, '../../openspec/specs');
-const MAPPING_DEST = path.join(__dirname, '../src/data/rfc-mapping.json');
-const EMOJIS_DEST = path.join(__dirname, '../src/data/rfc-emojis.json');
+const MAPPING_DEST = path.join(__dirname, '../src/data/spec-mapping.json');
+const EMOJIS_DEST = path.join(__dirname, '../src/data/spec-emojis.json');
 
 function buildMapping() {
   const mapping = {};
 
   if (!fs.existsSync(SPECS_SOURCE)) {
-    console.log('  No specs directory found, skipping RFC mapping');
+    console.log('  No specs directory found, skipping spec mapping');
     fs.mkdirSync(path.dirname(MAPPING_DEST), { recursive: true });
     fs.writeFileSync(MAPPING_DEST, JSON.stringify(mapping, null, 2));
     return mapping;
@@ -36,15 +36,21 @@ function buildMapping() {
 
     const content = fs.readFileSync(specPath, 'utf-8');
 
-    // Match RFC IDs in table format: | ARCH-001 | ... |
-    const matches = content.matchAll(/\|\s*([A-Z]+)-\d{3,4}\s*\|/g);
-
     const prefixes = new Set();
-    for (const match of matches) {
+
+    // Match spec number from H1 heading: # SPEC-XXXX: {Title}
+    const h1Match = content.match(/^#\s+([A-Z]+)-\d{4}:/m);
+    if (h1Match) {
+      prefixes.add(h1Match[1]);
+    }
+
+    // Also match spec IDs in table format: | ARCH-001 | ... |
+    const tableMatches = content.matchAll(/\|\s*([A-Z]+)-\d{3,4}\s*\|/g);
+    for (const match of tableMatches) {
       prefixes.add(match[1]);
     }
 
-    // Also match RFC IDs in requirement headings: ### Requirement: ARCH-001
+    // Also match spec IDs in requirement headings: ### Requirement: ARCH-001
     const headingMatches = content.matchAll(/###\s+Requirement:.*?([A-Z]+)-\d{3,4}/g);
     for (const match of headingMatches) {
       prefixes.add(match[1]);
@@ -63,12 +69,12 @@ function buildMapping() {
     fs.writeFileSync(EMOJIS_DEST, JSON.stringify({}, null, 2));
   }
 
-  console.log(`  Generated RFC mapping with ${Object.keys(mapping).length} prefixes`);
+  console.log(`  Generated spec mapping with ${Object.keys(mapping).length} prefixes`);
   return mapping;
 }
 
 if (require.main === module) {
-  console.log('Building RFC mapping...');
+  console.log('Building spec mapping...');
   buildMapping();
 }
 
