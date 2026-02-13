@@ -1,0 +1,99 @@
+---
+name: adr
+description: Create a new Architecture Decision Record (ADR) using MADR format. Use when the user wants to document an architectural decision, says "create an ADR", "we need an ADR for", or discusses a decision that should be recorded.
+allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task, WebFetch, WebSearch, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList, TaskGet, SendMessage, AskUserQuestion
+argument-hint: [short description of the decision]
+---
+
+# Create an Architecture Decision Record (ADR)
+
+You are creating a new ADR using the MADR (Markdown Architectural Decision Records) format.
+
+## Process
+
+1. **Determine the next ADR number**: Scan `docs/decisions/` for existing `ADR-XXXX-*.md` files and increment to the next number. Start at ADR-0001 if none exist.
+
+2. **Create a Claude Team** with `TeamCreate` to draft and review the ADR:
+   - Spawn a **drafter** agent (`general-purpose`) to write the ADR based on the user's description: `$ARGUMENTS`
+   - Spawn an **architect** agent (`general-purpose`) to review the drafter's output for completeness, accuracy, and adherence to MADR format
+   - The architect MUST review and approve the ADR before it is finalized
+   - The drafter should research the codebase (read relevant files, understand the current architecture) before writing
+
+3. **Write the ADR** to `docs/decisions/ADR-XXXX-short-title.md`
+
+4. **Clean up** the team when done.
+
+## MADR Template
+
+```markdown
+---
+status: proposed
+date: {YYYY-MM-DD}
+decision-makers: {list}
+---
+
+# ADR-XXXX: {short title, representative of solved problem and found solution}
+
+## Context and Problem Statement
+
+{Describe the context and problem statement in 2-3 sentences. Articulate the problem as a question if possible.}
+
+## Decision Drivers
+
+* {driver 1, e.g., a force, facing concern}
+* {driver 2}
+
+## Considered Options
+
+* {option 1}
+* {option 2}
+* {option 3}
+
+## Decision Outcome
+
+Chosen option: "{option}", because {justification}.
+
+### Consequences
+
+* Good, because {positive consequence}
+* Bad, because {negative consequence}
+
+### Confirmation
+
+{How will compliance/implementation be confirmed?}
+
+## Pros and Cons of the Options
+
+### {Option 1}
+
+{Description or pointer to more information.}
+
+* Good, because {argument a}
+* Good, because {argument b}
+* Neutral, because {argument c}
+* Bad, because {argument d}
+
+### {Option 2}
+
+{Description or pointer to more information.}
+
+* Good, because {argument a}
+* Bad, because {argument b}
+
+## More Information
+
+{Additional context, links to related ADRs, references.}
+```
+
+## Rules
+
+- ADR numbers MUST be sequential and zero-padded to 4 digits: ADR-0001, ADR-0002, etc.
+- Status starts as `proposed` -- the user decides when to mark `accepted`
+- The architect agent MUST review the ADR for:
+  - Completeness of all required sections (Context, Options, Outcome, Pros/Cons)
+  - Realistic and balanced pros/cons (not just cheerleading the chosen option)
+  - Clear decision rationale that explains "why this over alternatives"
+  - Correct MADR structure and frontmatter
+- Keep the title short and descriptive
+- Focus on the "why" -- what problem does this solve and why this solution?
+- Reference existing ADRs if this supersedes or relates to them

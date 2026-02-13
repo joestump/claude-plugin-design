@@ -1,0 +1,10 @@
+{
+  "name": "design",
+  "version": "1.0.0",
+  "description": "Architecture Decision Records (MADR), OpenSpec specifications, and Docusaurus documentation generation.",
+  "author": "Joe Stump",
+  "homepage": "https://github.com/joestump/claude-plugin-design",
+  "license": "MIT",
+  "category": "development-workflows",
+  "tags": ["adr", "openspec", "docusaurus", "architecture", "specifications", "documentation"]
+}

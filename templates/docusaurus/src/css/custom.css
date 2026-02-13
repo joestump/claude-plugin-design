@@ -1,0 +1,363 @@
+/**
+ * Design Plugin - Docusaurus Custom Styles
+ *
+ * Styles for ADR and OpenSpec documentation components.
+ * Includes badge components, RFC keyword highlighting,
+ * Gherkin step highlighting, and dark mode support.
+ */
+
+:root {
+  --ifm-color-primary: #2e8555;
+  --ifm-color-primary-dark: #29784c;
+  --ifm-color-primary-darker: #277148;
+  --ifm-color-primary-darkest: #205d3b;
+  --ifm-color-primary-light: #33925d;
+  --ifm-color-primary-lighter: #359962;
+  --ifm-color-primary-lightest: #3cad6e;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #25c2a0;
+  --ifm-color-primary-dark: #21af90;
+  --ifm-color-primary-darker: #1fa588;
+  --ifm-color-primary-darkest: #1a8870;
+  --ifm-color-primary-light: #29d5b0;
+  --ifm-color-primary-lighter: #32d8b4;
+  --ifm-color-primary-lightest: #4fddbf;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================
+   Badge Components - Shared Base Styles
+   ============================================ */
+.badge,
+.severity-badge,
+.domain-badge,
+.priority-badge,
+.status-badge,
+.date-badge,
+.rfc-level-badge {
+  display: inline-block;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.375rem;
+  font-weight: 700;
+  font-size: 0.75rem;
+  line-height: 1.2;
+  text-transform: uppercase;
+  font-family: var(--ifm-font-family-monospace);
+  border: 1px solid transparent;
+}
+
+/* Severity Badge */
+.severity-badge.critical { background-color: #dc3545; color: white; border-color: #c82333; }
+.severity-badge.high { background-color: #fd7e14; color: white; border-color: #e96b02; }
+.severity-badge.medium { background-color: #ffc107; color: black; border-color: #e0a800; }
+.severity-badge.low { background-color: #28a745; color: white; border-color: #1e7e34; }
+.severity-badge.info { background-color: #17a2b8; color: white; border-color: #138496; }
+.severity-badge.unknown { background-color: #6c757d; color: white; border-color: #5a6268; }
+
+/* Domain Badge */
+.domain-badge {
+  background-color: #6c757d;
+  color: white;
+  border-color: #5a6268;
+}
+
+/* Priority Badge */
+.priority-badge.p0 { background-color: #dc3545; color: white; border-color: #c82333; }
+.priority-badge.p1 { background-color: #fd7e14; color: white; border-color: #e96b02; }
+.priority-badge.p2 { background-color: #ffc107; color: black; border-color: #e0a800; }
+.priority-badge.p3 { background-color: #17a2b8; color: white; border-color: #138496; }
+.priority-badge.p4 { background-color: #6c757d; color: white; border-color: #5a6268; }
+
+/* Status Badge */
+.status-badge.approved,
+.status-badge.accepted { background-color: #28a745; color: white; border-color: #1e7e34; }
+.status-badge.active { background-color: #28a745; color: white; border-color: #1e7e34; }
+.status-badge.proposed { background-color: #17a2b8; color: white; border-color: #138496; }
+.status-badge.draft { background-color: #17a2b8; color: white; border-color: #138496; }
+.status-badge.deprecated { background-color: #6c757d; color: white; border-color: #5a6268; }
+.status-badge.inactive { background-color: #6c757d; color: white; border-color: #5a6268; }
+.status-badge.superseded { background-color: #fd7e14; color: white; border-color: #e96b02; }
+.status-badge.rejected { background-color: #dc3545; color: white; border-color: #c82333; }
+.status-badge.unknown { background-color: #6c757d; color: white; border-color: #5a6268; }
+
+/* Date Badge */
+.date-badge { background-color: #6c757d; color: white; border-color: #5a6268; }
+
+/* RFC Level Badge */
+.rfc-level-badge.critical { background-color: #dc3545; color: white; border-color: #c82333; }
+.rfc-level-badge.high { background-color: #fd7e14; color: white; border-color: #e96b02; }
+.rfc-level-badge.optional { background-color: #17a2b8; color: white; border-color: #138496; }
+.rfc-level-badge.unknown { background-color: #6c757d; color: white; border-color: #5a6268; }
+
+/* ============================================
+   RFC 2119 Keyword Highlighting
+   ============================================ */
+.rfc-keyword {
+  font-weight: 700;
+  padding: 0.1rem 0.25rem;
+  border-radius: 0.2rem;
+}
+.rfc-keyword.must,
+.rfc-keyword.shall,
+.rfc-keyword.required {
+  background-color: rgba(220, 53, 69, 0.12);
+  color: #a71d2a;
+}
+.rfc-keyword.should,
+.rfc-keyword.recommended {
+  background-color: rgba(253, 126, 20, 0.12);
+  color: #c55a02;
+}
+.rfc-keyword.may,
+.rfc-keyword.optional {
+  background-color: rgba(23, 162, 184, 0.12);
+  color: #0c5460;
+}
+
+[data-theme='dark'] .rfc-keyword.must,
+[data-theme='dark'] .rfc-keyword.shall,
+[data-theme='dark'] .rfc-keyword.required {
+  background-color: rgba(220, 53, 69, 0.2);
+  color: #f5c6cb;
+}
+[data-theme='dark'] .rfc-keyword.should,
+[data-theme='dark'] .rfc-keyword.recommended {
+  background-color: rgba(253, 126, 20, 0.2);
+  color: #ffd8a8;
+}
+[data-theme='dark'] .rfc-keyword.may,
+[data-theme='dark'] .rfc-keyword.optional {
+  background-color: rgba(23, 162, 184, 0.2);
+  color: #bee5eb;
+}
+
+/* ============================================
+   Gherkin Step Highlighting
+   ============================================ */
+.gherkin-step {
+  font-weight: 700;
+  padding: 0.1rem 0.25rem;
+  border-radius: 0.2rem;
+}
+.gherkin-step.given {
+  background-color: rgba(108, 117, 125, 0.12);
+  color: #495057;
+}
+.gherkin-step.when {
+  background-color: rgba(23, 162, 184, 0.12);
+  color: #0c5460;
+}
+.gherkin-step.then {
+  background-color: rgba(40, 167, 69, 0.12);
+  color: #155724;
+}
+.gherkin-step.and,
+.gherkin-step.but {
+  background-color: rgba(108, 117, 125, 0.08);
+  color: #495057;
+}
+
+[data-theme='dark'] .gherkin-step.given {
+  background-color: rgba(108, 117, 125, 0.2);
+  color: #ced4da;
+}
+[data-theme='dark'] .gherkin-step.when {
+  background-color: rgba(23, 162, 184, 0.2);
+  color: #bee5eb;
+}
+[data-theme='dark'] .gherkin-step.then {
+  background-color: rgba(40, 167, 69, 0.2);
+  color: #c3e6cb;
+}
+[data-theme='dark'] .gherkin-step.and,
+[data-theme='dark'] .gherkin-step.but {
+  background-color: rgba(108, 117, 125, 0.15);
+  color: #ced4da;
+}
+
+/* ============================================
+   ADR Consequence Keywords (Good, Bad, Neutral, etc.)
+   ============================================ */
+.consequence-keyword {
+  font-weight: 700;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.2rem;
+}
+.consequence-keyword.good {
+  background-color: rgba(40, 167, 69, 0.15);
+  color: #155724;
+}
+.consequence-keyword.neutral {
+  background-color: rgba(23, 162, 184, 0.15);
+  color: #0c5460;
+}
+.consequence-keyword.bad {
+  background-color: rgba(220, 53, 69, 0.15);
+  color: #a71d2a;
+}
+.consequence-keyword.meh,
+.consequence-keyword.okay {
+  background-color: rgba(253, 126, 20, 0.15);
+  color: #c55a02;
+}
+
+[data-theme='dark'] .consequence-keyword.good {
+  background-color: rgba(40, 167, 69, 0.25);
+  color: #c3e6cb;
+}
+[data-theme='dark'] .consequence-keyword.neutral {
+  background-color: rgba(23, 162, 184, 0.25);
+  color: #bee5eb;
+}
+[data-theme='dark'] .consequence-keyword.bad {
+  background-color: rgba(220, 53, 69, 0.25);
+  color: #f5c6cb;
+}
+[data-theme='dark'] .consequence-keyword.meh,
+[data-theme='dark'] .consequence-keyword.okay {
+  background-color: rgba(253, 126, 20, 0.25);
+  color: #ffd8a8;
+}
+
+/* ============================================
+   RFC Reference Links
+   ============================================ */
+.rfc-ref {
+  font-family: var(--ifm-font-family-monospace);
+  font-weight: 600;
+  font-size: 0.9em;
+  text-decoration: none;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  background-color: rgba(46, 133, 85, 0.1);
+  color: var(--ifm-color-primary-dark);
+  border: 1px solid rgba(46, 133, 85, 0.2);
+  transition: background-color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+.rfc-ref:hover {
+  background-color: rgba(46, 133, 85, 0.2);
+  border-color: rgba(46, 133, 85, 0.4);
+  text-decoration: none;
+}
+[data-theme='dark'] .rfc-ref {
+  background-color: rgba(37, 194, 160, 0.15);
+  color: var(--ifm-color-primary-light);
+  border-color: rgba(37, 194, 160, 0.3);
+}
+[data-theme='dark'] .rfc-ref:hover {
+  background-color: rgba(37, 194, 160, 0.25);
+  border-color: rgba(37, 194, 160, 0.5);
+}
+
+/* ============================================
+   Requirement Box
+   ============================================ */
+.requirement-box {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  background-color: var(--ifm-background-surface-color);
+}
+.requirement-box:target {
+  border-color: var(--ifm-color-primary-darker);
+  box-shadow: 0 0 0 3px var(--ifm-color-primary-light);
+}
+.requirement-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.requirement-id {
+  font-family: var(--ifm-font-family-monospace);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.requirement-id a {
+  color: inherit;
+  text-decoration: none;
+}
+.requirement-id a:hover {
+  text-decoration: underline;
+}
+.requirement-meta {
+  display: flex;
+  gap: 0.5rem;
+}
+.requirement-body {
+  font-size: 0.95rem;
+}
+
+/* ============================================
+   Field and FieldGroup
+   ============================================ */
+.field-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1rem 0;
+  padding: 0.75rem;
+  background-color: var(--ifm-background-surface-color);
+  border-radius: 0.5rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+}
+.field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.field-label {
+  font-weight: 600;
+  color: var(--ifm-color-emphasis-700);
+}
+.field-value {
+  color: var(--ifm-color-emphasis-900);
+}
+
+/* ============================================
+   Gherkin Scenario
+   ============================================ */
+.gherkin-scenario {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  overflow: hidden;
+}
+.gherkin-scenario-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background-color: var(--ifm-color-emphasis-100);
+  border-bottom: 1px solid var(--ifm-color-emphasis-300);
+}
+.gherkin-scenario-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.gherkin-scenario-tags {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.gherkin-tag {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  font-family: var(--ifm-font-family-monospace);
+  background-color: var(--ifm-color-primary-lightest);
+  color: var(--ifm-color-primary-darkest);
+}
+.gherkin-scenario-body {
+  padding: 1rem;
+}
+.gherkin-scenario-body pre {
+  margin: 0;
+}
