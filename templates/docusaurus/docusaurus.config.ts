@@ -25,13 +25,11 @@ const config: Config = {
   baseUrl: BASE_URL,
 
   onBrokenLinks: 'warn',
+  onBrokenMarkdownLinks: 'warn',
 
   markdown: {
     format: 'detect',
     mermaid: true,
-    hooks: {
-      onBrokenMarkdownLinks: 'warn',
-    },
   },
 
   themes: ['@docusaurus/theme-mermaid'],

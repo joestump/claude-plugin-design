@@ -3,10 +3,18 @@
  *
  * Contains common functions used by both transform-adrs.js and
  * transform-openspecs.js: RFC 2119 keyword highlighting, spec/ADR
- * cross-references, markdown link fixing, and JSX tag escaping.
+ * cross-references, markdown link fixing.
  */
 
 const fs = require('fs');
+
+/**
+ * Test if a line is a code fence opener/closer (```, ~~~~, etc.)
+ */
+function isCodeFence(line) {
+  const trimmed = line.trimStart();
+  return /^(`{3,}|~{3,})/.test(trimmed);
+}
 
 /**
  * Build a mapping of ADR numbers to their URL paths.
@@ -44,8 +52,11 @@ function transformRfc2119Keywords(content) {
   };
 
   const lines = content.split('\n');
+  let inCodeBlock = false;
+
   return lines.map(line => {
-    if (line.startsWith('```') || line.startsWith('#') || line.startsWith('    ')) return line;
+    if (isCodeFence(line)) { inCodeBlock = !inCodeBlock; return line; }
+    if (inCodeBlock || line.startsWith('#') || line.startsWith('    ')) return line;
     if (line.match(/^`[^`]+`$/)) return line;
 
     // Process segments outside of inline code spans
@@ -69,7 +80,7 @@ function transformSpecReferences(content, { specMapping, specEmojis, baseUrl }) 
   let inCodeBlock = false;
 
   return lines.map(line => {
-    if (line.startsWith('```')) { inCodeBlock = !inCodeBlock; return line; }
+    if (isCodeFence(line)) { inCodeBlock = !inCodeBlock; return line; }
     if (inCodeBlock || line.startsWith('#')) return line;
     if (line.trim().startsWith('<') && !line.includes('className="rfc-keyword')) return line;
 
@@ -93,7 +104,7 @@ function transformAdrReferences(content, { adrMapping, adrEmoji, baseUrl }) {
   let inCodeBlock = false;
 
   return lines.map(line => {
-    if (line.startsWith('```')) { inCodeBlock = !inCodeBlock; return line; }
+    if (isCodeFence(line)) { inCodeBlock = !inCodeBlock; return line; }
     if (inCodeBlock || line.startsWith('#')) return line;
     if (line.trim().startsWith('<') && !line.includes('className="rfc-keyword') && !line.includes('className="rfc-ref')) return line;
 
@@ -113,47 +124,10 @@ function fixMarkdownLinks(content) {
   return content.replace(/\]\(((?!https?:\/\/)[^)]*?)\.md(#[^)]*?)?\)/g, ']($1$2)');
 }
 
-/**
- * Escape non-HTML tags that MDX would interpret as JSX components.
- */
-function escapeJsxLikeTags(content) {
-  const htmlTags = ['div', 'span', 'a', 'p', 'br', 'hr', 'img', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'pre', 'code', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 'b', 'i'];
-
-  const lines = content.split('\n');
-  return lines.map(line => {
-    let result = '';
-    let i = 0;
-    while (i < line.length) {
-      if (line[i] === '`') {
-        const start = i;
-        i++;
-        while (i < line.length && line[i] !== '`') { i++; }
-        if (i < line.length) { i++; }
-        result += line.slice(start, i);
-      } else {
-        const remaining = line.slice(i);
-        const tagMatch = remaining.match(/^<([a-z][a-z0-9_-]*(?:\|[a-z][a-z0-9_-]*)*)>/i);
-        if (tagMatch && !htmlTags.includes(tagMatch[1].split('|')[0].toLowerCase())) {
-          result += `\\<${tagMatch[1]}\\>`;
-          i += tagMatch[0].length;
-        } else if (remaining.match(/^<\d/)) {
-          result += '\\<';
-          i++;
-        } else {
-          result += line[i];
-          i++;
-        }
-      }
-    }
-    return result;
-  }).join('\n');
-}
-
 module.exports = {
   buildAdrMapping,
   transformRfc2119Keywords,
   transformSpecReferences,
   transformAdrReferences,
   fixMarkdownLinks,
-  escapeJsxLikeTags,
 };

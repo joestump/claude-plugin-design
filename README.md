@@ -1,14 +1,16 @@
 # claude-plugin-design
 
-A Claude Code plugin for architecture decision records (ADRs), OpenSpec specifications, and Docusaurus documentation generation.
+A Claude Code plugin for architecture decision records (ADRs), specifications, and Docusaurus documentation generation.
 
 ## Skills
 
 | Skill | Invoke | Description |
 |-------|--------|-------------|
-| **ADR** | `/design:adr [description]` | Create an ADR using MADR format with team-based drafting and architect review |
-| **OpenSpec** | `/design:openspec [capability]` | Create spec.md + design.md with RFC 2119 requirements and architect review |
-| **Docs** | `/design:docs [project name]` | Scaffold a Docusaurus site from your ADRs and OpenSpecs |
+| **ADR** | `/design:adr [description] [--review]` | Create an ADR using MADR format with Mermaid diagrams |
+| **Spec** | `/design:spec [capability] [--review]` | Create spec.md + design.md with RFC 2119 requirements and Mermaid diagrams |
+| **Docs** | `/design:docs [project name]` | Scaffold a Docusaurus site from your ADRs and specs |
+| **List** | `/design:list [adr\|spec\|all]` | List all ADRs and specs with their status |
+| **Status** | `/design:status [ID] [status]` | Change the status of an ADR or spec |
 
 ## Install
 
@@ -27,49 +29,65 @@ Add to your project's `.claude/settings.json`:
 }
 ```
 
-Then restart Claude Code. The plugin's skills will be available as `/design:adr`, `/design:openspec`, and `/design:docs`.
+Then restart Claude Code. The plugin's skills will be available as `/design:adr`, `/design:spec`, `/design:docs`, `/design:list`, and `/design:status`.
 
 ## What It Does
 
-### `/design:adr` — Architecture Decision Records
+### `/design:adr` -- Architecture Decision Records
 
 Creates ADRs using [MADR](https://adr.github.io/madr/) format:
 - Sequential numbering: `ADR-0001`, `ADR-0002`, etc.
-- Stored in `docs/decisions/`
-- Drafted and reviewed by a Claude Team (drafter + architect)
+- Stored in `docs/adrs/`
+- Mermaid architecture diagrams included by default
 - YAML frontmatter with status, date, decision-makers
+- Single-agent by default; add `--review` for team-based drafting with architect review
+- Offers to add an Architecture Context section to your CLAUDE.md on first use
 
-### `/design:openspec` — OpenSpec Specifications
+### `/design:spec` -- Specifications
 
 Creates paired spec.md + design.md using [OpenSpec](https://github.com/Fission-AI/OpenSpec):
 - Spec numbering: `SPEC-0001`, `SPEC-0002`, etc.
 - Requirements in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) format (MUST, SHALL, MAY, etc.)
 - Scenarios with `####` headings and WHEN/THEN format
-- Stored in `openspec/specs/{capability-name}/`
-- Drafted and reviewed by a Claude Team (spec-writer + architect)
+- Mermaid architecture diagrams required in design.md
+- Stored in `docs/openspec/specs/{capability-name}/`
+- Single-agent by default; add `--review` for team-based drafting with architect review
 
-### `/design:docs` — Docusaurus Documentation Site
+### `/design:docs` -- Docusaurus Documentation Site
 
 Scaffolds a complete Docusaurus site that transforms your ADRs and specs into a polished doc site:
+- Pre-flight checks (Node.js, existing content)
 - RFC 2119 keyword highlighting (color-coded MUST/SHALL/MAY)
 - Cross-reference linking (ADR-0001 and SPEC-NNN become clickable links)
+- Mermaid diagram rendering
 - Status/Date/Domain badge components
 - Requirement box components with anchor links
 - Consequence keyword highlighting (Good/Bad/Neutral)
 - Dark mode support
 - Auto-generated sidebars
 
+### `/design:list` -- List Decisions and Specs
+
+Lists all ADRs and specs with their status, date, and title. Filter by type with `adr`, `spec`, or `all`.
+
+### `/design:status` -- Update Status
+
+Changes the status of an ADR or spec. Valid statuses:
+- **ADR**: proposed, accepted, deprecated, superseded
+- **Spec**: draft, review, approved, implemented, deprecated
+
 ## Project Structure
 
 ```
 your-project/
-├── docs/decisions/              # ADRs (created by /design:adr)
-│   ├── ADR-0001-short-title.md
-│   └── ADR-0002-short-title.md
-├── openspec/specs/              # OpenSpecs (created by /design:openspec)
-│   └── capability-name/
-│       ├── spec.md
-│       └── design.md
+├── docs/
+│   ├── adrs/                    # ADRs (created by /design:adr)
+│   │   ├── ADR-0001-short-title.md
+│   │   └── ADR-0002-short-title.md
+│   └── openspec/specs/          # Specs (created by /design:spec)
+│       └── capability-name/
+│           ├── spec.md
+│           └── design.md
 ├── docs-site/                   # Docusaurus site (created by /design:docs)
 │   ├── package.json
 │   ├── docusaurus.config.ts
@@ -81,19 +99,23 @@ your-project/
 ## Workflow
 
 1. **Decide**: `/design:adr We need to choose a web framework for the admin dashboard`
-2. **Review**: Read the ADR, discuss, mark `status: accepted`
-3. **Specify**: `/design:openspec Convert ADR-0001 to a spec` (generates `SPEC-XXXX`)
+2. **Review**: `/design:list adr` to see all decisions, `/design:status ADR-0001 accepted` to approve
+3. **Specify**: `/design:spec Convert ADR-0001 to a spec`
 4. **Document**: `/design:docs my-project`
 5. **Develop**: `cd docs-site && npm run dev`
 
+For thorough team review on critical decisions, add `--review`:
+- `/design:adr Choose a database --review`
+- `/design:spec authentication-service --review`
+
 ## CLAUDE.md Integration
 
-After creating ADRs or specs, consider adding an Architecture Context section to your project's `CLAUDE.md` so future Claude sessions are aware of past decisions:
+On first use, the ADR and spec skills offer to add an Architecture Context section to your project's CLAUDE.md so future Claude sessions are aware of past decisions:
 
 ```markdown
 ## Architecture Context
-- Architecture Decision Records are in `docs/decisions/`
-- OpenSpec specifications are in `openspec/specs/`
+- Architecture Decision Records are in `docs/adrs/`
+- Specifications are in `docs/openspec/specs/`
 ```
 
 ## License

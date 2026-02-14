@@ -2,7 +2,7 @@
 /**
  * Transform ADRs for Docusaurus
  *
- * Reads ADR files from decisions/ and writes them to docs/decisions/
+ * Reads ADR files from docs/adrs/ and writes them to docs-generated/decisions/
  * with Docusaurus frontmatter, RFC 2119 keyword highlighting, and cross-references.
  */
 
@@ -15,10 +15,9 @@ const {
   transformSpecReferences,
   transformAdrReferences,
   fixMarkdownLinks,
-  escapeJsxLikeTags,
 } = require('./transform-utils');
 
-const ADRS_SOURCE = path.join(__dirname, '../../docs/decisions');
+const ADRS_SOURCE = path.join(__dirname, '../../docs/adrs');
 const ADRS_DEST = path.join(__dirname, '../../docs-generated/decisions');
 
 // Read baseUrl from docusaurus.config.ts
@@ -50,21 +49,27 @@ function extractTitle(content) {
 }
 
 function extractMetadata(content) {
-  const statusMatch = content.match(/^status:\s*"?([^"\n]+)"?/m);
-  const dateMatch = content.match(/^date:\s*"?([^"\n]+)"?/m);
-  const dmMatch = content.match(/^decision-makers:\s*"?([^"\n]+)"?/m);
+  let status = null;
+  let date = null;
+  let dm = null;
 
-  let status = statusMatch ? statusMatch[1].trim() : null;
-  if (!status) {
-    const sectionMatch = content.match(/##\s+Status\s*\n\s*\n\s*([^\n]+)/);
-    status = sectionMatch ? sectionMatch[1].trim() : 'unknown';
+  // Only parse within YAML frontmatter (between --- delimiters)
+  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  if (fmMatch) {
+    const fm = fmMatch[1];
+    const statusMatch = fm.match(/^status:\s*"?([^"\n]+)"?/m);
+    const dateMatch = fm.match(/^date:\s*"?([^"\n]+)"?/m);
+    const dmMatch = fm.match(/^decision-makers:\s*"?([^"\n]+)"?/m);
+    if (statusMatch) status = statusMatch[1].trim();
+    if (dateMatch) date = dateMatch[1].trim();
+    if (dmMatch) dm = dmMatch[1].trim();
   }
 
-  return {
-    status: status,
-    date: dateMatch ? dateMatch[1].trim() : 'unknown',
-    dm: dmMatch ? dmMatch[1].trim() : 'unknown'
-  };
+  if (!status) status = 'unknown';
+  if (!date) date = 'unknown';
+  if (!dm) dm = 'unknown';
+
+  return { status, date, dm };
 }
 
 function escapeBidirectionalArrows(content) {
@@ -78,7 +83,8 @@ function transformConsequenceKeywords(content) {
   let inCodeBlock = false;
 
   return lines.map(line => {
-    if (line.startsWith('```')) { inCodeBlock = !inCodeBlock; return line; }
+    const trimmed = line.trimStart();
+    if (/^(`{3,}|~{3,})/.test(trimmed)) { inCodeBlock = !inCodeBlock; return line; }
     if (inCodeBlock) return line;
     return line.replace(/^(\s*[\*\-]\s+)(Good|Bad|Neutral|Meh|Okay)(,)/i, (match, prefix, keyword, comma) => {
       const normalizedKeyword = keyword.charAt(0).toUpperCase() + keyword.slice(1).toLowerCase();
@@ -105,7 +111,6 @@ function transformAdr(srcPath, destPath, fileName) {
 
   let escapedContent = fixMarkdownLinks(contentWithoutFrontmatter);
   escapedContent = fixCrossSectionPaths(escapedContent);
-  escapedContent = escapeJsxLikeTags(escapedContent);
   escapedContent = escapeBidirectionalArrows(escapedContent);
   escapedContent = transformRfc2119Keywords(escapedContent);
   escapedContent = transformSpecReferences(escapedContent, { specMapping: SPEC_MAPPING, specEmojis: SPEC_EMOJIS, baseUrl: BASE_URL });

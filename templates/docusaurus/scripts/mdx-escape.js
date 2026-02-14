@@ -9,21 +9,26 @@ function escapeMdxUnsafe(content) {
   const lines = content.split('\n');
   const result = [];
   let inCodeBlock = false;
+  let codeFencePattern = null;
 
   for (const line of lines) {
     const trimmed = line.trimStart();
 
-    if (trimmed.startsWith('```')) {
+    // Match opening/closing code fences: ``` (3+), ~~~ (3+)
+    const fenceMatch = trimmed.match(/^(`{3,}|~{3,})/);
+    if (fenceMatch) {
+      const fence = fenceMatch[1];
       if (!inCodeBlock) {
         inCodeBlock = true;
-      } else {
-        const afterBackticks = trimmed.replace(/^`{3,}/, '').trim();
-        if (afterBackticks === '') {
-          inCodeBlock = false;
-        }
+        codeFencePattern = fence[0]; // track whether ` or ~
+        result.push(line);
+        continue;
+      } else if (fence[0] === codeFencePattern && trimmed.replace(/^[`~]+/, '').trim() === '') {
+        inCodeBlock = false;
+        codeFencePattern = null;
+        result.push(line);
+        continue;
       }
-      result.push(line);
-      continue;
     }
 
     if (inCodeBlock) {

@@ -2,7 +2,7 @@
 /**
  * Transform OpenSpecs for Docusaurus
  *
- * Reads markdown files from openspec/specs/ and writes them to docs-generated/specs/
+ * Reads markdown files from docs/openspec/specs/ and writes them to docs-generated/specs/
  * with Docusaurus frontmatter, RFC 2119 keyword highlighting, and cross-references.
  *
  * Domain ordering is auto-discovered from directory structure (alphabetical).
@@ -17,10 +17,9 @@ const {
   transformSpecReferences,
   transformAdrReferences,
   fixMarkdownLinks,
-  escapeJsxLikeTags,
 } = require('./transform-utils');
 
-const SPECS_SOURCE = path.join(__dirname, '../../openspec/specs');
+const SPECS_SOURCE = path.join(__dirname, '../../docs/openspec/specs');
 const SPECS_DEST = path.join(__dirname, '../../docs-generated/specs');
 
 // Read baseUrl from docusaurus.config.ts
@@ -145,7 +144,6 @@ function transformSpec(srcPath, destPath, domain, fileType, domainConfig) {
 
   content = fixRelativePaths(content);
   content = fixMarkdownLinks(content);
-  content = escapeJsxLikeTags(content);
 
   if (fileType === 'spec') {
     content = transformRequirementTables(content);

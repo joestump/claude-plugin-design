@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const SPECS_SOURCE = path.join(__dirname, '../../openspec/specs');
+const SPECS_SOURCE = path.join(__dirname, '../../docs/openspec/specs');
 const MAPPING_DEST = path.join(__dirname, '../src/data/spec-mapping.json');
 const EMOJIS_DEST = path.join(__dirname, '../src/data/spec-emojis.json');
 

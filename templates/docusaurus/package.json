@@ -5,7 +5,7 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "build-content": "node scripts/build-docs.js",
-    "watch-content": "chokidar '../openspec/**/*' '../docs/decisions/**/*' -c 'npm run build-content' --initial",
+    "watch-content": "chokidar '../docs/openspec/**/*' '../docs/adrs/**/*' -c 'npm run build-content' --initial",
     "start": "npm run build-content && docusaurus start",
     "dev": "concurrently --kill-others \"npm run watch-content\" \"docusaurus start\"",
     "build": "npm run build-content && docusaurus build",
@@ -22,8 +22,8 @@
     "@mdx-js/react": "^3.0.0",
     "clsx": "^2.0.0",
     "prism-react-renderer": "^2.3.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "3.9.2",
