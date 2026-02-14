@@ -1,0 +1,124 @@
+---
+name: prime
+description: Load ADR and spec context into the session for architecture-aware responses. Use when the user says "prime context", "load architecture", starts a new session, or wants Claude to know about existing decisions.
+allowed-tools: Read, Glob, Grep
+argument-hint: [topic]
+---
+
+# Prime Architecture Context
+
+Load existing ADRs and specs into the session so Claude can give architecture-aware responses.
+
+## Process
+
+1. **Check if init has been run**: Read `CLAUDE.md` at the project root and check if it contains references to `docs/adrs/` or `docs/openspec/specs/`. If CLAUDE.md does not exist or lacks design plugin references, output:
+
+   ```
+   CLAUDE.md does not have design plugin references. Run `/design:init` first to set up your project, then re-run `/design:prime`.
+   ```
+
+   Then stop. Do NOT proceed with scanning.
+
+2. **Scan for ADRs**: Glob for `docs/adrs/ADR-*.md` files. For each file:
+   - Read the YAML frontmatter to extract `status` and `date`
+   - Extract the title from the first `# ` heading
+   - Read the `## Context and Problem Statement` section
+   - Read the `## Decision Outcome` section to extract the key decision
+   - Sort by ADR number
+
+3. **Scan for specs**: Glob for `docs/openspec/specs/*/spec.md` files. For each file:
+   - Read the YAML frontmatter to extract `status`
+   - Extract the title from the first `# ` heading (e.g., `SPEC-0001: Web Dashboard`)
+   - Read the `## Overview` section
+   - Count the number of `### Requirement:` headings
+   - Count the number of `#### Scenario:` headings
+   - Sort by SPEC number
+
+4. **Apply topic filter** (if `$ARGUMENTS` is not empty):
+   - The topic argument is a free-text string for semantic matching
+   - For each ADR, read the title, context/problem statement, and decision outcome
+   - For each spec, read the title and overview
+   - Determine relevance based on semantic similarity to the topic -- an artifact is relevant if the topic relates to any of its key concepts, technologies, domains, or concerns
+   - For example: topic "security" should match ADRs about authentication, authorization, encryption, or access control
+   - If no artifacts match the topic, output:
+     ```
+     No ADRs or specs matched the topic "{topic}". Try a broader term, or run `/design:prime` without a topic to see all artifacts.
+     ```
+
+5. **Handle edge cases**:
+   - If `docs/adrs/` does not exist: "The docs/adrs/ directory does not exist. Run `/design:adr [description]` to create your first ADR."
+   - If `docs/openspec/specs/` does not exist: "The docs/openspec/specs/ directory does not exist. Run `/design:spec [capability]` to create your first spec."
+   - If neither directory has any artifacts: "No design artifacts found. Create an ADR with `/design:adr` or a spec with `/design:spec` first."
+   - If ADRs exist but no specs (or vice versa), present whichever exists and note the other is empty
+
+6. **Present results** using the appropriate output format below.
+
+## Output
+
+### Without topic filter (`/design:prime`):
+
+```
+## Architecture Context Loaded
+
+Primed session with {N} ADRs and {M} specs.
+
+### Architecture Decision Records
+
+| ID | Title | Status | Key Decision |
+|----|-------|--------|--------------|
+| ADR-0001 | {title} | {status} | {one-sentence summary of decision outcome} |
+
+### Specifications
+
+| ID | Title | Status | Requirements |
+|----|-------|--------|--------------|
+| SPEC-0001 | {title} | {status} | {N} requirements, {M} scenarios |
+
+### Quick Reference
+- Check for drift: `/design:check [target]`
+- Full audit: `/design:audit [scope]`
+- List all artifacts: `/design:list`
+```
+
+### With topic filter (`/design:prime {topic}`):
+
+```
+## Architecture Context Loaded (filtered: "{topic}")
+
+Primed session with {N} ADRs and {M} specs matching "{topic}".
+
+### Matching ADRs
+
+| ID | Title | Status | Relevance |
+|----|-------|--------|-----------|
+| ADR-XXXX | {title} | {status} | {why this matched the topic} |
+
+### Matching Specs
+
+| ID | Title | Status | Relevance |
+|----|-------|--------|-----------|
+| SPEC-XXXX | {title} | {status} | {why this matched the topic} |
+
+### Summaries
+
+**ADR-XXXX: {title}**
+{2-3 sentence summary of context, decision, and rationale.}
+
+**SPEC-XXXX: {title}**
+{2-3 sentence summary of what the spec covers and key requirements.}
+
+### Skipped (not relevant to "{topic}")
+- ADR-XXXX: {title}
+- SPEC-XXXX: {title}
+```
+
+## Rules
+
+- This skill is READ-ONLY -- it MUST NOT modify any files
+- MUST check for init before scanning -- do not silently proceed without design references in CLAUDE.md
+- Topic filtering uses semantic matching, not keyword search -- leverage Claude's understanding of related concepts
+- MUST include the "Skipped" section when using topic filter so the user knows what was excluded
+- MUST include the "Summaries" section when using topic filter with 2-3 sentence summaries of each matching artifact
+- If a section (ADRs or specs) is empty, omit that section's table rather than showing an empty table
+- Sort ADRs by number, sort specs by number
+- The "Key Decision" column should be a single sentence summarizing the decision outcome, not the full text

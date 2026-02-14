@@ -8,6 +8,10 @@ A Claude Code plugin for architecture decision records (ADRs), specifications, a
 |-------|--------|-------------|
 | **ADR** | `/design:adr [description] [--review]` | Create an ADR using MADR format with Mermaid diagrams |
 | **Spec** | `/design:spec [capability] [--review]` | Create spec.md + design.md with RFC 2119 requirements and Mermaid diagrams |
+| **Init** | `/design:init` | Set up CLAUDE.md with architecture context for design-aware sessions |
+| **Prime** | `/design:prime [topic]` | Load ADR and spec context into the session, optionally filtered by topic |
+| **Check** | `/design:check [target]` | Quick-check code against ADRs and specs for drift |
+| **Audit** | `/design:audit [scope] [--review]` | Comprehensive audit of design artifact alignment across the project |
 | **Docs** | `/design:docs [project name]` | Scaffold a Docusaurus site from your ADRs and specs |
 | **List** | `/design:list [adr\|spec\|all]` | List all ADRs and specs with their status |
 | **Status** | `/design:status [ID] [status]` | Change the status of an ADR or spec |
@@ -32,7 +36,7 @@ Add to your project's `.claude/settings.json`:
 }
 ```
 
-Then restart Claude Code. The plugin's skills will be available as `/design:adr`, `/design:spec`, `/design:docs`, `/design:list`, and `/design:status`.
+Then restart Claude Code. The plugin's skills will be available as `/design:init`, `/design:prime`, `/design:adr`, `/design:spec`, `/design:check`, `/design:audit`, `/design:docs`, `/design:list`, and `/design:status`.
 
 ## Development
 
@@ -67,6 +71,39 @@ Creates paired spec.md + design.md using [OpenSpec](https://github.com/Fission-A
 - Mermaid architecture diagrams required in design.md
 - Stored in `docs/openspec/specs/{capability-name}/`
 - Single-agent by default; add `--review` for team-based drafting with architect review
+
+### `/design:init` -- Initialize Design Plugin
+
+Sets up your project's `CLAUDE.md` with architecture context:
+- Creates `CLAUDE.md` if it doesn't exist, or updates the existing one
+- Adds an `## Architecture Context` section with references to `docs/adrs/` and `docs/openspec/specs/`
+- Includes a skills reference table and a note about `/design:prime`
+- Idempotent -- safe to re-run without duplicating content
+
+### `/design:prime` -- Prime Architecture Context
+
+Loads existing ADRs and specs into the session for architecture-aware responses:
+- Summarizes all ADRs (title, status, key decision) and specs (title, status, requirement counts)
+- Optional topic argument for semantic filtering (e.g., `/design:prime security` surfaces auth, encryption, access control decisions)
+- Suggests `/design:init` if CLAUDE.md hasn't been set up yet
+- Read-only -- never modifies any files
+
+### `/design:check` -- Quick Drift Check
+
+Fast, focused drift check on a specific target:
+- Target can be a file path, directory, `ADR-XXXX`, or `SPEC-XXXX`
+- Checks 3 drift categories: code vs. spec, code vs. ADR, ADR vs. spec
+- Produces a concise findings table with severity levels (critical, warning, info)
+- Always single-agent (no `--review` support)
+- Suggests `/design:audit` for deeper analysis when warranted
+
+### `/design:audit` -- Comprehensive Design Audit
+
+Deep audit of design artifact alignment across the project:
+- Covers all 6 drift categories: code vs. spec, code vs. ADR, ADR vs. spec, coverage gaps, stale artifacts, policy violations
+- Produces a structured report with categorized findings and summary matrix
+- Prioritized recommended actions ordered by severity
+- Single-agent by default; add `--review` for team-based auditing with auditor and reviewer agents
 
 ### `/design:docs` -- Docusaurus Documentation Site
 
@@ -113,19 +150,24 @@ your-project/
 
 ## Workflow
 
-1. **Decide**: `/design:adr We need to choose a web framework for the admin dashboard`
-2. **Review**: `/design:list adr` to see all decisions, `/design:status ADR-0001 accepted` to approve
-3. **Specify**: `/design:spec Convert ADR-0001 to a spec`
-4. **Document**: `/design:docs my-project`
-5. **Develop**: `cd docs-site && npm run dev`
+1. **Setup**: `/design:init` to configure CLAUDE.md with architecture context
+2. **Prime**: `/design:prime` at the start of each session (or `/design:prime security` for a focused topic)
+3. **Decide**: `/design:adr We need to choose a web framework for the admin dashboard`
+4. **Review**: `/design:list adr` to see all decisions, `/design:status ADR-0001 accepted` to approve
+5. **Specify**: `/design:spec Convert ADR-0001 to a spec`
+6. **Check**: `/design:check src/auth/` to quick-check for drift while coding
+7. **Audit**: `/design:audit --review` for a comprehensive design review
+8. **Document**: `/design:docs my-project`
+9. **Develop**: `cd docs-site && npm run dev`
 
 For thorough team review on critical decisions, add `--review`:
 - `/design:adr Choose a database --review`
 - `/design:spec authentication-service --review`
+- `/design:audit --review`
 
 ## CLAUDE.md Integration
 
-On first use, the ADR and spec skills offer to add an Architecture Context section to your project's CLAUDE.md so future Claude sessions are aware of past decisions:
+Run `/design:init` to set up your project's CLAUDE.md with architecture context. This adds references to `docs/adrs/` and `docs/openspec/specs/`, a plugin skills table, and a note about `/design:prime`:
 
 ```markdown
 ## Architecture Context
