@@ -17,4 +17,7 @@ require('./transform-openspecs');
 // Transform ADRs
 require('./transform-adrs');
 
+// Generate index page
+require('./generate-index');
+
 console.log('\nDocumentation content build complete!');

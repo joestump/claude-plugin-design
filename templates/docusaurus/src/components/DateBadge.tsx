@@ -5,10 +5,12 @@ interface DateBadgeProps {
   className?: string;
 }
 
+const CALENDAR_EMOJI = '\uD83D\uDCC5';
+
 export default function DateBadge({date, className}: DateBadgeProps): JSX.Element {
   return (
     <span className={`date-badge ${className || ''}`}>
-      \ud83d\udcc5 {date}
+      {CALENDAR_EMOJI} {date}
     </span>
   );
 }

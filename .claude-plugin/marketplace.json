@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "design",
-      "source": "..",
+      "source": ".",
       "description": "Architecture Decision Records (MADR), specifications, and Docusaurus documentation generation."
     }
   ]

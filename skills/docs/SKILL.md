@@ -57,6 +57,7 @@ The templates directory contains production-ready versions of all files. The `cp
 - `transform-openspecs.js` -- Transforms OpenSpec markdown to .mdx with requirement boxes, domain badges, RFC 2119 highlighting
 - `mdx-escape.js` -- Escapes MDX v3 unsafe patterns (curly braces, angle brackets) while preserving JSX components
 - `build-spec-mapping.js` -- Scans specs for SPEC ID prefixes and generates mapping JSON
+- `generate-index.js` -- Creates the landing page (index.mdx) with links to ADRs and specs sections with counts
 
 ### React Components (src/components/)
 - `StatusBadge.tsx` -- Status with emoji (accepted, proposed, draft, etc.)
