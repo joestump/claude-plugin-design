@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-14
 decision-makers: Plugin maintainers
 ---
@@ -47,7 +47,7 @@ Implementation will be confirmed by:
 
 1. Both SKILL.md files exist in `skills/check/SKILL.md` and `skills/audit/SKILL.md` and follow the established SKILL.md format
 2. `/design:check` produces a structured findings table for at least: code-vs-spec drift, code-vs-ADR drift, and ADR-vs-spec inconsistencies
-3. `/design:audit` produces a comprehensive report covering all analysis types including gap detection and policy violations
+3. `/design:audit` produces a comprehensive report covering all analysis types including gap detection, stale artifact detection, and policy violations
 4. Both skills gracefully handle projects with no ADRs, no specs, or no code to analyze
 5. `/design:audit --review` spawns a team with an auditor and reviewer following the established handoff protocol
 
@@ -87,7 +87,7 @@ Three or more new skills, each focused on one type of analysis:
 Two new skills differentiated by depth and use case:
 
 - `/design:check [target]` -- Fast, focused check. Scans a specific file, directory, ADR, or spec for surface-level drift. Produces a concise findings table. Designed for use during development (like running a linter). Does not support `--review` (always single-agent).
-- `/design:audit [scope] [--review]` -- Deep, comprehensive analysis. Examines the entire project (or a specified scope) for all forms of drift: code-vs-spec, code-vs-ADR, ADR-vs-spec inconsistencies, coverage gaps, and policy violations. Produces a structured report with prioritized findings. Supports `--review` for team-based audit with an auditor and reviewer agent.
+- `/design:audit [scope] [--review]` -- Deep, comprehensive analysis. Examines the entire project (or a specified scope) for all forms of drift: code-vs-spec, code-vs-ADR, ADR-vs-spec inconsistencies, coverage gaps, stale artifact detection, and policy violations. Produces a structured report with prioritized findings. Supports `--review` for team-based audit with an auditor and reviewer agent.
 
 * Good, because the two skills map to natural developer workflows: quick check while coding, deep audit at review time
 * Good, because `/design:check` stays fast by limiting scope, making it practical for frequent use
@@ -130,6 +130,7 @@ flowchart TB
         avs["ADR vs. Spec\nInconsistencies"]
         gap["Coverage\nGap Detection"]
         pol["Policy Violation\nDetection"]
+        sta["Stale Artifact\nDetection"]
     end
 
     adr -->|creates| adrs
@@ -150,6 +151,7 @@ flowchart TB
     audit -.->|produces| avs
     audit -.->|produces| gap
     audit -.->|produces| pol
+    audit -.->|produces| sta
 
     subgraph "Output"
         checkreport["Findings Table\n(concise, per-target)"]

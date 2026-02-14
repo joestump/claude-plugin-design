@@ -46,7 +46,10 @@ This project uses the [design plugin](https://github.com/joestump/claude-plugin-
 | `/design:list` | List all ADRs and specs with status |
 | `/design:status` | Update the status of an ADR or spec |
 | `/design:docs` | Generate a documentation site |
+| `/design:init` | Set up CLAUDE.md with architecture context |
 | `/design:prime` | Load architecture context into session |
+| `/design:check` | Quick-check code against ADRs and specs for drift |
+| `/design:audit` | Comprehensive design artifact alignment audit |
 
 Run `/design:prime [topic]` at the start of a session to load relevant ADRs and specs into context.
 ```

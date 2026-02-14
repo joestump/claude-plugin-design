@@ -216,7 +216,7 @@ Check produces a concise findings table. This is the standard findings format us
 ```
 ## Drift Check: src/auth/
 
-Checked 3 ADRs and 1 spec against src/auth/. Found 4 findings.
+Checked 3 ADRs and 1 spec against src/auth/. Found 2 findings.
 
 ### Findings
 
@@ -224,13 +224,11 @@ Checked 3 ADRs and 1 spec against src/auth/. Found 4 findings.
 |----------|----------|---------|--------|----------|
 | [CRITICAL] | Code vs. Spec | Login endpoint missing MFA verification step required by SPEC-0002 Req 3 | SPEC-0002 | src/auth/login.ts:45 |
 | [WARNING] | Code vs. ADR | Auth service uses synchronous calls; ADR-0003 decided on event-driven architecture | ADR-0003 | src/auth/service.ts:12 |
-| [WARNING] | Stale Artifact | ADR-0003 status is `proposed` but implementation exists in src/auth/ | ADR-0003 | docs/adrs/ADR-0003-*.md |
-| [INFO] | Coverage Gap | src/auth/middleware.ts has no governing spec or ADR | -- | src/auth/middleware.ts |
 
 ### Summary
 - Critical: 1
-- Warning: 2
-- Info: 1
+- Warning: 1
+- Info: 0
 
 **Suggested actions:**
 - Fix the MFA gap in login.ts to match SPEC-0002
