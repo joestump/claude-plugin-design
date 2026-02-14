@@ -16,7 +16,12 @@ Set up the project's `CLAUDE.md` with architecture context so Claude sessions ar
 2. **If CLAUDE.md exists**:
    - Read it and check whether it already contains references to `docs/adrs/` AND `docs/openspec/specs/`
    - If BOTH references are present, report that the plugin is already configured and stop (see Output: Already Configured)
-   - If references are missing, add the `## Architecture Context` section (see Content section below)
+   - **Check for path mismatches**: If the file contains an `## Architecture Context` section (or similar like `## Architecture`, `## Design Context`) but references different paths than `docs/adrs/` or `docs/openspec/specs/`, use `AskUserQuestion` to ask:
+     - "Your CLAUDE.md has architecture references with different paths. Should I update them to the design plugin's standard paths (`docs/adrs/` for ADRs, `docs/openspec/specs/` for specs)?"
+     - Options: "Yes, update paths" / "No, keep existing paths and add plugin section separately"
+     - If the user says yes, update the existing paths in-place to match the plugin conventions
+     - If the user says no, append the plugin's Architecture Context section below the existing one
+   - If no architecture section exists at all, add the `## Architecture Context` section (see Content section below)
    - Do NOT duplicate content -- if the section exists but is incomplete, update it rather than appending a second copy
 
 3. **If CLAUDE.md does not exist**:
@@ -59,7 +64,9 @@ Run `/design:prime [topic]` at the start of a session to load relevant ADRs and 
 - Before adding content, ALWAYS check if `CLAUDE.md` already contains the string `docs/adrs/` AND `docs/openspec/specs/`
 - If both strings are present, do NOT modify the file -- report "already configured"
 - If the `## Architecture Context` heading exists but is missing one of the references, add the missing reference to the existing section rather than creating a new section
+- If the file contains architecture references with DIFFERENT paths (e.g., `docs/decisions/` instead of `docs/adrs/`, or `openspec/specs/` instead of `docs/openspec/specs/`), ask the user before modifying -- do NOT silently add conflicting paths
 - NEVER append a duplicate `## Architecture Context` section
+- NEVER generate ad-hoc warnings or suggestions about path mismatches -- use `AskUserQuestion` to let the user decide
 
 ## Output
 
