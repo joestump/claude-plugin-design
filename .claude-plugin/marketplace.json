@@ -7,7 +7,10 @@
   "plugins": [
     {
       "name": "design",
-      "source": ".",
+      "source": {
+        "source": "github",
+        "repo": "joestump/claude-plugin-design"
+      },
       "description": "Architecture Decision Records (MADR), specifications, and Docusaurus documentation generation."
     }
   ]
