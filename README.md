@@ -12,14 +12,7 @@ A Claude Code plugin for architecture decision records (ADRs), OpenSpec specific
 
 ## Install
 
-Add as a marketplace or install directly:
-
-```bash
-# From GitHub
-/plugin marketplace add joestump/claude-plugin-design
-```
-
-Or add to your project's `.claude/settings.json`:
+Add to your project's `.claude/settings.json`:
 
 ```json
 {
@@ -33,6 +26,8 @@ Or add to your project's `.claude/settings.json`:
   }
 }
 ```
+
+Then restart Claude Code. The plugin's skills will be available as `/design:adr`, `/design:openspec`, and `/design:docs`.
 
 ## What It Does
 
