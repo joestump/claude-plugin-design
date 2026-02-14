@@ -14,6 +14,7 @@ A Claude Code plugin for architecture decision records (ADRs), specifications, a
 | **Audit** | `/design:audit [scope] [--review]` | Comprehensive audit of design artifact alignment across the project |
 | **Docs** | `/design:docs [project name]` | Scaffold a Docusaurus site from your ADRs and specs |
 | **List** | `/design:list [adr\|spec\|all]` | List all ADRs and specs with their status |
+| **Discover** | `/design:discover [scope]` | Discover implicit architecture from an existing codebase |
 | **Status** | `/design:status [ID] [status]` | Change the status of an ADR or spec |
 
 ## Install
@@ -36,7 +37,7 @@ Add to your project's `.claude/settings.json`:
 }
 ```
 
-Then restart Claude Code. The plugin's skills will be available as `/design:init`, `/design:prime`, `/design:adr`, `/design:spec`, `/design:check`, `/design:audit`, `/design:docs`, `/design:list`, and `/design:status`.
+Then restart Claude Code. The plugin's skills will be available as `/design:init`, `/design:prime`, `/design:adr`, `/design:spec`, `/design:check`, `/design:audit`, `/design:discover`, `/design:docs`, `/design:list`, and `/design:status`.
 
 ## Development
 
@@ -105,6 +106,17 @@ Deep audit of design artifact alignment across the project:
 - Prioritized recommended actions ordered by severity
 - Single-agent by default; add `--review` for team-based auditing with auditor and reviewer agents
 
+### `/design:discover` -- Codebase Discovery
+
+Reverse-engineers implicit architectural decisions and spec-worthy subsystems from an existing codebase:
+- Analyzes dependencies, architectural patterns, project structure, and infrastructure configuration
+- Uses parallel exploration agents for fast analysis of large codebases
+- Produces a suggestion report with confidence levels (High/Medium/Low) and evidence citations
+- Includes ready-to-use `/design:adr` and `/design:spec` commands for each suggestion
+- Reads existing ADRs and specs to avoid suggesting duplicates
+- Optional scope argument to limit analysis to a subdirectory or domain
+- Read-only -- never creates files; you choose what to formalize
+
 ### `/design:docs` -- Docusaurus Documentation Site
 
 Scaffolds a complete Docusaurus site that transforms your ADRs and specs into a polished doc site:
@@ -151,14 +163,15 @@ your-project/
 ## Workflow
 
 1. **Setup**: `/design:init` to configure CLAUDE.md with architecture context
-2. **Prime**: `/design:prime` at the start of each session (or `/design:prime security` for a focused topic)
-3. **Decide**: `/design:adr We need to choose a web framework for the admin dashboard`
-4. **Review**: `/design:list adr` to see all decisions, `/design:status ADR-0001 accepted` to approve
-5. **Specify**: `/design:spec Convert ADR-0001 to a spec`
-6. **Check**: `/design:check src/auth/` to quick-check for drift while coding
-7. **Audit**: `/design:audit --review` for a comprehensive design review
-8. **Document**: `/design:docs my-project`
-9. **Develop**: `cd docs-site && npm run dev`
+2. **Discover**: `/design:discover` to find implicit decisions in an existing codebase (or `/design:discover src/auth` for a focused scope)
+3. **Prime**: `/design:prime` at the start of each session (or `/design:prime security` for a focused topic)
+4. **Decide**: `/design:adr We need to choose a web framework for the admin dashboard`
+5. **Review**: `/design:list adr` to see all decisions, `/design:status ADR-0001 accepted` to approve
+6. **Specify**: `/design:spec Convert ADR-0001 to a spec`
+7. **Check**: `/design:check src/auth/` to quick-check for drift while coding
+8. **Audit**: `/design:audit --review` for a comprehensive design review
+9. **Document**: `/design:docs my-project`
+10. **Develop**: `cd docs-site && npm run dev`
 
 For thorough team review on critical decisions, add `--review`:
 - `/design:adr Choose a database --review`
