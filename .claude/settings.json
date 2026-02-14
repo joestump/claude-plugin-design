@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "claude-plugin-design": {
+      "source": {
+        "source": "directory",
+        "path": "."
+      }
+    }
+  },
+  "enabledPlugins": {
+    "design@claude-plugin-design": true
+  }
+}

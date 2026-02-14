@@ -18,18 +18,33 @@ Add to your project's `.claude/settings.json`:
 
 ```json
 {
-  "plugins": {
-    "design": {
+  "extraKnownMarketplaces": {
+    "claude-plugin-design": {
       "source": {
         "source": "github",
         "repo": "joestump/claude-plugin-design"
       }
     }
+  },
+  "enabledPlugins": {
+    "design@claude-plugin-design": true
   }
 }
 ```
 
 Then restart Claude Code. The plugin's skills will be available as `/design:adr`, `/design:spec`, `/design:docs`, `/design:list`, and `/design:status`.
+
+## Development
+
+Clone the repo and run Claude Code from the project directory:
+
+```bash
+git clone https://github.com/joestump/claude-plugin-design.git
+cd claude-plugin-design
+claude
+```
+
+The `.claude/settings.json` in this repo registers the local directory as a marketplace and enables the plugin automatically. Any changes to skills or templates are picked up on the next Claude Code launch.
 
 ## What It Does
 

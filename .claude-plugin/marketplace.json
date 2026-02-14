@@ -1,0 +1,14 @@
+{
+  "name": "claude-plugin-design",
+  "owner": {
+    "name": "Joe Stump",
+    "url": "https://github.com/joestump"
+  },
+  "plugins": [
+    {
+      "name": "design",
+      "source": ".",
+      "description": "Architecture Decision Records (MADR), specifications, and Docusaurus documentation generation."
+    }
+  ]
+}
