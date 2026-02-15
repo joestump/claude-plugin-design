@@ -17,7 +17,7 @@ You are creating an OpenSpec specification consisting of BOTH a `spec.md` and `d
 
 2. **Check for existing directory**: If `docs/openspec/specs/{capability-name}/` already exists, use `AskUserQuestion` to ask whether to overwrite or choose a different name. Create `docs/openspec/specs/` if it does not exist.
 
-3. **Determine the next SPEC number**: Scan `docs/openspec/specs/` for existing spec.md files, find the highest SPEC number used, and increment. SPEC numbers are formatted as `SPEC-XXXX` (e.g., SPEC-0001). Start at SPEC-0001 if none exist.
+3. **Determine the next SPEC number**: Scan `docs/openspec/specs/` for existing spec.md files, find the highest SPEC number used, and increment. SPEC numbers are formatted as `SPEC-XXXX` (e.g., SPEC-0001). Start at SPEC-0001 if none exist. **IMPORTANT**: The prefix is `SPEC-`, NOT `RFC-`. Do not confuse spec numbering with RFC 2119 (which is a language standard for requirements keywords).
 
 4. **Choose drafting mode**: Check if `$ARGUMENTS` contains `--review`.
 
@@ -26,8 +26,8 @@ You are creating an OpenSpec specification consisting of BOTH a `spec.md` and `d
    **With `--review`**: Team review mode.
    - Tell the user: "Creating a drafting team to write and review the spec. This takes a minute or two."
    - Create a Claude Team with `TeamCreate` to draft and review:
-     - Spawn a **spec-writer** agent (`general-purpose`) to write both spec.md and design.md based on the user's description or ADR: `$ARGUMENTS`
-     - Spawn an **architect** agent (`general-purpose`) to review both documents for completeness, accuracy, RFC 2119 compliance, and proper scenario format
+     - Spawn a **spec-writer** agent (`general-purpose`) to write both spec.md and design.md based on the user's description or ADR: `$ARGUMENTS`. **Remind the spec-writer that specs use `SPEC-XXXX` numbering, NOT `RFC-XXXX`.**
+     - Spawn an **architect** agent (`general-purpose`) to review both documents for completeness, accuracy, RFC 2119 keyword compliance, and proper scenario format. **The architect MUST verify the spec uses `SPEC-XXXX` numbering, not `RFC-XXXX`.**
      - The architect MUST review and approve BOTH documents before they are finalized
      - If converting from an ADR, the spec-writer should read the ADR and use it as the basis
      - If `TeamCreate` fails, fall back to single-agent mode: draft both files directly, then self-review against the architect's checklist in the Rules section before writing.
@@ -152,7 +152,7 @@ You are creating an OpenSpec specification consisting of BOTH a `spec.md` and `d
 
 - You MUST ALWAYS create BOTH spec.md AND design.md -- never one without the other
 - spec.md MUST use RFC 2119 language (SHALL, MUST, MUST NOT, SHOULD, SHOULD NOT, MAY, REQUIRED, RECOMMENDED, OPTIONAL) for ALL normative requirements
-- spec.md MUST use spec numbering: SPEC-XXXX (sequential, zero-padded to 4 digits)
+- spec.md MUST use spec numbering: SPEC-XXXX (sequential, zero-padded to 4 digits). NEVER use RFC-XXXX -- "RFC 2119" refers to the requirements language standard, NOT the spec numbering scheme
 - Scenarios MUST use exactly 4 hashtags (`####`) -- using 3 hashtags or bullets will cause silent failures in downstream tooling
 - Every requirement MUST have at least one scenario
 - design.md focuses on HOW and WHY -- architecture and rationale, not line-by-line implementation details
