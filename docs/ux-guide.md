@@ -22,7 +22,7 @@ Every SKILL.md MUST include YAML frontmatter with these fields:
 Existing skills follow two tiers:
 
 - **Read-only skills** (`list`, `status`): `Read, Glob, Grep` (plus `Write, Edit, AskUserQuestion` for status)
-- **Creative skills** (`adr`, `spec`, `docs`): `Bash, Read, Write, Edit, Glob, Grep, Task, WebFetch, WebSearch, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList, TaskGet, SendMessage, AskUserQuestion`
+- **Creative skills** (`adr`, `spec`, `docs`, `work`): `Bash, Read, Write, Edit, Glob, Grep, Task, WebFetch, WebSearch, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList, TaskGet, SendMessage, AskUserQuestion`
 
 The new skills should follow these patterns:
 
@@ -32,6 +32,7 @@ The new skills should follow these patterns:
 | `prime` | Read-only (loads context) | `Read, Glob, Grep` |
 | `check` | Read-only (reports findings) | `Read, Glob, Grep` |
 | `audit` | Creative (team mode) | `Read, Glob, Grep, Task, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList, TaskGet, SendMessage, AskUserQuestion` |
+| `work` | Creative (team + worktrees) | `Bash, Read, Write, Edit, Glob, Grep, Task, WebFetch, WebSearch, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList, TaskGet, SendMessage, AskUserQuestion, ToolSearch, EnterWorktree` |
 
 ### `--review` Flag Convention
 
@@ -450,6 +451,12 @@ Skills should suggest other skills when it would help the user's workflow. These
 | `audit` | `adr` | When coverage gaps suggest missing ADRs |
 | `audit` | `spec` | When coverage gaps suggest missing specs |
 | `audit` | `check` | Never (audit is a superset of check) |
+| `work` | `check` | Always (verify implementation alignment after building) |
+| `work` | `audit` | When all issues are complete (comprehensive review) |
+| `work` | `enrich` | When issues lack `### Branch` sections |
+| `work` | `plan` | When no issues exist for the spec |
+| `plan` | `work` | Always (natural follow-up after planning issues) |
+| `enrich` | `work` | Always (natural follow-up after enriching issues) |
 
 ### Suggestion Format
 

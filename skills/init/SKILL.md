@@ -55,6 +55,11 @@ This project uses the [design plugin](https://github.com/joestump/claude-plugin-
 | `/design:prime` | Load architecture context into session |
 | `/design:check` | Quick-check code against ADRs and specs for drift |
 | `/design:audit` | Comprehensive design artifact alignment audit |
+| `/design:discover` | Discover implicit architecture from existing code |
+| `/design:plan` | Break a spec into trackable issues with project grouping and branch conventions |
+| `/design:organize` | Retroactively group issues into tracker-native projects |
+| `/design:enrich` | Add branch naming and PR conventions to existing issues |
+| `/design:work` | Pick up tracker issues and implement them in parallel using git worktrees |
 
 Run `/design:prime [topic]` at the start of a session to load relevant ADRs and specs into context.
 
@@ -72,9 +77,10 @@ These comments help future sessions (and `/design:check`) trace implementation b
 
 1. **Decide**: `/design:adr` — record the architectural decision
 2. **Specify**: `/design:spec` — formalize requirements with RFC 2119 language
-3. **Plan**: After spec creation, let the agent break requirements into trackable issues (Beads, GitHub, or Gitea)
-4. **Build**: Prime context with `/design:prime`, then work through issues
-5. **Validate**: `/design:check` and `/design:audit` to catch drift
+3. **Plan**: `/design:plan` — break the spec into trackable issues in your tracker
+4. **Enrich**: `/design:organize` and `/design:enrich` — add projects and branch conventions
+5. **Build**: `/design:work` — pick up issues and implement in parallel using git worktrees
+6. **Validate**: `/design:check` and `/design:audit` to catch drift
 ```
 
 ## Idempotency Rules

@@ -18,6 +18,7 @@ A Claude Code plugin for architecture decision records (ADRs), specifications, a
 | **Plan** | `/design:plan [spec-name or SPEC-XXXX] [--review] [--project <name>] [--no-projects] [--branch-prefix <prefix>] [--no-branches]` | Break a spec into trackable issues with project grouping and branch conventions |
 | **Organize** | `/design:organize [SPEC-XXXX or spec-name] [--project <name>] [--dry-run]` | Retroactively group existing issues into tracker-native projects |
 | **Enrich** | `/design:enrich [SPEC-XXXX or spec-name] [--branch-prefix <prefix>] [--dry-run]` | Add branch naming and PR conventions to existing issue bodies |
+| **Work** | `/design:work [SPEC-XXXX or issue numbers] [--max-agents N] [--ready] [--dry-run] [--no-tests]` | Pick up tracker issues and implement them in parallel using git worktrees |
 | **Status** | `/design:status [ID] [status]` | Change the status of an ADR or spec |
 
 ## Install
@@ -40,7 +41,7 @@ Add to your project's `.claude/settings.json`:
 }
 ```
 
-Then restart Claude Code. The plugin's 13 skills will be available as `/design:init`, `/design:prime`, `/design:adr`, `/design:spec`, `/design:plan`, `/design:organize`, `/design:enrich`, `/design:check`, `/design:audit`, `/design:discover`, `/design:docs`, `/design:list`, and `/design:status`.
+Then restart Claude Code. The plugin's 14 skills will be available as `/design:init`, `/design:prime`, `/design:adr`, `/design:spec`, `/design:plan`, `/design:organize`, `/design:enrich`, `/design:work`, `/design:check`, `/design:audit`, `/design:discover`, `/design:docs`, `/design:list`, and `/design:status`.
 
 ## Development
 
@@ -119,6 +120,24 @@ Retroactively adds branch naming and PR convention sections to existing issue bo
 - Use `--dry-run` to preview without modifying
 - Custom branch prefix via `--branch-prefix`
 - No `--review` support (utility skill)
+
+### `/design:work` -- Parallel Issue Implementation
+
+Picks up tracker issues and implements them in parallel using git worktrees:
+- Accepts a spec number (`SPEC-0003`) to work all open issues, or specific issue numbers (`42 43 47`)
+- Reads spec.md, design.md, and referenced ADRs to give workers full architecture context
+- Detects tracker using the same pattern as `/design:plan` (`.design.json` preference, then auto-detection)
+- Filters issues: skips epics and issues without `### Branch` sections (suggests `/design:enrich`)
+- Extracts branch names and PR conventions from issue bodies
+- Creates isolated git worktrees for each issue with deterministic branch names
+- Spawns parallel worker agents (default 3, configurable with `--max-agents`)
+- Workers implement changes, leave `// Governing: SPEC-XXXX REQ "..."` comments, run tests, commit, push, and create PRs
+- Draft PRs by default; use `--ready` for non-draft PRs
+- `--dry-run` previews what would happen without doing anything
+- `--no-tests` skips test execution in workers
+- Failed issues preserve their worktrees for manual pickup
+- Falls back to single-agent sequential mode if team creation fails
+- Configurable via `.design.json` `worktrees` section (base_dir, max_agents, auto_cleanup, pr_mode)
 
 ### `/design:init` -- Initialize Design Plugin
 
@@ -273,7 +292,7 @@ your-project/
 6. **Specify**: `/design:spec Convert ADR-0001 to a spec` — the agent writes requirements and offers to plan a sprint
 7. **Plan**: `/design:plan SPEC-0001` — break the spec into epics, tasks, and sub-tasks in Beads, GitHub, GitLab, Gitea, Jira, or Linear with acceptance criteria referencing spec/requirement numbers
 8. **Organize & Enrich** (retroactive): `/design:organize SPEC-0001` to group issues into projects, `/design:enrich SPEC-0001` to add branch and PR conventions
-9. **Build**: `/design:prime` to load context, then agents work through issues leaving governing comments
+9. **Build**: `/design:work SPEC-0001` to pick up issues and implement them in parallel using git worktrees, or `/design:prime` then manually work through issues
 10. **Check**: `/design:check src/auth/` to quick-check for drift while coding
 11. **Audit**: `/design:audit --review` for a comprehensive design review
 12. **Document**: `/design:docs` to generate or upgrade the docs site

@@ -95,7 +95,17 @@ This is the original behavior -- creates a standalone Docusaurus site.
 
 6. **Run `npm install`** in the docs-site directory.
 
-7. **Report and offer to start**: Tell the user what was created, then ask: "Docs site created! Want me to start the dev server? (`cd docs-site && npm run dev`)"
+7. **Update `.claudeignore`**: Check if `.claudeignore` exists at the project root. If not, create it. Add entries to ignore the docs-site build artifacts that would cause Claude Code to freeze on startup:
+
+   ```
+   docs-site/node_modules/
+   docs-site/build/
+   docs-site/.docusaurus/
+   ```
+
+   If `.claudeignore` already exists, append any missing entries.
+
+8. **Report and offer to start**: Tell the user what was created, then ask: "Docs site created! Want me to start the dev server? (`cd docs-site && npm run dev`)"
 
 ---
 
@@ -218,7 +228,19 @@ If the build fails, diagnose and fix the issue. Common problems:
 - MDXComponents merge conflict: check the merge was done correctly
 - Plugin path error: verify the relative `projectRoot` is correct
 
-#### 3B.8: Report results
+#### 3B.8: Update `.claudeignore`
+
+Check if `.claudeignore` exists at the project root. If not, create it. Add entries to ignore the site's build artifacts:
+
+```
+{site}/node_modules/
+{site}/build/
+{site}/.docusaurus/
+```
+
+If `.claudeignore` already exists, append any missing entries. Use the actual site directory name (e.g., `website/node_modules/`).
+
+#### 3B.9: Report results
 
 Tell the user what was created and where:
 - Plugin installed at `{site}/plugins/sync-design-docs/`
@@ -231,7 +253,7 @@ Then ask: "Integration complete! Want me to start the dev server? (`cd {site} &&
 
 ---
 
-### Step 3C: Upgrade Mode
+### Step 3C: Upgrade Mode (updates `.claudeignore` if missing)
 
 Entered when `.design-docs.json` exists and the referenced `siteDir` is present on disk. This flow updates an existing docs installation to the latest plugin templates while preserving user customizations.
 
@@ -280,12 +302,16 @@ Write the updated `.design-docs.json`:
 - Update all `checksum` values to reflect the current on-disk state
 - Preserve `createdAt` and `mode` from the original manifest
 
-#### 3C.5: Run build and verify
+#### 3C.5: Ensure `.claudeignore` exists
+
+Check if `.claudeignore` at the project root already includes ignore entries for `{site}/node_modules/`, `{site}/build/`, and `{site}/.docusaurus/`. If any are missing, append them. This ensures projects scaffolded before this step was added get the fix on upgrade.
+
+#### 3C.6: Run build and verify
 
 - For **scaffold** mode: run `npm install` in `{site}` if `package.json` changed, then offer to start the dev server
 - For **integration** mode: run a Docusaurus build to verify the plugin still works
 
-#### 3C.6: Report results
+#### 3C.7: Report results
 
 Tell the user:
 - How many files were updated silently (checksum matched)
@@ -298,7 +324,7 @@ Tell the user:
 
 ### Step 4: Create Manifest
 
-This step runs after **Step 3A.7** (scaffold complete) or **Step 3B.8** (integration complete) to establish upgrade tracking for future runs.
+This step runs after **Step 3A.8** (scaffold complete) or **Step 3B.9** (integration complete) to establish upgrade tracking for future runs.
 
 #### 4.1: Determine managed files
 

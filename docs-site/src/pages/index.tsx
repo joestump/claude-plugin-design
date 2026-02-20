@@ -61,6 +61,10 @@ function SkillsSection() {
             <span>Add branch/PR conventions to issues</span>
           </div>
           <div className={styles.skillCard}>
+            <code>/design:work</code>
+            <span>Implement issues in parallel worktrees</span>
+          </div>
+          <div className={styles.skillCard}>
             <code>/design:check</code>
             <span>Quick-check code for drift</span>
           </div>

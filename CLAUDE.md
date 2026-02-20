@@ -22,6 +22,7 @@ This project uses the [design plugin](https://github.com/joestump/claude-plugin-
 | `/design:plan` | Break a spec into trackable issues with project grouping and branch conventions |
 | `/design:organize` | Retroactively group issues into tracker-native projects |
 | `/design:enrich` | Add branch naming and PR conventions to existing issues |
+| `/design:work` | Pick up tracker issues and implement them in parallel using git worktrees |
 
 Run `/design:prime [topic]` at the start of a session to load relevant ADRs and specs into context.
 
