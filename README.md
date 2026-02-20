@@ -95,7 +95,7 @@ Breaks an existing specification into trackable work items in your issue tracker
   - Saves tracker preference to `.design.json` so you're not re-prompted
 - Creates epics, tasks, and sub-tasks with acceptance criteria referencing spec/requirement numbers
 - Sets up dependency relationships between tasks
-- Project grouping: creates tracker-native projects for each epic (or a single combined project with `--project`). Skip with `--no-projects`.
+- Project grouping: creates tracker-native projects for each epic (or a single combined project with `--project`). Projects are automatically linked to the repository so they appear in the repo's Projects tab. Skip with `--no-projects`.
 - Branch naming: adds `### Branch` sections to issue bodies with `feature/{issue-number}-{slug}` naming convention. Customize prefix with `--branch-prefix`, skip with `--no-branches`.
 - PR conventions: adds `### PR Convention` sections with tracker-specific close keywords (e.g., `Closes #N` for GitHub)
 - Falls back to generating `tasks.md` when no tracker is available (per ADR-0007)
@@ -106,6 +106,7 @@ Breaks an existing specification into trackable work items in your issue tracker
 Retroactively groups existing issues into tracker-native projects:
 - Finds issues referencing a spec in your tracker
 - Creates one project per epic (default) or a single combined project (`--project`)
+- Automatically links projects to the repository so they appear in the repo's Projects tab
 - Skips projects that already exist (idempotent)
 - Use `--dry-run` to preview without creating
 - No `--review` support (utility skill)
