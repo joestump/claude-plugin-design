@@ -3,5 +3,12 @@
   "tracker_config": {
     "owner": "joestump",
     "repo": "claude-plugin-design"
+  },
+  "projects": {
+    "default_mode": "per-epic",
+    "project_ids": {
+      "SPEC-0007": "PVT_kwHNkyPOAT7qdw",
+      "SPEC-0008": "PVT_kwHNkyPOAT7qew"
+    }
   }
 }

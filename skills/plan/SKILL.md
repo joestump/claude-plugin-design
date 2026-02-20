@@ -136,8 +136,8 @@ You are breaking down an existing specification into trackable work items (epics
 
    **5.6: Project grouping.** Unless `--no-projects` is set:
    - **Default (per-epic)**: For each epic, create a tracker-native project and add the epic and its child tasks:
-     - **GitHub**: Projects V2 via `gh project create` CLI or MCP tools, then `gh project item-add` to add issues
-     - **Gitea**: Project via MCP tools (use `ToolSearch` to discover)
+     - **GitHub**: Projects V2 via `gh project create` CLI or MCP tools, then `gh project item-add` to add issues. **After creating the project, MUST link it to the repository** using `gh project link {project-number} --owner {owner} --repo {owner}/{repo}` so it appears in the repository's Projects tab.
+     - **Gitea**: Project via MCP tools (use `ToolSearch` to discover). MUST ensure the project is associated with the repository.
      - **GitLab**: Milestone or board
      - **Jira**: Use existing project scope (no new project needed)
      - **Linear**: Project or cycle
@@ -145,6 +145,7 @@ You are breaking down an existing specification into trackable work items (epics
    - **`--project <name>`**: Create a single project with the given name and add all issues to it
    - Use `ToolSearch` to discover project-creation MCP tools at runtime
    - Read `.design.json` `projects.default_mode` and `projects.project_ids` for cached settings. If a project ID is already cached for this spec, reuse it instead of creating a new one.
+   - **Repository linking is critical**: For trackers that support project-repository associations (GitHub Projects V2, Gitea), the project MUST be linked to the repository after creation. Without this step, the project exists but is invisible from the repository's Projects tab.
    - **Graceful failure**: If project creation fails, warn the user but do not block issue creation. Report the failure in the final summary.
 
 6. **Fallback: Generate `tasks.md`** (when no tracker is available):
@@ -218,6 +219,7 @@ You are breaking down an existing specification into trackable work items (epics
 - Sub-tasks are OPTIONAL — only create them for complex requirements with 3+ scenarios
 - Dependency ordering SHOULD reflect logical implementation order, not spec document order
 - Project grouping failures MUST NOT prevent issue creation
+- MUST link created projects to the repository for trackers that support project-repository associations (e.g., GitHub Projects V2 via `gh project link`, Gitea). Without linking, projects are invisible from the repository's Projects tab.
 - Branch slug MUST be derived from requirement name (kebab-case, max 50 chars), not invented
 - PR close keywords MUST match the detected tracker
 - MUST use `ToolSearch` for project tools at runtime

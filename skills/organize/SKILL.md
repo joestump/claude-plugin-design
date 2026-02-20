@@ -54,12 +54,12 @@ You are retroactively grouping existing tracker issues into tracker-native proje
 7. **Create project groupings**:
 
    **Default (no `--project`)**: For each epic, create one tracker-native project:
-   - **GitHub**: `gh project create --owner {owner} --title "{Epic Title}"` then `gh project item-add` for the epic and its associated tasks
-   - **Gitea**: Use MCP tools (discovered via `ToolSearch`) to create a project and add issues
-   - **GitLab**: Create a milestone or board and assign issues to it
-   - **Jira**: Use existing project scope (no new project needed — issues are already scoped)
-   - **Linear**: Create a project or cycle and add issues
-   - **Beads**: No-op (the epic IS the grouping)
+   - **GitHub**: `gh project create --owner {owner} --title "{Epic Title}"` then `gh project item-add` for the epic and its associated tasks. **After creating the project, MUST link it to the repository** using `gh project link {project-number} --owner {owner} --repo {owner}/{repo}` so it appears in the repository's Projects tab.
+   - **Gitea**: Use MCP tools (discovered via `ToolSearch`) to create a project and add issues. MUST ensure the project is associated with the repository, not just the organization.
+   - **GitLab**: Create a milestone or board and assign issues to it.
+   - **Jira**: Use existing project scope (no new project needed — issues are already scoped).
+   - **Linear**: Create a project or cycle and add issues.
+   - **Beads**: No-op (the epic IS the grouping).
 
    **With `--project <name>`**: Create a single project with the given name and add ALL found issues.
 
@@ -68,6 +68,8 @@ You are retroactively grouping existing tracker issues into tracker-native proje
    Use `ToolSearch` to discover project-creation MCP tools at runtime.
 
    After successful project creation, offer to save the project ID to `.design.json` `projects.project_ids`.
+
+   **Repository linking is critical**: For trackers that support project-repository associations (GitHub Projects V2, Gitea), the project MUST be linked to the repository after creation. Without this step, the project exists but is invisible from the repository's Projects tab, making it difficult for developers to discover.
 
 8. **`--dry-run` mode**: If `--dry-run` is set, report what WOULD be created but don't actually create anything:
    - List the projects that would be created (with names)
@@ -105,4 +107,5 @@ All keys under `projects` are optional. When writing, merge into the existing fi
 - Failures MUST be reported but MUST NOT stop processing remaining issues
 - MUST check `.design.json` for saved tracker preference and cached project IDs before creating
 - When merging into `.design.json`, preserve existing keys
+- MUST link created projects to the repository for trackers that support project-repository associations (e.g., GitHub Projects V2 via `gh project link`, Gitea). Projects that are not linked to the repository will not appear in the repository's Projects tab, making them effectively invisible to developers browsing the repo.
 - No `--review` support (utility skill)
