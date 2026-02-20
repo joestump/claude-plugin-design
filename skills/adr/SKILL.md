@@ -32,7 +32,11 @@ You are creating a new ADR using the MADR (Markdown Architectural Decision Recor
 
 5. **Summarize** what happened (files created, decision documented, review outcome).
 
-6. **CLAUDE.md integration**: Check if this is the first ADR (i.e., `docs/adrs/` was just created or contains only this new file). If so:
+6. **Suggest next steps**: After summarizing, tell the user:
+   - "To formalize requirements from this decision, run: `/design:spec {suggested capability name}`"
+   - "The spec skill can also break requirements into trackable issues (Beads, GitHub, or Gitea) for sprint planning."
+
+7. **CLAUDE.md integration**: Check if this is the first ADR (i.e., `docs/adrs/` was just created or contains only this new file). If so:
    - Check if a `CLAUDE.md` exists in the project root
    - If it exists, check if it already references `docs/adrs/`
    - If no reference exists, ask the user: "I can add an Architecture Context section to your CLAUDE.md so future sessions know about your decisions. Shall I?"

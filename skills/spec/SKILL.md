@@ -40,7 +40,72 @@ You are creating an OpenSpec specification consisting of BOTH a `spec.md` and `d
 
 7. **Summarize** what happened (files created, spec documented, review outcome).
 
-8. **CLAUDE.md integration**: Check if this is the first spec (i.e., `docs/openspec/specs/` was just created or contains only this new directory). If so:
+8. **Sprint planning** (offer after spec creation):
+   After the spec is written (and approved if `--review`), offer to break it down into trackable work items. Use `AskUserQuestion` to ask: "Want me to plan a sprint from this spec? I'll break requirements into issues with acceptance criteria."
+
+   If the user says yes:
+
+   **8.1: Detect available issue trackers.** Check in this order:
+   - **Beads**: Look for a `.beads/` directory in the project root, or run `bd --version` to check if Beads is installed. Beads is the preferred tracker for AI-agent workflows.
+   - **GitHub**: Check if GitHub MCP tools are available (tools matching `mcp__github__*` or `mcp__*github*`), or if `gh` CLI is available via `gh --version`.
+   - **Gitea**: Check if Gitea MCP tools are available (tools matching `mcp__gitea__*` or `mcp__*gitea*`).
+
+   If multiple trackers are found, use `AskUserQuestion` to let the user choose.
+
+   **If none are found**, generate a `tasks.md` file as a durable openspec artifact instead (per ADR-0007 and SPEC-0006). Write it to `docs/openspec/specs/{capability-name}/tasks.md`, co-located with `spec.md` and `design.md`. Follow these rules:
+
+   - **Derive tasks from spec requirements**: Read the `spec.md` just created. Each `### Requirement:` section MUST produce at least one task. Complex requirements with multiple scenarios MAY produce multiple tasks or a dedicated section.
+   - **Use numbered section headings**: Group tasks under `## N. Section Title` headings (e.g., `## 1. Setup`, `## 2. Core Implementation`). Order sections so prerequisite work appears in earlier sections.
+   - **Use checkbox task format**: Every task MUST be a checkbox item: `- [ ] X.Y Task description` where `X` is the section number and `Y` is the sequential task number within that section.
+   - **Reference governing requirements**: Each task SHOULD reference the spec requirement or scenario it implements (e.g., "Implement REQ Tracker Detection Fallback").
+   - **Keep tasks session-sized**: Each task SHALL be small enough to complete in one coding session and SHALL have a verifiable completion criterion.
+   - **Completion tracking**: When a task is completed, the checkbox is updated from `- [ ]` to `- [x]`. Downstream tooling can parse these to compute progress percentage.
+
+   **tasks.md template:**
+
+   ```markdown
+   # Tasks: {Capability Title}
+
+   > Generated from SPEC-XXXX. See [spec.md](./spec.md) and [design.md](./design.md).
+
+   ## 1. Setup
+
+   - [ ] 1.1 Create new module structure (REQ "{Requirement Name}")
+   - [ ] 1.2 Add dependencies to package.json
+
+   ## 2. Core Implementation
+
+   - [ ] 2.1 Implement data export function (REQ "{Requirement Name}")
+   - [ ] 2.2 Add CSV formatting utilities (REQ "{Requirement Name}", Scenario "{Scenario Name}")
+
+   ## 3. Testing & Validation
+
+   - [ ] 3.1 Add unit tests for export function
+   - [ ] 3.2 Validate against spec scenarios
+   ```
+
+   **8.2: Break down requirements into issues.** Read the spec.md just created and for each `### Requirement:` section:
+   - Create an **epic** for the specification itself (e.g., "Implement {Capability Title}")
+   - Create a **task** for each requirement, as a child of the epic
+   - For complex requirements with multiple scenarios, create **sub-tasks**
+
+   **8.3: Write acceptance criteria.** Each issue MUST include:
+   - A reference to the spec and requirement number (e.g., "Implements SPEC-0003, Requirement: JWT Token Generation")
+   - Acceptance criteria derived from the requirement's WHEN/THEN scenarios
+   - Links to governing ADRs if the spec references them in its Overview
+   - Example format:
+     ```
+     ## Acceptance Criteria
+     - [ ] Per SPEC-0003 REQ "JWT Token Generation": tokens MUST use RS256 signing
+     - [ ] Per SPEC-0003 Scenario "Token expiry": WHEN token age exceeds TTL THEN refresh endpoint returns new token
+     - [ ] Governing: ADR-0001 (chose JWT over sessions)
+     ```
+
+   **8.4: Set up dependencies.** If using Beads, use `bd dep add` to link tasks that block each other based on the requirement relationships.
+
+   **8.5: Report the plan.** Summarize what was created: number of epics, tasks, sub-tasks, and where the user can find them.
+
+9. **CLAUDE.md integration**: Check if this is the first spec (i.e., `docs/openspec/specs/` was just created or contains only this new directory). If so:
    - Check if a `CLAUDE.md` exists in the project root
    - If it exists, check if it already references `docs/openspec/specs/`
    - If no reference exists, ask the user: "I can add an Architecture Context section to your CLAUDE.md so future sessions know about your specs. Shall I?"
@@ -163,3 +228,4 @@ You are creating an OpenSpec specification consisting of BOTH a `spec.md` and `d
   - Alignment between spec requirements and design decisions
 - If converting from an ADR, reference the ADR number in the spec's Overview section
 - design.md MUST include at least one Mermaid architecture diagram. Prefer C4 context/container diagrams for system-level, sequence diagrams for flows, and ERDs for data models.
+- When implementing code governed by this spec, agents SHOULD leave governing comments referencing the spec and requirement numbers: `// Governing: SPEC-XXXX REQ "Requirement Name", ADR-XXXX`

@@ -57,6 +57,24 @@ This project uses the [design plugin](https://github.com/joestump/claude-plugin-
 | `/design:audit` | Comprehensive design artifact alignment audit |
 
 Run `/design:prime [topic]` at the start of a session to load relevant ADRs and specs into context.
+
+### Governing Comments
+
+When implementing code governed by ADRs or specs, leave comments referencing the governing artifacts:
+
+```
+// Governing: ADR-0001 (chose JWT over sessions), SPEC-0003 REQ "Token Validation"
+```
+
+These comments help future sessions (and `/design:check`) trace implementation back to decisions.
+
+### Workflow
+
+1. **Decide**: `/design:adr` — record the architectural decision
+2. **Specify**: `/design:spec` — formalize requirements with RFC 2119 language
+3. **Plan**: After spec creation, let the agent break requirements into trackable issues (Beads, GitHub, or Gitea)
+4. **Build**: Prime context with `/design:prime`, then work through issues
+5. **Validate**: `/design:check` and `/design:audit` to catch drift
 ```
 
 ## Idempotency Rules

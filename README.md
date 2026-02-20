@@ -62,6 +62,7 @@ Creates ADRs using [MADR](https://adr.github.io/madr/) format:
 - YAML frontmatter with status, date, decision-makers
 - Single-agent by default; add `--review` for team-based drafting with architect review
 - Offers to add an Architecture Context section to your CLAUDE.md on first use
+- After writing, suggests formalizing the decision into a spec with `/design:spec`
 
 ### `/design:spec` -- Specifications
 
@@ -72,6 +73,11 @@ Creates paired spec.md + design.md using [OpenSpec](https://github.com/Fission-A
 - Mermaid architecture diagrams required in design.md
 - Stored in `docs/openspec/specs/{capability-name}/`
 - Single-agent by default; add `--review` for team-based drafting with architect review
+- **Sprint planning**: After writing the spec, offers to break requirements into trackable issues:
+  - Detects [Beads](https://github.com/steveyegge/beads), GitHub (MCP or `gh` CLI), or Gitea (MCP)
+  - Creates epics, tasks, and sub-tasks with acceptance criteria referencing spec/requirement numbers
+  - Sets up dependency relationships between tasks
+  - Falls back to generating `tasks.md` as a co-located openspec artifact when no tracker is available (per ADR-0007)
 
 ### `/design:init` -- Initialize Design Plugin
 
@@ -219,16 +225,16 @@ your-project/
 ## Workflow
 
 1. **Setup**: `/design:init` to configure CLAUDE.md with architecture context
-2. **Discover**: `/design:discover` to find implicit decisions in an existing codebase (or `/design:discover src/auth` for a focused scope)
+2. **Discover**: `/design:discover` to find implicit decisions in an existing codebase
 3. **Prime**: `/design:prime` at the start of each session (or `/design:prime security` for a focused topic)
 4. **Decide**: `/design:adr We need to choose a web framework for the admin dashboard`
 5. **Review**: `/design:list adr` to see all decisions, `/design:status ADR-0001 accepted` to approve
-6. **Specify**: `/design:spec Convert ADR-0001 to a spec`
-7. **Check**: `/design:check src/auth/` to quick-check for drift while coding
-8. **Audit**: `/design:audit --review` for a comprehensive design review
-9. **Document**: `/design:docs my-project`
-10. **Develop**: `cd docs-site && npm run dev`
-11. **Upgrade**: Re-run `/design:docs` after plugin updates to pull improvements safely
+6. **Specify**: `/design:spec Convert ADR-0001 to a spec` — the agent writes requirements and offers to plan a sprint
+7. **Plan**: Accept sprint planning — the agent creates epics, tasks, and sub-tasks in Beads, GitHub, or Gitea with acceptance criteria referencing spec/requirement numbers
+8. **Build**: `/design:prime` to load context, then agents work through issues leaving governing comments
+9. **Check**: `/design:check src/auth/` to quick-check for drift while coding
+10. **Audit**: `/design:audit --review` for a comprehensive design review
+11. **Document**: `/design:docs` to generate or upgrade the docs site
 
 For thorough team review on critical decisions, add `--review`:
 - `/design:adr Choose a database --review`
