@@ -32,7 +32,6 @@
 /* ============================================
    Badge Components - Shared Base Styles
    ============================================ */
-.badge,
 .severity-badge,
 .domain-badge,
 .priority-badge,
@@ -253,7 +252,7 @@
 /* ============================================
    Field and FieldGroup
    ============================================ */
-.field-group {
+.dd-field-group {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
@@ -263,16 +262,16 @@
   border-radius: 0.5rem;
   border: 1px solid var(--ifm-color-emphasis-200);
 }
-.field {
+.dd-field {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
-.field-label {
+.dd-field-label {
   font-weight: 600;
   color: var(--ifm-color-emphasis-700);
 }
-.field-value {
+.dd-field-value {
   color: var(--ifm-color-emphasis-900);
 }
 

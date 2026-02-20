@@ -9,9 +9,9 @@ interface FieldProps {
 
 export default function Field({label, children, className}: FieldProps): ReactElement {
   return (
-    <div className={clsx('field', className)}>
-      <span className="field-label">{label}:</span>
-      <span className="field-value">{children}</span>
+    <div className={clsx('dd-field', className)}>
+      <span className="dd-field-label">{label}:</span>
+      <span className="dd-field-value">{children}</span>
     </div>
   );
 }

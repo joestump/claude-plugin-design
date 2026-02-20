@@ -8,7 +8,7 @@ interface FieldGroupProps {
 
 export default function FieldGroup({children, className}: FieldGroupProps): ReactElement {
   return (
-    <div className={clsx('field-group', className)}>
+    <div className={clsx('dd-field-group', className)}>
       {children}
     </div>
   );
