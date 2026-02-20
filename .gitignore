@@ -2,5 +2,7 @@ node_modules/
 .DS_Store
 .claude/settings.local.json
 docs-generated/
-docs-site/
+docs-site/node_modules/
+docs-site/build/
+docs-site/.docusaurus/
 templates/docs-generated/

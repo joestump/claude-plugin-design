@@ -22,3 +22,11 @@ This project uses the [design plugin](https://github.com/joestump/claude-plugin-
 | `/design:plan` | Break a spec into trackable issues for sprint planning |
 
 Run `/design:prime [topic]` at the start of a session to load relevant ADRs and specs into context.
+
+### Release Process
+
+When releasing a new version:
+1. Bump the version in `.claude-plugin/plugin.json`
+2. Commit and push to `main`
+3. Create a GitHub release with `gh release create vX.Y.Z --title "vX.Y.Z" --notes "..."` using a haiku as the release summary
+4. Always tag releases as `vX.Y.Z` (e.g., `v1.5.0`)

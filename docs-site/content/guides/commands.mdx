@@ -1,0 +1,268 @@
+---
+title: Commands
+sidebar_label: Commands
+sidebar_position: 2
+---
+
+# Commands
+
+All design plugin skills are invoked as Claude Code slash commands.
+
+## Creating Artifacts {#creating}
+
+### `/design:adr` {#adr}
+
+Create a new Architecture Decision Record using the MADR format.
+
+**Usage:**
+```
+/design:adr [description]
+/design:adr [description] --review
+```
+
+**What it does:**
+- Creates `docs/adrs/ADR-XXXX-short-title.md` with the next sequential number
+- Includes all MADR sections: Context, Decision Drivers, Considered Options,
+  Decision Outcome, Pros and Cons, Architecture Diagram
+- Sets status to `proposed` in YAML frontmatter
+- With `--review`, spawns a drafter + architect team (max 2 revision rounds)
+- After writing, suggests formalizing the decision into a specification with
+  `/design:spec`, which can then break requirements into sprint issues
+
+**Examples:**
+```
+/design:adr Add JWT-based authentication
+/design:adr Switch from REST to GraphQL for the public API --review
+```
+
+---
+
+### `/design:spec` {#spec}
+
+Create a new OpenSpec specification with paired requirements and design documents,
+then optionally plan a sprint by breaking requirements into trackable issues.
+
+**Usage:**
+```
+/design:spec [capability name]
+/design:spec [capability name] --review
+```
+
+**What it does:**
+- Creates `docs/openspec/specs/{capability-name}/spec.md` with RFC 2119
+  normative requirements and WHEN/THEN scenarios
+- Creates `docs/openspec/specs/{capability-name}/design.md` with architecture,
+  rationale, and tradeoffs
+- Assigns the next sequential `SPEC-XXXX` number
+- With `--review`, spawns a drafter + architect team (max 2 revision rounds)
+- **After writing the spec**, offers to plan a sprint:
+  - Detects available issue trackers ([Beads](https://github.com/steveyegge/beads),
+    GitHub via MCP or `gh` CLI, Gitea via MCP)
+  - Creates epics, tasks, and sub-tasks from the spec's requirements
+  - Writes acceptance criteria referencing spec and requirement numbers
+  - Sets up dependency relationships between tasks
+  - Falls back to a structured markdown plan if no tracker is available
+
+**Examples:**
+```
+/design:spec Authentication Service
+/design:spec WebSocket Gateway --review
+```
+
+---
+
+## Drift Detection {#drift}
+
+### `/design:check` {#check}
+
+Quick-check a file, directory, ADR, or spec for drift. Designed for use
+during development — like running a linter.
+
+**Usage:**
+```
+/design:check [target]
+```
+
+**What it does:**
+- Scans the target against governing ADRs and specs
+- Produces a concise findings table with severity levels
+- Checks for code-vs-spec drift, code-vs-ADR drift, and ADR-vs-spec
+  inconsistencies
+- Always runs in single-agent mode (no `--review`)
+
+**Examples:**
+```
+/design:check src/auth/
+/design:check ADR-0001
+/design:check docs/openspec/specs/auth-service/spec.md
+```
+
+---
+
+### `/design:audit` {#audit}
+
+Comprehensive analysis of the entire project (or a scope) for all forms
+of drift, coverage gaps, stale artifacts, and policy violations.
+
+**Usage:**
+```
+/design:audit [scope]
+/design:audit [scope] --review
+```
+
+**What it does:**
+- Examines the project for: code-vs-spec drift, code-vs-ADR drift,
+  ADR-vs-spec inconsistencies, coverage gaps, stale artifact detection,
+  and policy violations
+- Produces a structured report with prioritized findings (critical, warning, info)
+- With `--review`, spawns an auditor + reviewer team
+
+**Examples:**
+```
+/design:audit
+/design:audit src/
+/design:audit --review
+```
+
+---
+
+## Discovery {#discovery}
+
+### `/design:discover` {#discover}
+
+Discover implicit architectural decisions and spec-worthy subsystems in an
+existing codebase. Ideal for bootstrapping design artifacts on projects that
+already have code.
+
+**Usage:**
+```
+/design:discover [scope]
+```
+
+**What it does:**
+- Analyzes dependencies, frameworks, architectural patterns, project structure,
+  and configuration
+- Produces a read-only report of suggested ADRs and specs
+- Each suggestion includes evidence from the codebase and a ready-to-use
+  command to create the artifact
+- Reads existing artifacts to avoid duplicating already-documented decisions
+
+**Examples:**
+```
+/design:discover
+/design:discover src/api/
+```
+
+---
+
+## Documentation {#documentation}
+
+### `/design:docs` {#docs}
+
+Generate a Docusaurus documentation site from your ADRs and specs, with
+RFC 2119 highlighting, status badges, cross-references, and Mermaid diagrams.
+
+**Usage:**
+```
+/design:docs [project name]
+```
+
+**What it does:**
+- **First run (no site exists):** Scaffolds a complete Docusaurus site in `docs-site/`
+- **First run (existing Docusaurus site):** Offers integration mode — installs
+  a build-time plugin into your existing site
+- **Subsequent runs:** Detects changes via `.design-docs.json` manifest and
+  performs a diff-based upgrade, preserving your customizations
+- Transforms ADR markdown into MDX with badges, keyword highlighting, and
+  cross-reference links
+- Transforms OpenSpec markdown into MDX with requirement boxes and domain badges
+
+**Examples:**
+```
+/design:docs
+/design:docs my-project
+```
+
+---
+
+## Session Management {#session}
+
+### `/design:init` {#init}
+
+Set up your project's `CLAUDE.md` with design plugin references. Run once
+when you install the plugin.
+
+**Usage:**
+```
+/design:init
+```
+
+**What it does:**
+- Creates `CLAUDE.md` (or updates it) with an `## Architecture Context`
+  section referencing `docs/adrs/` and `docs/openspec/specs/`
+- Adds a table of available design plugin skills
+- Idempotent — safe to run multiple times
+
+---
+
+### `/design:prime` {#prime}
+
+Load ADR and spec context into the current session for architecture-aware
+responses. Run at the start of each session.
+
+**Usage:**
+```
+/design:prime [topic]
+```
+
+**What it does:**
+- Reads all ADRs and specs, summarizes each, and presents them in structured tables
+- With a topic argument, uses semantic matching to load only relevant artifacts
+  (e.g., `/design:prime security` loads auth, encryption, and access control ADRs)
+- Read-only — never modifies files
+
+**Examples:**
+```
+/design:prime
+/design:prime authentication
+/design:prime deployment
+```
+
+---
+
+## Lifecycle Management {#lifecycle}
+
+### `/design:list` {#list}
+
+List all ADRs and specs with their status.
+
+**Usage:**
+```
+/design:list [adr|spec|all]
+```
+
+**What it does:**
+- Scans `docs/adrs/` and `docs/openspec/specs/`
+- Presents a formatted table with ID, Title, Status, and Date columns
+- Read-only
+
+---
+
+### `/design:status` {#status}
+
+Update the status of an ADR or spec.
+
+**Usage:**
+```
+/design:status [ID] [new status]
+```
+
+**Valid statuses:**
+- **ADRs:** `proposed`, `accepted`, `deprecated`, `superseded`
+- **Specs:** `draft`, `review`, `approved`, `implemented`, `deprecated`
+
+**Examples:**
+```
+/design:status ADR-0001 accepted
+/design:status SPEC-0003 implemented
+```

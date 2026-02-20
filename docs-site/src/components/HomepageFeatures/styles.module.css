@@ -1,0 +1,27 @@
+.features {
+  display: flex;
+  align-items: center;
+  padding: 2rem 0;
+  width: 100%;
+}
+
+.featureLink {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  padding: 1.5rem 1rem;
+  border-radius: 0.75rem;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.featureLink:hover {
+  background-color: var(--ifm-color-emphasis-100);
+  transform: translateY(-2px);
+  color: inherit;
+  text-decoration: none;
+}
+
+.featureIcon {
+  color: var(--ifm-color-primary);
+  margin-bottom: 1rem;
+}

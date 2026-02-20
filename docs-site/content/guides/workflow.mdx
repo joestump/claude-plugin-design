@@ -1,0 +1,280 @@
+---
+title: Workflow
+sidebar_label: Workflow
+sidebar_position: 1
+---
+
+# The Design Plugin Workflow
+
+The design plugin follows a deliberate, four-phase workflow:
+**Decide → Specify → Plan → Build**. Each phase produces artifacts that
+inform the next, creating a traceable path from architectural
+intent to working code — with agents handling the heavy lifting at every step.
+
+## Phase 1: Decide (ADR)
+
+Every significant choice starts with an Architecture Decision Record.
+ADRs capture *why* you chose one approach over another — the context,
+the alternatives you considered, and the consequences you accepted.
+
+```
+/design:adr Add authentication using JWT tokens
+```
+
+This creates a MADR-format document with structured sections:
+
+- **Context and Problem Statement** — what are you solving?
+- **Decision Drivers** — what matters most?
+- **Considered Options** — what alternatives did you evaluate?
+- **Decision Outcome** — what did you pick and why?
+- **Pros and Cons** — honest tradeoffs for each option
+- **Architecture Diagram** — a Mermaid diagram showing the decision's impact
+
+After creating the ADR, the agent suggests formalizing the decision into
+a specification with `/design:spec`.
+
+:::tip Use `--review` for important decisions
+For consequential decisions, add the `--review` flag to spawn a two-agent
+team: a drafter writes the ADR and an architect reviews it, with up to
+2 revision rounds.
+
+```
+/design:adr Add authentication using JWT tokens --review
+```
+:::
+
+## Phase 2: Specify (OpenSpec)
+
+Once a decision is accepted, formalize the requirements as a specification.
+OpenSpec separates **what** the system does (`spec.md`) from **how** it
+works (`design.md`), so requirements and architecture can evolve
+independently.
+
+```
+/design:spec Authentication Service
+```
+
+This creates a paired set of documents:
+
+**spec.md** — Requirements using RFC 2119 normative language:
+- `MUST`, `SHALL` — mandatory requirements
+- `SHOULD`, `RECOMMENDED` — strong suggestions
+- `MAY`, `OPTIONAL` — permitted behavior
+- WHEN/THEN scenarios for each requirement
+
+**design.md** — Architecture and rationale:
+- System context and goals
+- Key decisions with rationale and alternatives
+- Architecture diagrams
+- Risks and mitigations
+
+:::tip Multiple specs per ADR
+A single ADR might spawn multiple specs. For example, an ADR about
+"choosing a microservices architecture" could lead to separate specs
+for the API gateway, service discovery, and inter-service communication.
+:::
+
+## Phase 3: Plan (Sprint Planning)
+
+After writing the spec, the agent offers to break it down into trackable
+work items — no manual issue creation needed. The agent handles sprint
+planning autonomously:
+
+1. **Detects available issue trackers**: The agent checks for
+   [Beads](https://github.com/steveyegge/beads), GitHub (via MCP or
+   `gh` CLI), and Gitea (via MCP) — and asks you to choose if multiple
+   are available. If none are found, it outputs a structured markdown
+   plan instead.
+
+2. **Breaks down requirements into issues**: Each `### Requirement:`
+   in the spec becomes a task, grouped under an epic for the
+   specification. Complex requirements with multiple scenarios get
+   sub-tasks.
+
+3. **Writes acceptance criteria**: Every issue includes criteria
+   referencing the spec and requirement numbers:
+
+   ```
+   ## Acceptance Criteria
+   - [ ] Per SPEC-0003 REQ "JWT Token Generation": tokens MUST use RS256 signing
+   - [ ] Per SPEC-0003 Scenario "Token expiry": WHEN token age exceeds TTL
+         THEN refresh endpoint returns new token
+   - [ ] Governing: ADR-0001 (chose JWT over sessions)
+   ```
+
+4. **Sets up dependencies**: For Beads, the agent uses `bd dep add` to
+   link tasks that block each other based on requirement relationships.
+
+5. **Reports the plan**: A summary of epics, tasks, and sub-tasks
+   created, with links to where they live.
+
+:::info No human scoping required
+Claude Teams excel at sprint planning. The agent reads the spec,
+understands the requirement relationships, and creates well-structured
+issues with proper acceptance criteria. You review the plan, not author it.
+:::
+
+## Phase 4: Build (Execute + Validate)
+
+With decisions recorded, requirements specified, and work items planned,
+it's time to build. Prime the session with architecture context and let
+agents work through the backlog.
+
+```
+/design:prime authentication
+```
+
+This loads the relevant ADRs and specs into context. Agents pick up
+unblocked tasks, claim them, and work through the backlog with full
+architectural awareness.
+
+### Governing comments
+
+As agents implement code, they leave **governing comments** that trace
+implementation back to decisions and requirements:
+
+```typescript
+// Governing: ADR-0001 (chose JWT over sessions), SPEC-0003 REQ "Token Validation"
+function validateToken(token: string): Claims {
+  // ...
+}
+```
+
+These comments serve two purposes:
+- Future agents (and humans) can understand *why* code is written a
+  certain way
+- `/design:check` uses them to detect drift between code and specs
+
+### Check for drift as you go
+
+As implementation progresses, use drift detection to catch divergence early:
+
+```
+/design:check src/auth/
+```
+
+And run a full audit at milestones:
+
+```
+/design:audit
+```
+
+## Example: End-to-End
+
+Here's a concrete example of the full workflow for adding a notification
+system to a project.
+
+### 1. Record the decision
+
+```
+/design:adr Add WebSocket-based real-time notifications --review
+```
+
+The drafter and architect produce an ADR exploring WebSockets vs SSE vs
+polling. The team accepts WebSockets for bidirectional communication needs.
+
+### 2. Write the specifications
+
+```
+/design:spec Notification Service
+```
+
+The agent writes SPEC-0004 with requirements for event types, delivery
+rules, and notification preferences — each with WHEN/THEN scenarios.
+
+After the spec is written, the agent asks:
+
+> *"Want me to plan a sprint from this spec? I'll break requirements
+> into issues with acceptance criteria."*
+
+### 3. Agent plans the sprint
+
+You say yes, and the agent:
+
+- **Detects Beads** (finds `.beads/` in the project root)
+- **Creates an epic**: "Implement Notification Service"
+- **Creates tasks** from each requirement:
+  - "Event type registry and schema validation" — references SPEC-0004 REQ "Event Types"
+  - "Delivery rules engine" — references SPEC-0004 REQ "Delivery Rules"
+  - "User notification preferences API" — references SPEC-0004 REQ "Preferences"
+- **Writes acceptance criteria** for each task:
+  ```
+  ## Acceptance Criteria
+  - [ ] Per SPEC-0004 REQ "Event Types": system MUST validate events against registered schemas
+  - [ ] Per SPEC-0004 Scenario "Unknown event": WHEN unregistered event type is received
+        THEN system MUST reject with 422 status
+  - [ ] Governing: ADR-0005 (chose WebSocket-based notifications)
+  ```
+- **Sets up dependencies**: delivery rules are blocked by the event registry
+- **Reports**: "Created 1 epic, 3 tasks, and 2 sub-tasks in Beads with dependency links."
+
+You can then do the same for a second spec:
+
+```
+/design:spec WebSocket Gateway
+```
+
+The agent writes SPEC-0005 and again offers to plan — creating a second
+epic with its own tasks, acceptance criteria, and dependencies.
+
+### 4. Prime and build
+
+```
+/design:prime notifications
+```
+
+Agents pick up unblocked tasks with full context from the ADRs and specs.
+The event type registry and WebSocket connection manager are unblocked
+and can be worked in parallel by different team members.
+
+As they implement, agents leave governing comments:
+
+```typescript
+// Governing: ADR-0005, SPEC-0004 REQ "Event Types"
+const eventSchema = z.object({
+  type: z.string().min(1),
+  payload: z.record(z.unknown()),
+  timestamp: z.string().datetime(),
+});
+```
+
+### 5. Validate alignment
+
+```
+/design:check src/notifications/
+/design:check src/websocket/
+/design:audit --review
+```
+
+The audit catches that the reconnection implementation uses linear backoff
+instead of the exponential backoff specified in the WebSocket Gateway spec.
+Fixed before it ships.
+
+## Supported Issue Trackers
+
+The sprint planning step detects and supports multiple issue trackers:
+
+| Tracker | Detection | Notes |
+|---------|-----------|-------|
+| [Beads](https://github.com/steveyegge/beads) | `.beads/` directory or `bd` CLI | Preferred for AI-agent workflows. Supports epics, tasks, sub-tasks, and dependency tracking. |
+| GitHub Issues | GitHub MCP tools or `gh` CLI | Creates issues with labels and milestone grouping. |
+| Gitea Issues | Gitea MCP tools | Creates issues via the Gitea API. |
+
+If no tracker is detected, the agent outputs a structured markdown sprint
+plan that you can use to create issues manually.
+
+## The Feedback Loop
+
+The workflow is not strictly linear. As you build, you'll discover:
+
+- **New decisions** — implementation reveals choices the ADR didn't anticipate.
+  Record them: `/design:adr`
+- **Spec gaps** — requirements that were too vague or missing entirely.
+  Update them: edit the spec, run `/design:check`
+- **Stale artifacts** — decisions that no longer apply as the system evolved.
+  Update their status: `/design:status ADR-0003 deprecated`
+
+The design plugin's drift detection skills (`/design:check` and
+`/design:audit`) close this loop by surfacing misalignment before it
+becomes entrenched. Governing comments left by agents during implementation
+make drift detection faster and more accurate.
