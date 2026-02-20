@@ -15,6 +15,7 @@ A Claude Code plugin for architecture decision records (ADRs), specifications, a
 | **Docs** | `/design:docs [project name]` | Generate docs with scaffold/integration modes and manifest-based upgrades |
 | **List** | `/design:list [adr\|spec\|all]` | List all ADRs and specs with their status |
 | **Discover** | `/design:discover [scope]` | Discover implicit architecture from an existing codebase |
+| **Plan** | `/design:plan [spec-name or SPEC-XXXX] [--review]` | Break a spec into trackable issues for sprint planning |
 | **Status** | `/design:status [ID] [status]` | Change the status of an ADR or spec |
 
 ## Install
@@ -37,7 +38,7 @@ Add to your project's `.claude/settings.json`:
 }
 ```
 
-Then restart Claude Code. The plugin's skills will be available as `/design:init`, `/design:prime`, `/design:adr`, `/design:spec`, `/design:check`, `/design:audit`, `/design:discover`, `/design:docs`, `/design:list`, and `/design:status`.
+Then restart Claude Code. The plugin's skills will be available as `/design:init`, `/design:prime`, `/design:adr`, `/design:spec`, `/design:plan`, `/design:check`, `/design:audit`, `/design:discover`, `/design:docs`, `/design:list`, and `/design:status`.
 
 ## Development
 
@@ -74,10 +75,25 @@ Creates paired spec.md + design.md using [OpenSpec](https://github.com/Fission-A
 - Stored in `docs/openspec/specs/{capability-name}/`
 - Single-agent by default; add `--review` for team-based drafting with architect review
 - **Sprint planning**: After writing the spec, offers to break requirements into trackable issues:
-  - Detects [Beads](https://github.com/steveyegge/beads), GitHub (MCP or `gh` CLI), or Gitea (MCP)
+  - Detects [Beads](https://github.com/steveyegge/beads), GitHub, GitLab, Gitea, Jira, or Linear (MCP or CLI)
+  - Saves tracker preference to `.design.json` for future use
   - Creates epics, tasks, and sub-tasks with acceptance criteria referencing spec/requirement numbers
   - Sets up dependency relationships between tasks
   - Falls back to generating `tasks.md` as a co-located openspec artifact when no tracker is available (per ADR-0007)
+  - For planning against existing specs, use `/design:plan` instead
+
+### `/design:plan` -- Sprint Planning
+
+Breaks an existing specification into trackable work items in your issue tracker:
+- Accepts a spec name or SPEC number (e.g., `/design:plan web-dashboard` or `/design:plan SPEC-0003`)
+- Lists available specs interactively if no argument provided
+- Detects available issue trackers:
+  - [Beads](https://github.com/steveyegge/beads), GitHub (MCP or `gh` CLI), GitLab (MCP or `glab` CLI), Gitea (MCP), Jira (MCP), Linear (MCP)
+  - Saves tracker preference to `.design.json` so you're not re-prompted
+- Creates epics, tasks, and sub-tasks with acceptance criteria referencing spec/requirement numbers
+- Sets up dependency relationships between tasks
+- Falls back to generating `tasks.md` when no tracker is available (per ADR-0007)
+- Single-agent by default; add `--review` for team-based planning with reviewer
 
 ### `/design:init` -- Initialize Design Plugin
 
@@ -230,7 +246,7 @@ your-project/
 4. **Decide**: `/design:adr We need to choose a web framework for the admin dashboard`
 5. **Review**: `/design:list adr` to see all decisions, `/design:status ADR-0001 accepted` to approve
 6. **Specify**: `/design:spec Convert ADR-0001 to a spec` — the agent writes requirements and offers to plan a sprint
-7. **Plan**: Accept sprint planning — the agent creates epics, tasks, and sub-tasks in Beads, GitHub, or Gitea with acceptance criteria referencing spec/requirement numbers
+7. **Plan**: `/design:plan SPEC-0001` — break the spec into epics, tasks, and sub-tasks in Beads, GitHub, GitLab, Gitea, Jira, or Linear with acceptance criteria referencing spec/requirement numbers
 8. **Build**: `/design:prime` to load context, then agents work through issues leaving governing comments
 9. **Check**: `/design:check src/auth/` to quick-check for drift while coding
 10. **Audit**: `/design:audit --review` for a comprehensive design review

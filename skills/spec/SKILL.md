@@ -45,12 +45,21 @@ You are creating an OpenSpec specification consisting of BOTH a `spec.md` and `d
 
    If the user says yes:
 
-   **8.1: Detect available issue trackers.** Check in this order:
+   **8.1: Detect available issue trackers.**
+
+   First, check for a saved preference: read `.design.json` in the project root. If it contains a `"tracker"` key, use that tracker directly (and `"tracker_config"` for settings like owner/repo). If the saved tracker's tools are no longer available, warn the user and fall through to detection.
+
+   If no saved preference, detect trackers:
    - **Beads**: Look for a `.beads/` directory in the project root, or run `bd --version` to check if Beads is installed. Beads is the preferred tracker for AI-agent workflows.
    - **GitHub**: Check if GitHub MCP tools are available (tools matching `mcp__github__*` or `mcp__*github*`), or if `gh` CLI is available via `gh --version`.
+   - **GitLab**: Check if GitLab MCP tools are available (tools matching `mcp__*gitlab*`), or if `glab` CLI is available via `glab --version`.
    - **Gitea**: Check if Gitea MCP tools are available (tools matching `mcp__gitea__*` or `mcp__*gitea*`).
+   - **Jira**: Check if Jira MCP tools are available (tools matching `mcp__*jira*`).
+   - **Linear**: Check if Linear MCP tools are available (tools matching `mcp__*linear*`).
 
-   If multiple trackers are found, use `AskUserQuestion` to let the user choose.
+   If multiple trackers are found, use `AskUserQuestion` to let the user choose. Offer to save the choice to `.design.json`.
+
+   > **Tip**: For planning against existing specs, use `/design:plan` — it provides a dedicated workflow for breaking specs into issues with full tracker detection and preference persistence.
 
    **If none are found**, generate a `tasks.md` file as a durable openspec artifact instead (per ADR-0007 and SPEC-0006). Write it to `docs/openspec/specs/{capability-name}/tasks.md`, co-located with `spec.md` and `design.md`. Follow these rules:
 

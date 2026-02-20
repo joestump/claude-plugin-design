@@ -19,5 +19,6 @@ This project uses the [design plugin](https://github.com/joestump/claude-plugin-
 | `/design:check` | Quick-check code against ADRs and specs for drift |
 | `/design:audit` | Comprehensive design artifact alignment audit |
 | `/design:discover` | Discover implicit architecture from existing code |
+| `/design:plan` | Break a spec into trackable issues for sprint planning |
 
 Run `/design:prime [topic]` at the start of a session to load relevant ADRs and specs into context.
