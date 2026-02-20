@@ -13,6 +13,9 @@ Sprint planning was previously embedded as step 8 of the `/design:spec` skill, w
 - Decompose spec requirements into an epic/task/sub-task hierarchy with traceability
 - Fall back to `tasks.md` generation (SPEC-0006) when no tracker is available
 - Support `--review` mode for team-based plan review
+- Organize created issues into tracker-native projects (per-epic default, single project, or skip)
+- Include deterministic branch naming conventions in issue bodies (`feature/` for tasks, `epic/` for epics)
+- Include tracker-specific PR close keywords in issue bodies for auto-resolution on merge
 
 ### Non-Goals
 - Replacing or modifying the spec authoring workflow (`/design:spec`)
@@ -20,6 +23,7 @@ Sprint planning was previously embedded as step 8 of the `/design:spec` skill, w
 - Supporting tracker-specific features beyond issue creation (boards, sprints, labels)
 - Implementing `--gaps` or `--analyze` modes (documented as future considerations)
 - Tracking issue completion status from within the plugin
+- Retroactive issue organization and enrichment (separate `/design:organize` and `/design:enrich` skills per ADR-0009)
 
 ## Decisions
 
@@ -65,11 +69,46 @@ Sprint planning was previously embedded as step 8 of the `/design:spec` skill, w
 - Free-form acceptance criteria: Loses traceability to spec; may drift from actual requirements
 - Link to spec without extracting criteria: Forces developers to read the full spec for each task
 
+### Project grouping strategy
+
+**Choice**: Default to one tracker-native project per epic, with `--project <name>` for a single combined project and `--no-projects` to skip entirely.
+**Rationale**: Most teams want issues organized by capability (one epic = one project), but some prefer a single sprint-level project or no project at all. The per-epic default mirrors the spec's structure: each planned spec becomes a self-contained project in the tracker. The `--project` flag supports sprint-based workflows where multiple specs feed into one project. The `--no-projects` flag supports teams that manage projects manually or use trackers without native project support.
+**Alternatives considered**:
+- Always create a project: Too rigid; fails for trackers without project support
+- Never create a project: Misses a key organizational benefit that trackers provide
+- Single project per `/design:plan` run: Confusing when planning multiple specs; per-epic is more natural
+
+### Branch naming convention
+
+**Choice**: Use `feature/{issue-number}-{slug}` for tasks and `epic/{issue-number}-{slug}` for epics, with configurable prefixes via `--branch-prefix` or `.design.json` `branches.prefix`.
+**Rationale**: Deterministic branch names eliminate the "what should I name this branch?" friction. The `feature/` and `epic/` prefixes follow Git Flow conventions that most teams already recognize. Including the issue number ensures traceability from branch to issue. The slug provides human-readable context. Configurability via `--branch-prefix` and `.design.json` respects teams with established naming conventions.
+**Alternatives considered**:
+- Free-form branch names: No consistency; defeats the purpose of automation
+- Issue number only (e.g., `feature/42`): Lacks human-readable context when listing branches
+- Full requirement name without truncation: Branch names become unwieldy; many tools truncate long refs
+
+### PR close keyword convention
+
+**Choice**: Embed tracker-specific close keywords in issue bodies so developers can copy them into PR/MR descriptions.
+**Rationale**: Every tracker has different syntax for auto-closing issues from pull requests. GitHub and Gitea use `Closes #N` in PR descriptions. GitLab uses the same syntax in MR descriptions. Beads uses `bd resolve`. Jira and Linear use native key references. Embedding the correct keyword in the issue body means developers do not need to remember the syntax -- they copy it from the issue into their PR.
+**Alternatives considered**:
+- Document keywords in a reference table: Requires developers to look up syntax each time
+- Use a universal keyword: No universal keyword exists across all six trackers
+- Skip PR conventions entirely: Loses the "spec to merged PR" end-to-end value proposition
+
+### Retroactive skills as separate commands
+
+**Choice**: Create `/design:organize` and `/design:enrich` as separate skills rather than adding retroactive modes to `/design:plan`.
+**Rationale**: Retroactive operations (grouping existing issues into projects, adding branch/PR metadata to existing issue bodies) operate on previously created issues, not on spec requirements. They require different user interactions (selecting which issues to update, handling conflicts with manually edited issue bodies) and different tool permissions. Combining them with `/design:plan` would violate the plugin's single-purpose skill convention and bloat the planning flow with conditional logic for forward vs. retroactive paths.
+**Alternatives considered**:
+- Add `--organize` and `--enrich` flags to `/design:plan`: Overloads the planning skill; confusing when combined with `--review`
+- Single `/design:workflow` skill: Too broad; bundles unrelated operations under a vague name (see ADR-0009 Option 3)
+
 ## Architecture
 
 ```mermaid
 flowchart TD
-    A["/design:plan\n[spec] [--review]"] --> B{"Arguments\nprovided?"}
+    A["/design:plan\n[spec] [flags]"] --> B{"Arguments\nprovided?"}
 
     B -->|"SPEC-XXXX or name"| C["Resolve spec directory"]
     B -->|"No spec arg"| D["List specs via glob\nAskUserQuestion to choose"]
@@ -104,7 +143,18 @@ flowchart TD
     S --> T["3. Add acceptance criteria\nfrom WHEN/THEN"]
     T --> U["4. Optional sub-tasks\nfor 3+ scenarios"]
     U --> V["5. Set dependency\nordering"]
-    V --> W["Report summary"]
+
+    V --> V2{"--no-projects?"}
+    V2 -->|"No"| V3["5.6 Project grouping\n(per-epic or --project)"]
+    V2 -->|"Yes"| V4["Skip project\ngrouping"]
+
+    V3 --> V5{"--no-branches?"}
+    V4 --> V5
+    V5 -->|"No"| V6["5.7 Update issue bodies\nwith branch + PR sections\n(two-pass)"]
+    V5 -->|"Yes"| V7["Skip branch/PR\nsections"]
+
+    V6 --> W["Report summary"]
+    V7 --> W
 
     M --> W
 
@@ -179,6 +229,17 @@ flowchart TD
     check -->|"Unavailable"| detect
 ```
 
+```mermaid
+flowchart TD
+    subgraph ".design.json Expanded Schema"
+        root[".design.json"]
+        root --> tracker["tracker: 'github'"]
+        root --> tracker_config["tracker_config:\n  owner: 'joestump'\n  repo: 'my-project'"]
+        root --> branches["branches:\n  prefix: 'feature/'\n  (default, configurable)"]
+        root --> projects["projects:\n  default: 'per-epic'\n  (or 'single' or 'none')"]
+    end
+```
+
 ## Risks / Trade-offs
 
 - **Tracker API variability**: Each of the six trackers has different APIs, terminology (epic vs. initiative vs. project), and capabilities. Mitigation: the skill uses `ToolSearch` to discover available operations at runtime rather than assuming a fixed API; the SKILL.md provides tracker-specific guidance for config gathering.
@@ -186,6 +247,10 @@ flowchart TD
 - **Over-decomposition**: Breaking every requirement into tasks and every complex requirement into sub-tasks could flood the tracker. Mitigation: sub-tasks are only created for requirements with 3+ scenarios; the review mode (`--review`) provides a check against over-decomposition.
 - **Spec drift**: If the spec changes after planning, the created issues may not reflect the current requirements. Mitigation: the skill does not track previously created issues; the proposed `--gaps` mode (future) would address this by comparing spec requirements against implementation and existing issues.
 - **MCP tool naming instability**: ToolSearch patterns like `mcp__*github*` depend on MCP server naming conventions that could change. Mitigation: CLI fallbacks (`gh`, `glab`, `bd`) provide a secondary detection path; patterns are broad enough to match common naming variations.
+- **GitHub Projects V2 API complexity**: GitHub Projects V2 is GraphQL-only with a different permission model than the REST API used for issues. Rate limits are separate and more restrictive. Mitigation: the skill should handle GraphQL errors gracefully and fall back to skipping project creation with a warning rather than failing the entire planning run.
+- **Slug derivation edge cases**: Unicode characters, very long requirement names, and names consisting entirely of special characters can produce empty or misleading slugs. Mitigation: the slug derivation algorithm has explicit steps (lowercase, replace non-alphanumeric with hyphens, collapse, truncate to 50 chars, strip trailing hyphens) and falls back to the issue number alone if the slug would be empty.
+- **Project creation rate limits**: Creating a project per epic in a single planning session that covers multiple specs could hit tracker rate limits. Mitigation: project creation is a single API call per epic (not per task), and the `--no-projects` and `--project` flags provide escape hatches.
+- **Two-pass issue creation**: Branch and PR sections reference the issue number, requiring the skill to create the issue first and then update it. This doubles the API calls for enriched issues and introduces a window where the issue exists without branch/PR metadata. Mitigation: the update is immediate after creation; if the update fails, the issue is still usable without the metadata.
 
 ## Migration Plan
 

@@ -137,6 +137,86 @@ The skill SHALL create issues following an epic-to-task-to-sub-task hierarchy de
 - **WHEN** requirements have logical ordering (setup before implementation, core before extensions)
 - **THEN** the skill SHALL set up dependency relationships using the tracker's native features
 
+### Requirement: Project Grouping
+
+The `/design:plan` skill SHALL organize created issues into tracker-native projects. The default behavior SHALL be one project per epic. The user MAY override this behavior with flags or `.design.json` configuration. See ADR-0009.
+
+#### Scenario: Default project grouping (one project per epic)
+
+- **WHEN** the skill creates an epic and its associated tasks
+- **THEN** the skill SHALL create a tracker-native project named after the epic title and SHALL add the epic and all child tasks to that project
+
+#### Scenario: Single combined project via `--project` flag
+
+- **WHEN** the user runs `/design:plan SPEC-XXXX --project "Q1 Sprint"`
+- **THEN** the skill SHALL create or locate a project with the specified name and SHALL add all created issues (epics, tasks, sub-tasks) to that single project
+
+#### Scenario: Skip project creation via `--no-projects` flag
+
+- **WHEN** the user runs `/design:plan SPEC-XXXX --no-projects`
+- **THEN** the skill SHALL skip project creation entirely and SHALL NOT attempt to group issues into any project
+
+#### Scenario: Tracker without project support
+
+- **WHEN** the detected tracker does not support native projects (or the project API is unavailable)
+- **THEN** the skill SHALL skip project creation, log a note in the planning report ("Project grouping skipped: {tracker} does not support projects"), and continue with issue creation
+
+### Requirement: Branch Naming Conventions
+
+The `/design:plan` skill SHALL include a "Branch" section in each created issue's body with a recommended branch name. Branch names SHALL follow a deterministic pattern derived from the issue number and a slug. See ADR-0009.
+
+#### Scenario: Default branch names for tasks and epics
+
+- **WHEN** the skill creates a task issue with number `{N}` for a requirement named `{name}`
+- **THEN** the issue body SHALL include a Branch section with `feature/{N}-{slug}` where `{slug}` is the kebab-case form of `{name}`
+- **AND WHEN** the skill creates an epic issue with number `{N}` for a capability named `{name}`
+- **THEN** the issue body SHALL include a Branch section with `epic/{N}-{slug}`
+
+#### Scenario: Custom branch prefix via `--branch-prefix` or `.design.json`
+
+- **WHEN** the user provides `--branch-prefix work/` on the command line or has `"branches": { "prefix": "work/" }` in `.design.json`
+- **THEN** the skill SHALL use the custom prefix instead of `feature/` for tasks (epics SHALL still use `epic/`)
+- **AND** command-line flags SHALL take precedence over `.design.json` values
+
+#### Scenario: Omit branch sections via `--no-branches`
+
+- **WHEN** the user runs `/design:plan SPEC-XXXX --no-branches`
+- **THEN** the skill SHALL omit the Branch section and the PR Convention section from all created issue bodies
+
+#### Scenario: Slug derivation
+
+- **WHEN** deriving a slug from a requirement or epic name
+- **THEN** the skill SHALL convert the name to lowercase, replace non-alphanumeric characters with hyphens, collapse consecutive hyphens, trim to a maximum of 50 characters, and strip trailing hyphens
+
+#### Scenario: Issue number required for branch names (two-pass creation)
+
+- **WHEN** the skill creates an issue that needs a branch name in its body
+- **THEN** the skill SHALL first create the issue with core content (title, acceptance criteria), obtain the issue number from the tracker's response, and then update the issue body to add the Branch and PR Convention sections referencing that number
+
+### Requirement: PR Conventions
+
+The `/design:plan` skill SHALL include a "PR Convention" section in each created issue's body with tracker-specific close keywords. The close keywords SHALL automatically resolve the issue when the PR/MR is merged. See ADR-0009.
+
+#### Scenario: GitHub and Gitea PR conventions
+
+- **WHEN** the detected tracker is GitHub or Gitea
+- **THEN** the PR Convention section SHALL contain `Closes #{issue-number}` and SHALL reference the parent epic and governing spec (e.g., "Part of #{epic-number} | SPEC-XXXX")
+
+#### Scenario: GitLab MR conventions
+
+- **WHEN** the detected tracker is GitLab
+- **THEN** the PR Convention section SHALL contain `Closes #{issue-number}` formatted for inclusion in the MR description
+
+#### Scenario: Beads conventions
+
+- **WHEN** the detected tracker is Beads
+- **THEN** the PR Convention section SHALL contain `bd resolve` as the close command
+
+#### Scenario: Jira and Linear conventions
+
+- **WHEN** the detected tracker is Jira or Linear
+- **THEN** the PR Convention section SHALL contain the tracker-native key reference format (e.g., Jira issue key `PROJ-123`, Linear issue identifier) for auto-linking and resolution
+
 ### Requirement: Tasks.md Fallback
 
 When no issue tracker is detected, the skill SHALL generate a `tasks.md` file at `docs/openspec/specs/{capability-name}/tasks.md`, co-located with `spec.md` and `design.md`. The file MUST follow the format specified in SPEC-0006.

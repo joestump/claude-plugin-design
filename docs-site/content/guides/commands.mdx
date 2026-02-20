@@ -81,7 +81,7 @@ Break an existing spec into trackable issues in your issue tracker.
 **Usage:**
 ```
 /design:plan [spec-name or SPEC-XXXX]
-/design:plan [spec-name or SPEC-XXXX] --review
+/design:plan [spec-name or SPEC-XXXX] [--review] [--project <name>] [--no-projects] [--branch-prefix <prefix>] [--no-branches]
 ```
 
 **What it does:**
@@ -95,6 +95,9 @@ Break an existing spec into trackable issues in your issue tracker.
 - Creates epics, tasks, and sub-tasks from the spec's requirements, with
   acceptance criteria referencing spec and requirement numbers
 - Sets up dependency relationships between tasks
+- Creates tracker-native projects for each epic, or a single combined project with `--project`. Skip with `--no-projects`.
+- Adds `### Branch` sections to issue bodies with `feature/{issue-number}-{slug}` naming convention. Customize prefix with `--branch-prefix`, skip with `--no-branches`.
+- Adds `### PR Convention` sections with tracker-specific close keywords (e.g., `Closes #N` for GitHub).
 - Falls back to a structured `tasks.md` file co-located with the spec if no
   tracker is available
 - With `--review`, spawns a planner + reviewer team (max 2 revision rounds).
@@ -105,6 +108,65 @@ Break an existing spec into trackable issues in your issue tracker.
 /design:plan authentication-service
 /design:plan SPEC-0003
 /design:plan SPEC-0003 --review
+/design:plan SPEC-0003 --project "Auth Sprint"
+/design:plan SPEC-0003 --no-branches
+/design:plan SPEC-0003 --branch-prefix hotfix
+```
+
+---
+
+### `/design:organize` {#organize}
+
+Retroactively group existing issues into tracker-native projects.
+
+**Usage:**
+```
+/design:organize [SPEC-XXXX or spec-name]
+/design:organize [SPEC-XXXX or spec-name] --project "Sprint 1"
+/design:organize [SPEC-XXXX or spec-name] --dry-run
+```
+
+**What it does:**
+- Finds issues in your tracker that reference the specified spec
+- Creates one tracker-native project per epic (default), or a single
+  combined project with `--project`
+- Skips projects that already exist (idempotent)
+- Use `--dry-run` to preview without creating projects
+
+**Examples:**
+```
+/design:organize SPEC-0003
+/design:organize authentication-service --project "Auth Sprint"
+/design:organize SPEC-0003 --dry-run
+```
+
+---
+
+### `/design:enrich` {#enrich}
+
+Retroactively add branch naming and PR convention sections to existing
+issue bodies.
+
+**Usage:**
+```
+/design:enrich [SPEC-XXXX or spec-name]
+/design:enrich [SPEC-XXXX or spec-name] --branch-prefix hotfix
+/design:enrich [SPEC-XXXX or spec-name] --dry-run
+```
+
+**What it does:**
+- Finds issues in your tracker that reference the specified spec
+- Appends `### Branch` sections with `feature/{issue-number}-{slug}`
+  naming convention (or custom prefix with `--branch-prefix`)
+- Appends `### PR Convention` sections with tracker-specific close keywords
+- Skips issues that already have these sections (idempotent)
+- Use `--dry-run` to preview changes without modifying issues
+
+**Examples:**
+```
+/design:enrich SPEC-0003
+/design:enrich authentication-service --branch-prefix hotfix
+/design:enrich SPEC-0003 --dry-run
 ```
 
 ---

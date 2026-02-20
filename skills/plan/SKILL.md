@@ -2,7 +2,7 @@
 name: plan
 description: Break an existing spec into trackable issues in your issue tracker. Use when the user says "plan a sprint", "create issues from spec", "break down the spec", or wants to turn requirements into tasks.
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, Task, AskUserQuestion, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList, TaskGet, SendMessage, ToolSearch
-argument-hint: [spec-name or SPEC-XXXX] [--review]
+argument-hint: [spec-name or SPEC-XXXX] [--review] [--project <name>] [--no-projects] [--branch-prefix <prefix>] [--no-branches]
 ---
 
 # Plan Sprint from Specification
@@ -11,12 +11,22 @@ You are breaking down an existing specification into trackable work items (epics
 
 ## Process
 
-1. **Identify the target spec**: Parse `$ARGUMENTS` (ignoring flags like `--review`).
+1. **Identify the target spec and parse flags**: Parse `$ARGUMENTS`.
 
+   **Spec resolution:**
    - If a SPEC number is provided (e.g., `SPEC-0003`), find the matching spec directory by scanning `docs/openspec/specs/*/spec.md` for the SPEC number in the title.
    - If a capability directory name is provided (e.g., `web-dashboard`), look for `docs/openspec/specs/{name}/spec.md`.
    - If `$ARGUMENTS` is empty (ignoring flags), list available specs by globbing `docs/openspec/specs/*/spec.md`, read the title from each, and use `AskUserQuestion` to ask which spec to plan.
    - If the spec doesn't exist, tell the user and suggest `/design:spec` to create one.
+
+   **Flag parsing:**
+   - `--review`: Enable team review mode (see step 3).
+   - `--project <name>`: Use a single combined project for all issues. Mutually exclusive with `--no-projects`.
+   - `--no-projects`: Skip project creation entirely. Mutually exclusive with `--project`.
+   - `--branch-prefix <prefix>`: Custom branch prefix instead of the default `feature`/`epic` prefixes.
+   - `--no-branches`: Omit `### Branch` and `### PR Convention` sections from issue bodies.
+
+   If both `--project` and `--no-projects` are provided, warn the user and use `--no-projects`.
 
 2. **Read the spec**: Read both `docs/openspec/specs/{capability-name}/spec.md` and `docs/openspec/specs/{capability-name}/design.md` to understand the full scope of requirements, scenarios, and architecture.
 
@@ -50,12 +60,28 @@ You are breaking down an existing specification into trackable work items (epics
    - If exactly one found → use it. Ask the user if they want to save it as default.
    - If none found → generate `tasks.md` (see step 6).
 
-   **4.4: Save preference (if user opts in).** When the user agrees to save their tracker choice, write `.design.json` in the project root:
+   **4.4: Save preference (if user opts in).** When the user agrees to save their tracker choice, write `.design.json` in the project root. The full schema supports these keys (all new keys are optional and backward-compatible; `null` values mean "use tracker defaults"):
 
    ```json
    {
      "tracker": "{tracker-name}",
-     "tracker_config": {}
+     "tracker_config": {},
+     "projects": {
+       "default_mode": "per-epic",
+       "project_ids": {}
+     },
+     "branches": {
+       "enabled": true,
+       "prefix": null,
+       "epic_prefix": "epic",
+       "slug_max_length": 50
+     },
+     "pr_conventions": {
+       "enabled": true,
+       "close_keyword": null,
+       "ref_keyword": "Part of",
+       "include_spec_reference": true
+     }
    }
    ```
 
@@ -79,6 +105,11 @@ You are breaking down an existing specification into trackable work items (epics
      - Acceptance criteria derived from the requirement's WHEN/THEN scenarios
      - Links to governing ADRs if the spec references them in its Overview
    - For complex requirements with multiple scenarios, create sub-tasks for each scenario
+   - **After creating the issue** (to obtain the issue number), unless `--no-branches` is set, update the issue body to append a `### Branch` section:
+     - Tasks: `` `feature/{issue-number}-{slug}` `` (or custom prefix from `--branch-prefix` or `.design.json` `branches.prefix`)
+     - Epics: `` `epic/{issue-number}-{slug}` `` (or custom prefix from `--branch-prefix` or `.design.json` `branches.epic_prefix`)
+     - The slug MUST be derived from the requirement name using kebab-case, max 50 chars (or `.design.json` `branches.slug_max_length`)
+     - This requires a two-pass approach: create the issue first to get the number, then update the body
 
    **5.3: Write acceptance criteria.** Each issue MUST include:
    ```
@@ -88,9 +119,33 @@ You are breaking down an existing specification into trackable work items (epics
    - [ ] Governing: ADR-XXXX ({decision title})
    ```
 
+   After acceptance criteria, unless `--no-branches` is set, append a `### PR Convention` section:
+   - Include the tracker-specific close keyword referencing the issue number
+   - Include a reference to the parent epic and governing spec
+   - Tracker-specific close keywords:
+     - **GitHub/Gitea**: `Closes #{issue-number}`
+     - **GitLab**: `Closes #{issue-number}` (in MR description)
+     - **Beads**: `bd resolve`
+     - **Jira**: `{PROJECT-KEY}-{number}` reference
+     - **Linear**: `{TEAM}-{number}` reference
+   - Use `.design.json` `pr_conventions` settings when available (close_keyword, ref_keyword, include_spec_reference)
+
    **5.4: Set up dependencies.** Where requirements have logical ordering (e.g., setup before implementation, core before extensions), set up dependency relationships using the tracker's native features. If using Beads, use `bd dep add`.
 
    **5.5: Gather tracker-specific config.** If the tracker requires configuration not already saved (e.g., repo owner/name for GitHub, project key for Jira), use `AskUserQuestion` to ask the user. Offer to save the config to `.design.json`.
+
+   **5.6: Project grouping.** Unless `--no-projects` is set:
+   - **Default (per-epic)**: For each epic, create a tracker-native project and add the epic and its child tasks:
+     - **GitHub**: Projects V2 via `gh project create` CLI or MCP tools, then `gh project item-add` to add issues
+     - **Gitea**: Project via MCP tools (use `ToolSearch` to discover)
+     - **GitLab**: Milestone or board
+     - **Jira**: Use existing project scope (no new project needed)
+     - **Linear**: Project or cycle
+     - **Beads**: No-op (the epic IS the grouping)
+   - **`--project <name>`**: Create a single project with the given name and add all issues to it
+   - Use `ToolSearch` to discover project-creation MCP tools at runtime
+   - Read `.design.json` `projects.default_mode` and `projects.project_ids` for cached settings. If a project ID is already cached for this spec, reuse it instead of creating a new one.
+   - **Graceful failure**: If project creation fails, warn the user but do not block issue creation. Report the failure in the final summary.
 
 6. **Fallback: Generate `tasks.md`** (when no tracker is available):
 
@@ -130,6 +185,9 @@ You are breaking down an existing specification into trackable work items (epics
 8. **Report the plan.** Summarize what was created:
    - Which tracker was used (or tasks.md fallback)
    - Number of epics, tasks, and sub-tasks created
+   - Number of project groupings created (or "skipped" if `--no-projects` was set)
+   - Whether branch naming conventions were included in issue bodies (or "skipped" if `--no-branches`)
+   - Whether PR conventions were included in issue bodies (or "skipped" if `--no-branches`)
    - Where the user can find them
    - Suggest `/design:prime` before starting implementation so agents have architecture context
 
@@ -156,6 +214,12 @@ You are breaking down an existing specification into trackable work items (epics
 - MUST use `ToolSearch` to discover tracker MCP tools at runtime — never assume specific tools are available
 - MUST check `.design.json` for saved tracker preference before running detection
 - MUST offer to save tracker preference when a tracker is selected for the first time
-- When merging into `.design.json`, preserve existing keys — only update `tracker` and `tracker_config`
+- When merging into `.design.json`, preserve existing keys — only update changed sections
 - Sub-tasks are OPTIONAL — only create them for complex requirements with 3+ scenarios
 - Dependency ordering SHOULD reflect logical implementation order, not spec document order
+- Project grouping failures MUST NOT prevent issue creation
+- Branch slug MUST be derived from requirement name (kebab-case, max 50 chars), not invented
+- PR close keywords MUST match the detected tracker
+- MUST use `ToolSearch` for project tools at runtime
+- `--project` and `--no-projects` are mutually exclusive; if both provided, warn and use `--no-projects`
+- `--no-branches` disables both `### Branch` AND `### PR Convention` sections

@@ -15,7 +15,9 @@ A Claude Code plugin for architecture decision records (ADRs), specifications, a
 | **Docs** | `/design:docs [project name]` | Generate docs with scaffold/integration modes and manifest-based upgrades |
 | **List** | `/design:list [adr\|spec\|all]` | List all ADRs and specs with their status |
 | **Discover** | `/design:discover [scope]` | Discover implicit architecture from an existing codebase |
-| **Plan** | `/design:plan [spec-name or SPEC-XXXX] [--review]` | Break a spec into trackable issues for sprint planning |
+| **Plan** | `/design:plan [spec-name or SPEC-XXXX] [--review] [--project <name>] [--no-projects] [--branch-prefix <prefix>] [--no-branches]` | Break a spec into trackable issues with project grouping and branch conventions |
+| **Organize** | `/design:organize [SPEC-XXXX or spec-name] [--project <name>] [--dry-run]` | Retroactively group existing issues into tracker-native projects |
+| **Enrich** | `/design:enrich [SPEC-XXXX or spec-name] [--branch-prefix <prefix>] [--dry-run]` | Add branch naming and PR conventions to existing issue bodies |
 | **Status** | `/design:status [ID] [status]` | Change the status of an ADR or spec |
 
 ## Install
@@ -38,7 +40,7 @@ Add to your project's `.claude/settings.json`:
 }
 ```
 
-Then restart Claude Code. The plugin's skills will be available as `/design:init`, `/design:prime`, `/design:adr`, `/design:spec`, `/design:plan`, `/design:check`, `/design:audit`, `/design:discover`, `/design:docs`, `/design:list`, and `/design:status`.
+Then restart Claude Code. The plugin's 13 skills will be available as `/design:init`, `/design:prime`, `/design:adr`, `/design:spec`, `/design:plan`, `/design:organize`, `/design:enrich`, `/design:check`, `/design:audit`, `/design:discover`, `/design:docs`, `/design:list`, and `/design:status`.
 
 ## Development
 
@@ -92,8 +94,31 @@ Breaks an existing specification into trackable work items in your issue tracker
   - Saves tracker preference to `.design.json` so you're not re-prompted
 - Creates epics, tasks, and sub-tasks with acceptance criteria referencing spec/requirement numbers
 - Sets up dependency relationships between tasks
+- Project grouping: creates tracker-native projects for each epic (or a single combined project with `--project`). Skip with `--no-projects`.
+- Branch naming: adds `### Branch` sections to issue bodies with `feature/{issue-number}-{slug}` naming convention. Customize prefix with `--branch-prefix`, skip with `--no-branches`.
+- PR conventions: adds `### PR Convention` sections with tracker-specific close keywords (e.g., `Closes #N` for GitHub)
 - Falls back to generating `tasks.md` when no tracker is available (per ADR-0007)
 - Single-agent by default; add `--review` for team-based planning with reviewer
+
+### `/design:organize` -- Organize Issues into Projects
+
+Retroactively groups existing issues into tracker-native projects:
+- Finds issues referencing a spec in your tracker
+- Creates one project per epic (default) or a single combined project (`--project`)
+- Skips projects that already exist (idempotent)
+- Use `--dry-run` to preview without creating
+- No `--review` support (utility skill)
+
+### `/design:enrich` -- Enrich Issues with Workflow Conventions
+
+Retroactively adds branch naming and PR convention sections to existing issue bodies:
+- Finds issues referencing a spec in your tracker
+- Appends `### Branch` sections with `feature/{issue-number}-{slug}` naming
+- Appends `### PR Convention` sections with tracker-specific close keywords
+- Skips issues that already have these sections (idempotent)
+- Use `--dry-run` to preview without modifying
+- Custom branch prefix via `--branch-prefix`
+- No `--review` support (utility skill)
 
 ### `/design:init` -- Initialize Design Plugin
 
@@ -247,10 +272,11 @@ your-project/
 5. **Review**: `/design:list adr` to see all decisions, `/design:status ADR-0001 accepted` to approve
 6. **Specify**: `/design:spec Convert ADR-0001 to a spec` — the agent writes requirements and offers to plan a sprint
 7. **Plan**: `/design:plan SPEC-0001` — break the spec into epics, tasks, and sub-tasks in Beads, GitHub, GitLab, Gitea, Jira, or Linear with acceptance criteria referencing spec/requirement numbers
-8. **Build**: `/design:prime` to load context, then agents work through issues leaving governing comments
-9. **Check**: `/design:check src/auth/` to quick-check for drift while coding
-10. **Audit**: `/design:audit --review` for a comprehensive design review
-11. **Document**: `/design:docs` to generate or upgrade the docs site
+8. **Organize & Enrich** (retroactive): `/design:organize SPEC-0001` to group issues into projects, `/design:enrich SPEC-0001` to add branch and PR conventions
+9. **Build**: `/design:prime` to load context, then agents work through issues leaving governing comments
+10. **Check**: `/design:check src/auth/` to quick-check for drift while coding
+11. **Audit**: `/design:audit --review` for a comprehensive design review
+12. **Document**: `/design:docs` to generate or upgrade the docs site
 
 For thorough team review on critical decisions, add `--review`:
 - `/design:adr Choose a database --review`

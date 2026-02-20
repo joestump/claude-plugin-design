@@ -118,7 +118,22 @@ sprint planning autonomously:
 5. **Sets up dependencies**: For Beads, the agent uses `bd dep add` to
    link tasks that block each other based on requirement relationships.
 
-6. **Reports the plan**: A summary of epics, tasks, and sub-tasks
+6. **Creates project groupings**: For each epic, creates a tracker-native
+   project (GitHub Projects V2, Gitea projects, GitLab milestones) and
+   adds the epic and its tasks. Use `--project "Sprint Name"` for a
+   single combined project, or `--no-projects` to skip.
+
+7. **Adds branch conventions**: Each issue body gets a `### Branch`
+   section with the suggested branch name (`feature/{issue-number}-{slug}`
+   for tasks, `epic/{issue-number}-{slug}` for epics). Skip with
+   `--no-branches`.
+
+8. **Adds PR conventions**: Each issue body gets a `### PR Convention`
+   section with the tracker-specific close keyword (e.g., `Closes #42`
+   for GitHub). Pairs with branch conventions (`--no-branches` disables
+   both).
+
+9. **Reports the plan**: A summary of epics, tasks, and sub-tasks
    created, with links to where they live.
 
 :::tip Planning from /design:spec
@@ -133,6 +148,18 @@ criteria correctly reference WHEN/THEN scenarios (max 2 revision rounds).
 
 ```
 /design:plan SPEC-0003 --review
+```
+:::
+
+:::tip Retroactive enrichment
+Already have issues from a previous `/design:plan` run? Use
+`/design:organize` to group them into projects and `/design:enrich`
+to add branch naming and PR conventions to their bodies — without
+re-creating the issues.
+
+```
+/design:organize SPEC-0003
+/design:enrich SPEC-0003
 ```
 :::
 
@@ -228,6 +255,9 @@ The agent:
   - [ ] Governing: ADR-0005 (chose WebSocket-based notifications)
   ```
 - **Sets up dependencies**: delivery rules are blocked by the event registry
+- **Creates a project** "Notification Service" in GitHub Projects V2 and adds all issues
+- **Adds branch names** to each issue: `feature/42-event-type-registry`, `feature/43-delivery-rules-engine`, etc.
+- **Adds PR conventions**: each issue body includes `Closes #42` referencing itself and `Part of #41` referencing the epic
 - **Reports**: "Created 1 epic, 3 tasks, and 2 sub-tasks in Beads with dependency links."
 
 You can then plan a second spec the same way:

@@ -53,6 +53,14 @@ function SkillsSection() {
             <span>Break specs into sprint issues</span>
           </div>
           <div className={styles.skillCard}>
+            <code>/design:organize</code>
+            <span>Group issues into tracker projects</span>
+          </div>
+          <div className={styles.skillCard}>
+            <code>/design:enrich</code>
+            <span>Add branch/PR conventions to issues</span>
+          </div>
+          <div className={styles.skillCard}>
             <code>/design:check</code>
             <span>Quick-check code for drift</span>
           </div>
