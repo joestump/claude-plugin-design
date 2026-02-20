@@ -49,6 +49,10 @@ function SkillsSection() {
             <span>Create a new specification</span>
           </div>
           <div className={styles.skillCard}>
+            <code>/design:plan</code>
+            <span>Break specs into sprint issues</span>
+          </div>
+          <div className={styles.skillCard}>
             <code>/design:check</code>
             <span>Quick-check code for drift</span>
           </div>
@@ -71,6 +75,14 @@ function SkillsSection() {
           <div className={styles.skillCard}>
             <code>/design:init</code>
             <span>Set up CLAUDE.md for the plugin</span>
+          </div>
+          <div className={styles.skillCard}>
+            <code>/design:list</code>
+            <span>List all ADRs and specs with status</span>
+          </div>
+          <div className={styles.skillCard}>
+            <code>/design:status</code>
+            <span>Update the status of an ADR or spec</span>
           </div>
         </div>
       </div>

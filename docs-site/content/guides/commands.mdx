@@ -55,18 +55,56 @@ then optionally plan a sprint by breaking requirements into trackable issues.
   rationale, and tradeoffs
 - Assigns the next sequential `SPEC-XXXX` number
 - With `--review`, spawns a drafter + architect team (max 2 revision rounds)
-- **After writing the spec**, offers to plan a sprint:
+- **After writing the spec**, offers to plan a sprint inline:
   - Detects available issue trackers ([Beads](https://github.com/steveyegge/beads),
-    GitHub via MCP or `gh` CLI, Gitea via MCP)
+    GitHub, GitLab, Gitea, Jira, and Linear via MCP or CLI)
   - Creates epics, tasks, and sub-tasks from the spec's requirements
   - Writes acceptance criteria referencing spec and requirement numbers
   - Sets up dependency relationships between tasks
-  - Falls back to a structured markdown plan if no tracker is available
+  - Falls back to a structured `tasks.md` file if no tracker is available
+  - For planning existing specs later, use [`/design:plan`](#plan) instead
 
 **Examples:**
 ```
 /design:spec Authentication Service
 /design:spec WebSocket Gateway --review
+```
+
+---
+
+## Sprint Planning {#planning}
+
+### `/design:plan` {#plan}
+
+Break an existing spec into trackable issues in your issue tracker.
+
+**Usage:**
+```
+/design:plan [spec-name or SPEC-XXXX]
+/design:plan [spec-name or SPEC-XXXX] --review
+```
+
+**What it does:**
+- Accepts a spec directory name (e.g., `authentication-service`) or a spec
+  number (e.g., `SPEC-0003`). If omitted, lists available specs and asks
+  which one to plan.
+- Detects available issue trackers: [Beads](https://github.com/steveyegge/beads),
+  GitHub (via MCP or `gh` CLI), GitLab (via MCP or `glab` CLI), Gitea (via MCP),
+  Jira (via MCP), and Linear (via MCP)
+- Saves your tracker preference to `.design.json` so you're not prompted again
+- Creates epics, tasks, and sub-tasks from the spec's requirements, with
+  acceptance criteria referencing spec and requirement numbers
+- Sets up dependency relationships between tasks
+- Falls back to a structured `tasks.md` file co-located with the spec if no
+  tracker is available
+- With `--review`, spawns a planner + reviewer team (max 2 revision rounds).
+  The reviewer verifies every spec requirement has a corresponding issue.
+
+**Examples:**
+```
+/design:plan authentication-service
+/design:plan SPEC-0003
+/design:plan SPEC-0003 --review
 ```
 
 ---

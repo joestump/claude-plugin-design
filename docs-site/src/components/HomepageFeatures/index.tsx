@@ -2,7 +2,7 @@ import type {ReactNode} from 'react';
 import clsx from 'clsx';
 import Link from '@docusaurus/Link';
 import Heading from '@theme/Heading';
-import {FileText, ScrollText, SearchCheck} from 'lucide-react';
+import {FileText, ScrollText, SearchCheck, ListTodo} from 'lucide-react';
 import styles from './styles.module.css';
 
 type FeatureItem = {
@@ -38,6 +38,18 @@ const FeatureList: FeatureItem[] = [
     ),
   },
   {
+    title: 'Sprint Planning',
+    Icon: ListTodo,
+    link: '/guides/commands#plan',
+    description: (
+      <>
+        Break specifications into actionable sprint issues. Supports
+        Beads, GitHub, GitLab, Gitea, Jira, and Linear so your
+        architecture flows straight into your tracker.
+      </>
+    ),
+  },
+  {
     title: 'Drift Detection',
     Icon: SearchCheck,
     link: '/guides/commands#drift',
@@ -53,7 +65,7 @@ const FeatureList: FeatureItem[] = [
 
 function Feature({title, Icon, description, link}: FeatureItem) {
   return (
-    <div className={clsx('col col--4')}>
+    <div className={clsx('col col--3')}>
       <Link to={link} className={styles.featureLink}>
         <div className="text--center">
           <Icon size={64} strokeWidth={1.5} className={styles.featureIcon} />

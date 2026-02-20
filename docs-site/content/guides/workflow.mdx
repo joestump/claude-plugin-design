@@ -76,22 +76,35 @@ for the API gateway, service discovery, and inter-service communication.
 
 ## Phase 3: Plan (Sprint Planning)
 
-After writing the spec, the agent offers to break it down into trackable
-work items — no manual issue creation needed. The agent handles sprint
-planning autonomously:
+Once a spec exists, break it down into trackable work items with
+`/design:plan`:
+
+```
+/design:plan authentication-service
+/design:plan SPEC-0003
+```
+
+The plan skill accepts a spec name or `SPEC-XXXX` number and handles
+sprint planning autonomously:
 
 1. **Detects available issue trackers**: The agent checks for
    [Beads](https://github.com/steveyegge/beads), GitHub (via MCP or
-   `gh` CLI), and Gitea (via MCP) — and asks you to choose if multiple
-   are available. If none are found, it outputs a structured markdown
-   plan instead.
+   `gh` CLI), GitLab (via MCP or `glab` CLI), Gitea (via MCP),
+   Jira (via MCP), and Linear (via MCP) — and asks you to choose if
+   multiple are available. If none are found, it outputs a structured
+   `tasks.md` file co-located with the spec.
 
-2. **Breaks down requirements into issues**: Each `### Requirement:`
+2. **Saves your tracker preference**: On first run, the agent offers to
+   save your chosen tracker to `.design.json` so you're not asked again.
+   Tracker-specific config (repo owner, project key, team ID) is stored
+   alongside the preference.
+
+3. **Breaks down requirements into issues**: Each `### Requirement:`
    in the spec becomes a task, grouped under an epic for the
    specification. Complex requirements with multiple scenarios get
    sub-tasks.
 
-3. **Writes acceptance criteria**: Every issue includes criteria
+4. **Writes acceptance criteria**: Every issue includes criteria
    referencing the spec and requirement numbers:
 
    ```
@@ -102,16 +115,25 @@ planning autonomously:
    - [ ] Governing: ADR-0001 (chose JWT over sessions)
    ```
 
-4. **Sets up dependencies**: For Beads, the agent uses `bd dep add` to
+5. **Sets up dependencies**: For Beads, the agent uses `bd dep add` to
    link tasks that block each other based on requirement relationships.
 
-5. **Reports the plan**: A summary of epics, tasks, and sub-tasks
+6. **Reports the plan**: A summary of epics, tasks, and sub-tasks
    created, with links to where they live.
 
-:::info No human scoping required
-Claude Teams excel at sprint planning. The agent reads the spec,
-understands the requirement relationships, and creates well-structured
-issues with proper acceptance criteria. You review the plan, not author it.
+:::tip Planning from /design:spec
+After creating a new spec, `/design:spec` still offers inline sprint
+planning. For planning existing specs later, use `/design:plan` directly.
+:::
+
+:::tip Use `--review` for thorough planning
+Add `--review` to spawn a planner + reviewer team. The reviewer verifies
+that every spec requirement has a corresponding issue and that acceptance
+criteria correctly reference WHEN/THEN scenarios (max 2 revision rounds).
+
+```
+/design:plan SPEC-0003 --review
+```
 :::
 
 ## Phase 4: Build (Execute + Validate)
@@ -182,16 +204,16 @@ polling. The team accepts WebSockets for bidirectional communication needs.
 The agent writes SPEC-0004 with requirements for event types, delivery
 rules, and notification preferences — each with WHEN/THEN scenarios.
 
-After the spec is written, the agent asks:
+### 3. Plan the sprint
 
-> *"Want me to plan a sprint from this spec? I'll break requirements
-> into issues with acceptance criteria."*
+```
+/design:plan SPEC-0004
+```
 
-### 3. Agent plans the sprint
+The agent:
 
-You say yes, and the agent:
-
-- **Detects Beads** (finds `.beads/` in the project root)
+- **Detects Beads** (finds `.beads/` in the project root) and offers to
+  save the preference to `.design.json`
 - **Creates an epic**: "Implement Notification Service"
 - **Creates tasks** from each requirement:
   - "Event type registry and schema validation" — references SPEC-0004 REQ "Event Types"
@@ -208,14 +230,12 @@ You say yes, and the agent:
 - **Sets up dependencies**: delivery rules are blocked by the event registry
 - **Reports**: "Created 1 epic, 3 tasks, and 2 sub-tasks in Beads with dependency links."
 
-You can then do the same for a second spec:
+You can then plan a second spec the same way:
 
 ```
 /design:spec WebSocket Gateway
+/design:plan SPEC-0005
 ```
-
-The agent writes SPEC-0005 and again offers to plan — creating a second
-epic with its own tasks, acceptance criteria, and dependencies.
 
 ### 4. Prime and build
 
@@ -258,10 +278,13 @@ The sprint planning step detects and supports multiple issue trackers:
 |---------|-----------|-------|
 | [Beads](https://github.com/steveyegge/beads) | `.beads/` directory or `bd` CLI | Preferred for AI-agent workflows. Supports epics, tasks, sub-tasks, and dependency tracking. |
 | GitHub Issues | GitHub MCP tools or `gh` CLI | Creates issues with labels and milestone grouping. |
+| GitLab Issues | GitLab MCP tools or `glab` CLI | Creates issues via the GitLab API. |
 | Gitea Issues | Gitea MCP tools | Creates issues via the Gitea API. |
+| Jira | Jira MCP tools | Creates epics and stories in your Jira project. |
+| Linear | Linear MCP tools | Creates issues in your Linear team. |
 
-If no tracker is detected, the agent outputs a structured markdown sprint
-plan that you can use to create issues manually.
+If no tracker is detected, the agent outputs a structured `tasks.md` file
+co-located with the spec that you can use to track work manually.
 
 ## The Feedback Loop
 
@@ -271,6 +294,8 @@ The workflow is not strictly linear. As you build, you'll discover:
   Record them: `/design:adr`
 - **Spec gaps** — requirements that were too vague or missing entirely.
   Update them: edit the spec, run `/design:check`
+- **Re-planning** — specs evolved during implementation and the backlog
+  needs updating. Re-run: `/design:plan SPEC-0003`
 - **Stale artifacts** — decisions that no longer apply as the system evolved.
   Update their status: `/design:status ADR-0003 deprecated`
 
