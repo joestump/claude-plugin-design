@@ -53,7 +53,7 @@ You are creating an OpenSpec specification consisting of BOTH a `spec.md` and `d
    - **Beads**: Look for a `.beads/` directory in the project root, or run `bd --version` to check if Beads is installed. Beads is the preferred tracker for AI-agent workflows.
    - **GitHub**: Check if GitHub MCP tools are available (tools matching `mcp__github__*` or `mcp__*github*`), or if `gh` CLI is available via `gh --version`.
    - **GitLab**: Check if GitLab MCP tools are available (tools matching `mcp__*gitlab*`), or if `glab` CLI is available via `glab --version`.
-   - **Gitea**: Check if Gitea MCP tools are available (tools matching `mcp__gitea__*` or `mcp__*gitea*`).
+   - **Gitea**: Check if Gitea MCP tools are available (tools matching `mcp__gitea__*` or `mcp__*gitea*`), or if `tea` CLI is available via `tea --version`.
    - **Jira**: Check if Jira MCP tools are available (tools matching `mcp__*jira*`).
    - **Linear**: Check if Linear MCP tools are available (tools matching `mcp__*linear*`).
 

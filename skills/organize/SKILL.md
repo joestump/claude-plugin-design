@@ -33,7 +33,7 @@ You are retroactively grouping existing tracker issues into tracker-native proje
    - **Beads**: Look for `.beads/` directory or run `bd --version`
    - **GitHub**: Use `ToolSearch` for MCP tools matching `github`, or check `gh` CLI
    - **GitLab**: Use `ToolSearch` for MCP tools matching `gitlab`, or check `glab` CLI
-   - **Gitea**: Use `ToolSearch` for MCP tools matching `gitea`
+   - **Gitea**: Use `ToolSearch` for MCP tools matching `gitea`, or check `tea` CLI via `tea --version`
    - **Jira**: Use `ToolSearch` for MCP tools matching `jira`
    - **Linear**: Use `ToolSearch` for MCP tools matching `linear`
 

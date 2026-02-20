@@ -51,7 +51,7 @@ You are breaking down an existing specification into trackable work items (epics
    - **Beads**: Look for a `.beads/` directory in the project root, or run `bd --version` to check if Beads is installed.
    - **GitHub**: Use `ToolSearch` to probe for MCP tools matching `github` (e.g., `mcp__*github*`), or check if `gh` CLI is available via `gh --version`.
    - **GitLab**: Use `ToolSearch` to probe for MCP tools matching `gitlab` (e.g., `mcp__*gitlab*`), or check if `glab` CLI is available via `glab --version`.
-   - **Gitea**: Use `ToolSearch` to probe for MCP tools matching `gitea` (e.g., `mcp__*gitea*`).
+   - **Gitea**: Use `ToolSearch` to probe for MCP tools matching `gitea` (e.g., `mcp__*gitea*`), or check if `tea` CLI is available via `tea --version`.
    - **Jira**: Use `ToolSearch` to probe for MCP tools matching `jira` (e.g., `mcp__*jira*`).
    - **Linear**: Use `ToolSearch` to probe for MCP tools matching `linear` (e.g., `mcp__*linear*`).
 

@@ -34,7 +34,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
    - **Beads**: Look for `.beads/` directory or run `bd --version`.
    - **GitHub**: Use `ToolSearch` to probe for MCP tools matching `github`, or check `gh` CLI via `gh --version`.
    - **GitLab**: Use `ToolSearch` to probe for MCP tools matching `gitlab`, or check `glab` CLI via `glab --version`.
-   - **Gitea**: Use `ToolSearch` to probe for MCP tools matching `gitea`.
+   - **Gitea**: Use `ToolSearch` to probe for MCP tools matching `gitea`, or check if `tea` CLI is available via `tea --version`.
    - **Jira**: Use `ToolSearch` to probe for MCP tools matching `jira`.
    - **Linear**: Use `ToolSearch` to probe for MCP tools matching `linear`.
 

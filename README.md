@@ -91,7 +91,7 @@ Breaks an existing specification into trackable work items in your issue tracker
 - Accepts a spec name or SPEC number (e.g., `/design:plan web-dashboard` or `/design:plan SPEC-0003`)
 - Lists available specs interactively if no argument provided
 - Detects available issue trackers:
-  - [Beads](https://github.com/steveyegge/beads), GitHub (MCP or `gh` CLI), GitLab (MCP or `glab` CLI), Gitea (MCP), Jira (MCP), Linear (MCP)
+  - [Beads](https://github.com/steveyegge/beads), GitHub (MCP or `gh` CLI), GitLab (MCP or `glab` CLI), Gitea (MCP or `tea` CLI), Jira (MCP), Linear (MCP)
   - Saves tracker preference to `.design.json` so you're not re-prompted
 - Creates epics, tasks, and sub-tasks with acceptance criteria referencing spec/requirement numbers
 - Sets up dependency relationships between tasks
