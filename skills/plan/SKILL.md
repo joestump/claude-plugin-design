@@ -68,7 +68,10 @@ You are breaking down an existing specification into trackable work items (epics
      "tracker_config": {},
      "projects": {
        "default_mode": "per-epic",
-       "project_ids": {}
+       "project_ids": {},
+       "views": ["All Work", "Board", "Roadmap"],
+       "columns": ["Todo", "In Progress", "In Review", "Done"],
+       "iteration_weeks": 2
      },
      "branches": {
        "enabled": true,
@@ -95,7 +98,7 @@ You are breaking down an existing specification into trackable work items (epics
 
 5. **Create issues in the detected tracker**:
 
-   **5.1: Create an epic.** Create an epic (or equivalent) for the specification itself, titled "Implement {Capability Title}" with a body referencing the spec number and linking to the spec/design files.
+   **5.1: Create an epic.** Create an epic (or equivalent) for the specification itself, titled "Implement {Capability Title}" with a body referencing the spec number and linking to the spec/design files. Apply the `epic` label using the **try-then-create pattern**: attempt to apply the label, and if it doesn't exist, create it with color `#6E40C9` and retry. (Governing: SPEC-0011 REQ "Auto-Create Labels")
 
    **5.2: Group requirements into stories.** Instead of creating one issue per requirement, group all `### Requirement:` sections into 3-4 story-sized issues by functional area. This is governed by SPEC-0010 and ADR-0011.
 
@@ -175,6 +178,39 @@ You are breaking down an existing specification into trackable work items (epics
    - Read `.design.json` `projects.default_mode` and `projects.project_ids` for cached settings. If a project ID is already cached for this spec, reuse it instead of creating a new one.
    - **Repository linking is critical**: For trackers that support project-repository associations (GitHub Projects V2, Gitea), the project MUST be linked to the repository after creation. Without this step, the project exists but is invisible from the repository's Projects tab.
    - **Graceful failure**: If project creation fails, warn the user but do not block issue creation. Report the failure in the final summary.
+
+   **5.7: Workspace enrichment.** After project creation, enrich the project with navigational context and structure. Read `.design.json` `projects` configuration for custom settings (views, columns, iteration_weeks). All enrichment steps use **graceful degradation**: if a feature is unavailable for the tracker, skip that step and log "Skipped {step}: {tracker} does not support {feature}". (Governing: SPEC-0011, ADR-0012)
+
+   **For GitHub Projects V2:**
+   1. **Set project description**: A short summary referencing the spec number and capability title.
+   2. **Write project README**: Use the GitHub Projects V2 GraphQL API to set the project README field. The README serves as agent-navigable context and SHALL follow this template:
+      ```markdown
+      # {Capability Title}
+      ## Spec
+      - [spec.md](docs/openspec/specs/{name}/spec.md)
+      - [design.md](docs/openspec/specs/{name}/design.md)
+      ## Governing ADRs
+      - ADR-XXXX: {title}
+      ## Key Files
+      - {file}:{line} — {description}
+      ## Stories
+      | # | Title | Branch | Status |
+      |---|-------|--------|--------|
+      | #{n} | {title} | {branch} | Open |
+      ## Dependencies
+      - #{n} → #{m} (prerequisite)
+      ```
+   3. **Add iteration field**: Create a "Sprint" iteration field via GraphQL with cycle length from `.design.json` `projects.iteration_weeks` (default: 2 weeks). Assign foundation stories to Sprint 1, dependents to Sprint 2, etc.
+   4. **Create named views**: Create three views via GraphQL using names from `.design.json` `projects.views` (default: "All Work" table, "Board" board, "Roadmap" roadmap). If a default "Table" view exists, rename it to the first configured view.
+
+   **For Gitea:**
+   1. **Create milestones**: One milestone per epic. Assign stories to the milestone corresponding to their epic.
+   2. **Configure board columns**: Create columns from `.design.json` `projects.columns` (default: Todo, In Progress, In Review, Done).
+   3. **Create native dependency links**: For each story that depends on another, create a native dependency via `POST /repos/{owner}/{repo}/issues/{index}/dependencies` (or via MCP tools discovered by `ToolSearch`).
+
+   **For other trackers**: Skip tracker-specific enrichment. Log skipped steps in the report.
+
+   **Auto-label creation** (cross-cutting, all trackers): When applying labels in any step (epic label, story label, spec label), use the **try-then-create pattern**: attempt to apply the label, and if the tracker returns a "label not found" error, create the label with a default color and retry. Default colors: `epic`=#6E40C9, `story`=#1D76DB, `spec`=#0E8A16, other=#CCCCCC. (Governing: SPEC-0011 REQ "Auto-Create Labels")
 
 6. **Fallback: Generate `tasks.md`** (when no tracker is available):
 
@@ -257,4 +293,8 @@ You are breaking down an existing specification into trackable work items (epics
 - MUST use `ToolSearch` for project tools at runtime
 - `--project` and `--no-projects` are mutually exclusive; if both provided, warn and use `--no-projects`
 - `--no-branches` disables both `### Branch` AND `### PR Convention` sections
+- MUST use try-then-create pattern for all label applications — never fail on missing labels (Governing: SPEC-0011 REQ "Auto-Create Labels")
+- MUST enrich projects after creation with descriptions, READMEs, views, iterations (GitHub) or milestones, columns, dependencies (Gitea) (Governing: SPEC-0011, ADR-0012)
+- Enrichment failures MUST be skipped and reported, never fail the entire operation (Governing: SPEC-0011 REQ "Graceful Degradation")
+- `.design.json` `projects.views`, `projects.columns`, `projects.iteration_weeks` are all optional with sensible defaults — do NOT overwrite existing keys when they are absent
 - Story issues MUST be consumable by `/design:work` and `/design:review` — they use the same `### Branch` and `### PR Convention` structural sections (Governing: SPEC-0010 REQ "Downstream Compatibility")

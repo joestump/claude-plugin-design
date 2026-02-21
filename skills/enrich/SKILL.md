@@ -108,7 +108,9 @@ You are retroactively adding `### Branch` and `### PR Convention` sections to ex
       - **Jira**: `{PROJECT-KEY}-{number}` reference
       - **Linear**: `{TEAM}-{number}` reference
 
-   h. Update the issue body with the appended sections using the tracker API or CLI.
+   h. **Auto-create labels** (Governing: SPEC-0011 REQ "Auto-Create Labels"): When applying labels like `epic` or `story` during enrichment, use the **try-then-create pattern**: attempt to apply the label, and if the tracker returns a "label not found" error, create the label with a default color (epic=#6E40C9, story=#1D76DB, spec=#0E8A16, other=#CCCCCC) and retry.
+
+   i. Update the issue body with the appended sections using the tracker API or CLI.
 
 8. **`--dry-run` mode**: If `--dry-run` is set, show what sections would be added to which issues but don't modify anything:
    - For each issue: show the issue number, title, and which sections would be added
@@ -154,4 +156,5 @@ All keys are optional and backward-compatible. `null` values mean "use tracker d
 - MUST use `ToolSearch` for tracker tools at runtime
 - Failures on individual issues MUST be reported but MUST NOT stop processing remaining issues
 - MUST check `.design.json` for saved tracker preference and branch/PR config before processing
+- MUST use try-then-create pattern for all label applications — never fail on missing labels (Governing: SPEC-0011 REQ "Auto-Create Labels")
 - No `--review` support (utility skill)
