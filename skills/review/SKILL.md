@@ -75,11 +75,11 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
 
    Would review {N} PRs using {pair-count} reviewer-responder pairs.
 
-   | # | PR | Title | Branch | Pair |
-   |---|-----|-------|--------|------|
-   | 1 | #101 | JWT Token Generation | feature/42-jwt-token-generation | Pair 1 |
-   | 2 | #102 | Token Validation | feature/43-token-validation | Pair 2 |
-   | 3 | #103 | Token Refresh | feature/44-token-refresh | Pair 1 |
+   | # | PR | Title | Branch | CI | Pair |
+   |---|-----|-------|--------|-----|------|
+   | 1 | #101 | JWT Token Generation | feature/42-jwt-token-generation | Pass | Pair 1 |
+   | 2 | #102 | Token Validation | feature/43-token-validation | Pass | Pair 2 |
+   | 3 | #103 | Token Refresh | feature/44-token-refresh | Fail | Skipped |
 
    No reviews submitted. No merges performed.
    ```
@@ -108,16 +108,21 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
    **Reviewer steps:**
    1. Fetch the PR diff using the tracker's API or CLI.
    2. Read the linked issue body to extract acceptance criteria.
-   3. Check the diff against:
+   3. **Check CI status**: Before reviewing the diff, verify all status checks are green:
+      - **GitHub**: `gh pr checks {number}` or `gh pr view {number} --json statusCheckRollup` — ALL checks MUST pass.
+      - **Gitea**: Use MCP tools (discovered via `ToolSearch`) to query commit status, or `GET /repos/{owner}/{repo}/commits/{sha}/status`.
+      - **GitLab**: Use MCP tools or `glab ci status`.
+      - If any checks are failing or pending, do NOT proceed with code review. Report to lead: "PR #{number} has failing CI checks — skipping review until checks pass." The lead should retry after checks complete or report it as blocked.
+   4. Check the diff against:
       - Spec acceptance criteria (from the issue body's `## Requirements` or `## Acceptance Criteria` section)
       - Governing ADR compliance
       - General code quality (tests, regressions, clean diffs)
-   4. Submit a review via the tracker's review API:
+   5. Submit a review via the tracker's review API:
       - **GitHub**: `gh api` or MCP tools — submit review with event `APPROVE`, `COMMENT`, or `REQUEST_CHANGES`, including line-level comments where applicable.
       - **Gitea**: Use MCP tools (discovered via `ToolSearch`) to submit a pull request review.
       - **GitLab**: Use MCP tools or `glab` CLI to add review comments.
-   5. If the PR is clean (no issues found), submit `APPROVE` and skip the response round for that PR.
-   6. Report outcome to lead via `SendMessage`.
+   6. If the PR is clean (no issues found), submit `APPROVE` and skip the response round for that PR.
+   7. Report outcome to lead via `SendMessage`.
 
    **Review quality rules:**
    - Reviews MUST reference specific spec acceptance criteria or ADR decisions when identifying issues.
@@ -142,15 +147,16 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
     After the responder pushes fixes, the reviewer re-evaluates:
 
     1. Fetch the updated PR diff.
-    2. If all issues are addressed, submit `APPROVE`.
-    3. If unresolved issues remain, leave a summary comment listing what remains and report to the lead that the PR requires human follow-up.
-    4. If approved and `--no-merge` is NOT set:
+    2. **Re-check CI status**: Verify all status checks are green after the responder's push. If checks are failing, report as blocked (do not approve or merge).
+    3. If all issues are addressed and CI is green, submit `APPROVE`.
+    4. If unresolved issues remain or CI is failing, leave a summary comment listing what remains and report to the lead that the PR requires human follow-up.
+    5. If approved and `--no-merge` is NOT set:
        - Merge the PR using the configured strategy (default: squash).
        - **GitHub**: `gh pr merge {number} --squash` (or `--merge` / `--rebase` per config).
        - **Gitea**: Use MCP tools (discovered via `ToolSearch`) to merge.
        - **GitLab**: Use MCP tools or `glab mr merge`.
        - The tracker's native close-on-merge behavior will automatically close the linked issue.
-    5. If approved and `--no-merge` IS set, report as "approved, pending manual merge".
+    6. If approved and `--no-merge` IS set, report as "approved, pending manual merge".
 
 12. **Cleanup and report** (Governing: SPEC-0009 REQ "Reporting"):
 
@@ -167,14 +173,17 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
 
     ### Results
 
-    | PR | Title | Review | Merge | Status |
-    |----|-------|--------|-------|--------|
-    | #101 | JWT Token Generation | Approved | Merged (squash) | Complete |
-    | #102 | Token Validation | Approved | Merged (squash) | Complete |
-    | #103 | Token Refresh | Changes requested | — | Needs human follow-up |
+    | PR | Title | CI | Review | Merge | Status |
+    |----|-------|----|--------|-------|--------|
+    | #101 | JWT Token Generation | Pass | Approved | Merged (squash) | Complete |
+    | #102 | Token Validation | Pass | Approved | Merged (squash) | Complete |
+    | #103 | Token Refresh | Pass | Changes requested | — | Needs human follow-up |
 
     ### Needs Human Follow-up
     - **#103 Token Refresh**: Reviewer found unresolved issue after response round. Comment left on PR: "Token expiry edge case not covered by tests."
+
+    ### Skipped (CI failing)
+    - (none in this example)
 
     ### Worktrees
     - Reused: 2
@@ -199,6 +208,8 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
 | Responder cannot resolve feedback | Reply explaining why, report to lead, leave for human |
 | Push fails during response | Responder reports error, PR skipped for that round |
 | Worktree in unexpected state | `git pull` and verify correct branch; if unrecoverable, create fresh worktree |
+| CI checks failing or pending | Skip review for that PR; report as blocked until checks pass |
+| CI checks pass after re-evaluation but code issues remain | Report as "CI green, code changes requested" — do not merge |
 
 ## Rules
 
@@ -211,11 +222,14 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
 - Reviewers MUST NOT raise stylistic concerns that are not spec-relevant
 - Responders MUST reuse existing worktrees from `/design:work` when available (Governing: SPEC-0009 REQ "Response Protocol")
 - Responders MUST reply to each review comment with how it was addressed
-- MUST create draft PRs by default — only merge with approval
+- MUST only merge PRs that have been approved by the reviewer
 - MUST NOT merge PRs when `--no-merge` is set
 - Default merge strategy is squash — configurable via `.design.json` `review.merge_strategy`
 - MUST report all failures with actionable details — never silently skip (Governing: SPEC-0009 REQ "Error Handling")
 - `--dry-run` MUST NOT submit reviews, push commits, or merge PRs
 - Adaptive pair count: reduce pairs to min(PR count, configured pairs) for small batches
 - When `TeamCreate` fails, MUST fall back to single-agent sequential mode — never error out
+- MUST verify all CI/CD status checks (GitHub Actions, Gitea Actions, GitLab CI) are green before reviewing a PR — never review a PR with failing checks
+- MUST re-verify CI status after responder pushes fixes — never merge with failing checks
+- MUST NOT merge a PR unless ALL status checks are passing
 - This skill reads `.design.json` but MUST NOT write to it (consumer, not producer) (Governing: SPEC-0009 REQ "Configuration Persistence")
