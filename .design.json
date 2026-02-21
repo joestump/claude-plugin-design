@@ -8,7 +8,10 @@
     "default_mode": "per-epic",
     "project_ids": {
       "SPEC-0007": "PVT_kwHNkyPOAT7qdw",
-      "SPEC-0008": "PVT_kwHNkyPOAT7qew"
+      "SPEC-0008": "PVT_kwHNkyPOAT7qew",
+      "SPEC-0009": "PVT_kwHNkyPOAT7xug",
+      "SPEC-0010": "PVT_kwHNkyPOAT8Jng",
+      "SPEC-0011": "PVT_kwHNkyPOAT8Ksw"
     }
   }
 }
