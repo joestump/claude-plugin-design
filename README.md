@@ -19,6 +19,7 @@ A Claude Code plugin for architecture decision records (ADRs), specifications, a
 | **Organize** | `/design:organize [SPEC-XXXX or spec-name] [--project <name>] [--dry-run]` | Retroactively group existing issues into tracker-native projects |
 | **Enrich** | `/design:enrich [SPEC-XXXX or spec-name] [--branch-prefix <prefix>] [--dry-run]` | Add branch naming and PR conventions to existing issue bodies |
 | **Work** | `/design:work [SPEC-XXXX or issue numbers] [--max-agents N] [--ready] [--dry-run] [--no-tests]` | Pick up tracker issues and implement them in parallel using git worktrees |
+| **Review** | `/design:review [SPEC-XXXX or PR numbers] [--pairs N] [--no-merge] [--dry-run]` | Review and merge PRs using reviewer-responder agent pairs |
 | **Status** | `/design:status [ID] [status]` | Change the status of an ADR or spec |
 
 ## Install
@@ -41,7 +42,7 @@ Add to your project's `.claude/settings.json`:
 }
 ```
 
-Then restart Claude Code. The plugin's 14 skills will be available as `/design:init`, `/design:prime`, `/design:adr`, `/design:spec`, `/design:plan`, `/design:organize`, `/design:enrich`, `/design:work`, `/design:check`, `/design:audit`, `/design:discover`, `/design:docs`, `/design:list`, and `/design:status`.
+Then restart Claude Code. The plugin's 15 skills will be available as `/design:init`, `/design:prime`, `/design:adr`, `/design:spec`, `/design:plan`, `/design:organize`, `/design:enrich`, `/design:work`, `/design:review`, `/design:check`, `/design:audit`, `/design:discover`, `/design:docs`, `/design:list`, and `/design:status`.
 
 ## Development
 
@@ -139,6 +140,21 @@ Picks up tracker issues and implements them in parallel using git worktrees:
 - Failed issues preserve their worktrees for manual pickup
 - Falls back to single-agent sequential mode if team creation fails
 - Configurable via `.design.json` `worktrees` section (base_dir, max_agents, auto_cleanup, pr_mode)
+
+### `/design:review` -- PR Review and Merge
+
+Reviews and merges PRs produced by `/design:work` using reviewer-responder agent pairs:
+- Discovers open PRs by spec number or explicit PR numbers
+- Organizes agents into reviewer-responder pairs (default 2 pairs, configurable with `--pairs`)
+- Reviewers check diffs against spec acceptance criteria and ADR compliance (not just style)
+- Responders address feedback by pushing fix commits and replying to review comments
+- Exactly one review-response round per PR to bound compute
+- Approved PRs are merged automatically (squash by default); use `--no-merge` to skip
+- Reuses existing worktrees from `/design:work` when available
+- Adaptive pair count: reduces to 1 pair for small batches
+- `--dry-run` previews which PRs would be reviewed without taking action
+- Configurable via `.design.json` `review` section (max_pairs, merge_strategy, auto_cleanup)
+- Falls back to single-agent sequential mode if team creation fails
 
 ### `/design:init` -- Initialize Design Plugin
 
@@ -294,7 +310,8 @@ your-project/
 7. **Plan**: `/design:plan SPEC-0001` — break the spec into epics, tasks, and sub-tasks in Beads, GitHub, GitLab, Gitea, Jira, or Linear with acceptance criteria referencing spec/requirement numbers
 8. **Organize & Enrich** (retroactive): `/design:organize SPEC-0001` to group issues into projects, `/design:enrich SPEC-0001` to add branch and PR conventions
 9. **Build**: `/design:work SPEC-0001` to pick up issues and implement them in parallel using git worktrees, or `/design:prime` then manually work through issues
-10. **Check**: `/design:check src/auth/` to quick-check for drift while coding
+10. **Review**: `/design:review SPEC-0001` to review and merge PRs with spec-aware feedback, or `--no-merge` for review-only
+11. **Check**: `/design:check src/auth/` to quick-check for drift while coding
 11. **Audit**: `/design:audit --review` for a comprehensive design review
 12. **Document**: `/design:docs` to generate or upgrade the docs site
 
