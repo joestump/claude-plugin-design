@@ -1,6 +1,6 @@
 # claude-plugin-design
 
-A Claude Code plugin for architecture decision records (ADRs), specifications, and Docusaurus documentation generation.
+A Claude Code plugin for architecture governance: ADRs, specifications, sprint planning, parallel implementation, code review, and documentation generation.
 
 ## Skills
 
@@ -18,7 +18,7 @@ A Claude Code plugin for architecture decision records (ADRs), specifications, a
 | **Plan** | `/design:plan [spec-name or SPEC-XXXX] [--review] [--project <name>] [--no-projects] [--branch-prefix <prefix>] [--no-branches]` | Break a spec into trackable issues with project grouping and branch conventions |
 | **Organize** | `/design:organize [SPEC-XXXX or spec-name] [--project <name>] [--dry-run]` | Retroactively group existing issues into tracker-native projects |
 | **Enrich** | `/design:enrich [SPEC-XXXX or spec-name] [--branch-prefix <prefix>] [--dry-run]` | Add branch naming and PR conventions to existing issue bodies |
-| **Work** | `/design:work [SPEC-XXXX or issue numbers] [--max-agents N] [--ready] [--dry-run] [--no-tests]` | Pick up tracker issues and implement them in parallel using git worktrees |
+| **Work** | `/design:work [SPEC-XXXX or issue numbers] [--max-agents N] [--draft] [--dry-run] [--no-tests]` | Pick up tracker issues and implement them in parallel using git worktrees |
 | **Review** | `/design:review [SPEC-XXXX or PR numbers] [--pairs N] [--no-merge] [--dry-run]` | Review and merge PRs using reviewer-responder agent pairs |
 | **Status** | `/design:status [ID] [status]` | Change the status of an ADR or spec |
 
@@ -94,22 +94,28 @@ Breaks an existing specification into trackable work items in your issue tracker
 - Detects available issue trackers:
   - [Beads](https://github.com/steveyegge/beads), GitHub (MCP or `gh` CLI), GitLab (MCP or `glab` CLI), Gitea (MCP or `tea` CLI), Jira (MCP), Linear (MCP)
   - Saves tracker preference to `.design.json` so you're not re-prompted
-- Creates epics, tasks, and sub-tasks with acceptance criteria referencing spec/requirement numbers
-- Sets up dependency relationships between tasks
+- Groups requirements into 3-4 story-sized issues by functional area (targeting 200-500 line PRs) with task checklists for each requirement
+- Creates an epic for the spec and stories as children with acceptance criteria referencing spec/requirement numbers
+- Sets up dependency relationships between stories
 - Project grouping: creates tracker-native projects for each epic (or a single combined project with `--project`). Projects are automatically linked to the repository so they appear in the repo's Projects tab. Skip with `--no-projects`.
+- Workspace enrichment: GitHub Projects get descriptions, READMEs, Sprint iteration fields, and named views; Gitea gets milestones and board columns
 - Branch naming: adds `### Branch` sections to issue bodies with `feature/{issue-number}-{slug}` naming convention. Customize prefix with `--branch-prefix`, skip with `--no-branches`.
 - PR conventions: adds `### PR Convention` sections with tracker-specific close keywords (e.g., `Closes #N` for GitHub)
+- Auto-creates labels with try-then-create pattern when missing
 - Falls back to generating `tasks.md` when no tracker is available (per ADR-0007)
 - Single-agent by default; add `--review` for team-based planning with reviewer
 
-### `/design:organize` -- Organize Issues into Projects
+### `/design:organize` -- Organize and Enrich Project Workspaces
 
-Retroactively groups existing issues into tracker-native projects:
-- Finds issues referencing a spec in your tracker
-- Creates one project per epic (default) or a single combined project (`--project`)
-- Automatically links projects to the repository so they appear in the repo's Projects tab
-- Skips projects that already exist (idempotent)
-- Use `--dry-run` to preview without creating
+Retroactively organizes issues and enriches project workspaces with a three-tier intervention model:
+- **Tier (a) Leave as-is**: Assess project state and report — no changes made
+- **Tier (b) Restructure workspace**: Add/fix project structure (views, README, columns, iterations, milestones) without touching issues
+- **Tier (c) Complete refactor**: All tier (b) changes plus re-group issues, fix labels, create dependency links, add branch/PR sections
+- GitHub enrichment: project description, README, Sprint iteration field, named views (All Work, Board, Roadmap)
+- Gitea enrichment: milestones for epics, board columns (Todo/In Progress/In Review/Done), native dependency links
+- Auto-creates labels with try-then-create pattern when missing (epic=#6E40C9, story=#1D76DB, spec=#0E8A16)
+- Graceful degradation: skips unsupported features and reports, never fails
+- Use `--dry-run` to preview without modifying
 - No `--review` support (utility skill)
 
 ### `/design:enrich` -- Enrich Issues with Workflow Conventions
@@ -134,7 +140,7 @@ Picks up tracker issues and implements them in parallel using git worktrees:
 - Creates isolated git worktrees for each issue with deterministic branch names
 - Spawns parallel worker agents (default 3, configurable with `--max-agents`)
 - Workers implement changes, leave `// Governing: SPEC-XXXX REQ "..."` comments, run tests, commit, push, and create PRs
-- Draft PRs by default; use `--ready` for non-draft PRs
+- Regular (non-draft) PRs by default; use `--draft` for draft PRs
 - `--dry-run` previews what would happen without doing anything
 - `--no-tests` skips test execution in workers
 - Failed issues preserve their worktrees for manual pickup
@@ -146,8 +152,10 @@ Picks up tracker issues and implements them in parallel using git worktrees:
 Reviews and merges PRs produced by `/design:work` using reviewer-responder agent pairs:
 - Discovers open PRs by spec number or explicit PR numbers
 - Organizes agents into reviewer-responder pairs (default 2 pairs, configurable with `--pairs`)
+- Verifies all CI/CD status checks (GitHub Actions, Gitea Actions, GitLab CI) are green before reviewing — PRs with failing checks are skipped
 - Reviewers check diffs against spec acceptance criteria and ADR compliance (not just style)
 - Responders address feedback by pushing fix commits and replying to review comments
+- Re-verifies CI after responder pushes fixes — never merges with failing checks
 - Exactly one review-response round per PR to bound compute
 - Approved PRs are merged automatically (squash by default); use `--no-merge` to skip
 - Reuses existing worktrees from `/design:work` when available
@@ -312,8 +320,8 @@ your-project/
 9. **Build**: `/design:work SPEC-0001` to pick up issues and implement them in parallel using git worktrees, or `/design:prime` then manually work through issues
 10. **Review**: `/design:review SPEC-0001` to review and merge PRs with spec-aware feedback, or `--no-merge` for review-only
 11. **Check**: `/design:check src/auth/` to quick-check for drift while coding
-11. **Audit**: `/design:audit --review` for a comprehensive design review
-12. **Document**: `/design:docs` to generate or upgrade the docs site
+12. **Audit**: `/design:audit --review` for a comprehensive design review
+13. **Document**: `/design:docs` to generate or upgrade the docs site
 
 For thorough team review on critical decisions, add `--review`:
 - `/design:adr Choose a database --review`

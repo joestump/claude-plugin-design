@@ -1,7 +1,7 @@
 {
   "name": "design",
-  "version": "1.7.2",
-  "description": "Architecture Decision Records (MADR), specifications, and Docusaurus documentation generation.",
+  "version": "1.8.0",
+  "description": "Architecture governance: ADRs, specifications, sprint planning, parallel implementation, code review, and documentation generation.",
   "author": {
     "name": "Joe Stump",
     "url": "https://github.com/joestump"
