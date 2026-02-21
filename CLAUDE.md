@@ -23,6 +23,7 @@ This project uses the [design plugin](https://github.com/joestump/claude-plugin-
 | `/design:organize` | Retroactively group issues into tracker-native projects |
 | `/design:enrich` | Add branch naming and PR conventions to existing issues |
 | `/design:work` | Pick up tracker issues and implement them in parallel using git worktrees |
+| `/design:review` | Review and merge PRs using reviewer-responder agent pairs |
 
 Run `/design:prime [topic]` at the start of a session to load relevant ADRs and specs into context.
 
