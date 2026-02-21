@@ -44,6 +44,98 @@ Add to your project's `.claude/settings.json`:
 
 Then restart Claude Code. The plugin's 15 skills will be available as `/design:init`, `/design:prime`, `/design:adr`, `/design:spec`, `/design:plan`, `/design:organize`, `/design:enrich`, `/design:work`, `/design:review`, `/design:check`, `/design:audit`, `/design:discover`, `/design:docs`, `/design:list`, and `/design:status`.
 
+## Configuration
+
+The `.claude-plugin-design.json` file is a persistent, project-level configuration file for the design plugin. It stores tracker preferences, project settings, branch conventions, and review configuration so you are not re-prompted on every invocation.
+
+**This file should be committed to git** -- it contains shared team settings (tracker choice, branch naming conventions, project defaults) that benefit all contributors.
+
+### Schema Reference
+
+```json
+{
+  "tracker": "github",
+  "tracker_config": {
+    "owner": "your-org",
+    "repo": "your-project"
+  },
+  "projects": {
+    "default_mode": "per-epic",
+    "project_ids": {},
+    "views": ["All Work", "Board", "Roadmap"],
+    "columns": ["Todo", "In Progress", "In Review", "Done"],
+    "iteration_weeks": 2
+  },
+  "branches": {
+    "enabled": true,
+    "prefix": null,
+    "epic_prefix": "epic",
+    "slug_max_length": 50
+  },
+  "pr_conventions": {
+    "enabled": true,
+    "close_keyword": null,
+    "ref_keyword": "Part of",
+    "include_spec_reference": true
+  },
+  "worktrees": {
+    "base_dir": null,
+    "max_agents": 3,
+    "auto_cleanup": false,
+    "pr_mode": "ready"
+  },
+  "review": {
+    "max_pairs": 2,
+    "merge_strategy": "squash",
+    "auto_cleanup": false
+  }
+}
+```
+
+All keys are optional. The file is created automatically when you first save a tracker preference via `/design:plan` or `/design:spec`. Skills merge their updates non-destructively -- existing keys are never overwritten.
+
+### Sections
+
+| Section | Written By | Read By | Purpose |
+|---------|-----------|---------|---------|
+| `tracker` | `/design:plan`, `/design:spec` | All planning/work/review skills | Which issue tracker to use (`github`, `gitea`, `gitlab`, `jira`, `linear`, `beads`) |
+| `tracker_config` | `/design:plan`, `/design:spec` | All planning/work/review skills | Tracker-specific settings (owner/repo, project key, team ID) |
+| `projects` | `/design:plan`, `/design:organize` | `/design:plan`, `/design:organize` | Project grouping defaults, cached project IDs, view/column/iteration config |
+| `branches` | `/design:plan` | `/design:plan`, `/design:enrich` | Branch naming conventions (prefix, epic prefix, slug length) |
+| `pr_conventions` | `/design:plan` | `/design:plan`, `/design:enrich` | PR close keyword and reference format |
+| `worktrees` | Manual | `/design:work` | Worktree base directory, agent concurrency, cleanup, PR mode |
+| `review` | Manual | `/design:review` | Reviewer pair count, merge strategy, cleanup |
+
+### Key Reference
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `tracker` | *(detected)* | Issue tracker name: `github`, `gitea`, `gitlab`, `jira`, `linear`, or `beads` |
+| `tracker_config.owner` | *(prompted)* | Repository owner (GitHub/Gitea/GitLab) |
+| `tracker_config.repo` | *(prompted)* | Repository name (GitHub/Gitea/GitLab) |
+| `tracker_config.project_key` | *(prompted)* | Jira project key |
+| `tracker_config.team_id` | *(prompted)* | Linear team ID |
+| `projects.default_mode` | `"per-epic"` | Project grouping: `"per-epic"` or `"single"` |
+| `projects.project_ids` | `{}` | Cached project IDs keyed by spec number (e.g., `{"SPEC-0007": "PVT_kwDOABC"}`) |
+| `projects.views` | `["All Work", "Board", "Roadmap"]` | Named views for GitHub Projects V2 |
+| `projects.columns` | `["Todo", "In Progress", "In Review", "Done"]` | Board columns for Gitea projects |
+| `projects.iteration_weeks` | `2` | Sprint duration in weeks for GitHub iteration fields |
+| `branches.enabled` | `true` | Whether to add `### Branch` sections to issue bodies |
+| `branches.prefix` | `null` (uses `"feature"`) | Default branch prefix for task issues |
+| `branches.epic_prefix` | `"epic"` | Branch prefix for epic issues |
+| `branches.slug_max_length` | `50` | Maximum slug length in branch names |
+| `pr_conventions.enabled` | `true` | Whether to add `### PR Convention` sections to issue bodies |
+| `pr_conventions.close_keyword` | `null` (tracker default) | Custom close keyword (e.g., `"Fixes"` instead of `"Closes"`) |
+| `pr_conventions.ref_keyword` | `"Part of"` | Keyword for referencing parent epic |
+| `pr_conventions.include_spec_reference` | `true` | Include spec number in PR convention section |
+| `worktrees.base_dir` | `null` (uses `.claude/worktrees/`) | Where worktrees are created |
+| `worktrees.max_agents` | `3` | Default number of parallel worker agents |
+| `worktrees.auto_cleanup` | `false` | Remove worktrees after successful PR creation |
+| `worktrees.pr_mode` | `"ready"` | `"ready"` for regular PRs, `"draft"` for draft PRs |
+| `review.max_pairs` | `2` | Default number of reviewer-responder pairs |
+| `review.merge_strategy` | `"squash"` | Merge strategy: `"squash"`, `"merge"`, or `"rebase"` |
+| `review.auto_cleanup` | `false` | Remove worktrees after review completion |
+
 ## Development
 
 Clone the repo and run Claude Code from the project directory:
@@ -80,7 +172,7 @@ Creates paired spec.md + design.md using [OpenSpec](https://github.com/Fission-A
 - Single-agent by default; add `--review` for team-based drafting with architect review
 - **Sprint planning**: After writing the spec, offers to break requirements into trackable issues:
   - Detects [Beads](https://github.com/steveyegge/beads), GitHub, GitLab, Gitea, Jira, or Linear (MCP or CLI)
-  - Saves tracker preference to `.design.json` for future use
+  - Saves tracker preference to `.claude-plugin-design.json` for future use
   - Creates epics, tasks, and sub-tasks with acceptance criteria referencing spec/requirement numbers
   - Sets up dependency relationships between tasks
   - Falls back to generating `tasks.md` as a co-located openspec artifact when no tracker is available (per ADR-0007)
@@ -93,7 +185,7 @@ Breaks an existing specification into trackable work items in your issue tracker
 - Lists available specs interactively if no argument provided
 - Detects available issue trackers:
   - [Beads](https://github.com/steveyegge/beads), GitHub (MCP or `gh` CLI), GitLab (MCP or `glab` CLI), Gitea (MCP or `tea` CLI), Jira (MCP), Linear (MCP)
-  - Saves tracker preference to `.design.json` so you're not re-prompted
+  - Saves tracker preference to `.claude-plugin-design.json` so you're not re-prompted
 - Groups requirements into 3-4 story-sized issues by functional area (targeting 200-500 line PRs) with task checklists for each requirement
 - Creates an epic for the spec and stories as children with acceptance criteria referencing spec/requirement numbers
 - Sets up dependency relationships between stories
@@ -134,7 +226,7 @@ Retroactively adds branch naming and PR convention sections to existing issue bo
 Picks up tracker issues and implements them in parallel using git worktrees:
 - Accepts a spec number (`SPEC-0003`) to work all open issues, or specific issue numbers (`42 43 47`)
 - Reads spec.md, design.md, and referenced ADRs to give workers full architecture context
-- Detects tracker using the same pattern as `/design:plan` (`.design.json` preference, then auto-detection)
+- Detects tracker using the same pattern as `/design:plan` (`.claude-plugin-design.json` preference, then auto-detection)
 - Filters issues: skips epics and issues without `### Branch` sections (suggests `/design:enrich`)
 - Extracts branch names and PR conventions from issue bodies
 - Creates isolated git worktrees for each issue with deterministic branch names
@@ -145,7 +237,7 @@ Picks up tracker issues and implements them in parallel using git worktrees:
 - `--no-tests` skips test execution in workers
 - Failed issues preserve their worktrees for manual pickup
 - Falls back to single-agent sequential mode if team creation fails
-- Configurable via `.design.json` `worktrees` section (base_dir, max_agents, auto_cleanup, pr_mode)
+- Configurable via `.claude-plugin-design.json` `worktrees` section (base_dir, max_agents, auto_cleanup, pr_mode)
 
 ### `/design:review` -- PR Review and Merge
 
@@ -161,7 +253,7 @@ Reviews and merges PRs produced by `/design:work` using reviewer-responder agent
 - Reuses existing worktrees from `/design:work` when available
 - Adaptive pair count: reduces to 1 pair for small batches
 - `--dry-run` previews which PRs would be reviewed without taking action
-- Configurable via `.design.json` `review` section (max_pairs, merge_strategy, auto_cleanup)
+- Configurable via `.claude-plugin-design.json` `review` section (max_pairs, merge_strategy, auto_cleanup)
 - Falls back to single-agent sequential mode if team creation fails
 
 ### `/design:init` -- Initialize Design Plugin

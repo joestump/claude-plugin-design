@@ -112,7 +112,7 @@ The `/design:plan` skill SHALL preserve all existing behavior for tracker detect
 #### Scenario: Tracker detection unchanged
 
 - **WHEN** the skill detects available trackers
-- **THEN** the detection logic SHALL remain identical to SPEC-0007: check `.design.json` for saved preference, probe for MCP tools via `ToolSearch`, check CLI availability, and follow the same selection flow
+- **THEN** the detection logic SHALL remain identical to SPEC-0007: check `.claude-plugin-design.json` for saved preference, probe for MCP tools via `ToolSearch`, check CLI availability, and follow the same selection flow
 
 #### Scenario: Project grouping unchanged
 
@@ -128,9 +128,9 @@ The `/design:plan` skill SHALL preserve all existing behavior for tracker detect
 
 #### Scenario: Preference persistence unchanged
 
-- **WHEN** the skill reads or writes `.design.json`
+- **WHEN** the skill reads or writes `.claude-plugin-design.json`
 - **THEN** the schema and merge behavior SHALL remain identical to SPEC-0007
-- **AND** no new keys are required in `.design.json` for story-sized issue support
+- **AND** no new keys are required in `.claude-plugin-design.json` for story-sized issue support
 
 #### Scenario: Review mode unchanged
 

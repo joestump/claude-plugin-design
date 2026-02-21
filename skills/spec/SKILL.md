@@ -47,7 +47,7 @@ You are creating an OpenSpec specification consisting of BOTH a `spec.md` and `d
 
    **8.1: Detect available issue trackers.**
 
-   First, check for a saved preference: read `.design.json` in the project root. If it contains a `"tracker"` key, use that tracker directly (and `"tracker_config"` for settings like owner/repo). If the saved tracker's tools are no longer available, warn the user and fall through to detection.
+   First, check for a saved preference: read `.claude-plugin-design.json` in the project root. If it contains a `"tracker"` key, use that tracker directly (and `"tracker_config"` for settings like owner/repo). If the saved tracker's tools are no longer available, warn the user and fall through to detection.
 
    If no saved preference, detect trackers:
    - **Beads**: Look for a `.beads/` directory in the project root, or run `bd --version` to check if Beads is installed. Beads is the preferred tracker for AI-agent workflows.
@@ -57,7 +57,7 @@ You are creating an OpenSpec specification consisting of BOTH a `spec.md` and `d
    - **Jira**: Check if Jira MCP tools are available (tools matching `mcp__*jira*`).
    - **Linear**: Check if Linear MCP tools are available (tools matching `mcp__*linear*`).
 
-   If multiple trackers are found, use `AskUserQuestion` to let the user choose. Offer to save the choice to `.design.json`.
+   If multiple trackers are found, use `AskUserQuestion` to let the user choose. Offer to save the choice to `.claude-plugin-design.json`.
 
    > **Tip**: For planning against existing specs, use `/design:plan` — it provides a dedicated workflow for breaking specs into issues with full tracker detection and preference persistence.
 

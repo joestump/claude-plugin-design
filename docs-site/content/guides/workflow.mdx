@@ -95,7 +95,7 @@ sprint planning autonomously:
    `tasks.md` file co-located with the spec.
 
 2. **Saves your tracker preference**: On first run, the agent offers to
-   save your chosen tracker to `.design.json` so you're not asked again.
+   save your chosen tracker to `.claude-plugin-design.json` so you're not asked again.
    Tracker-specific config (repo owner, project key, team ID) is stored
    alongside the preference.
 
@@ -240,7 +240,7 @@ rules, and notification preferences — each with WHEN/THEN scenarios.
 The agent:
 
 - **Detects Beads** (finds `.beads/` in the project root) and offers to
-  save the preference to `.design.json`
+  save the preference to `.claude-plugin-design.json`
 - **Creates an epic**: "Implement Notification Service"
 - **Creates tasks** from each requirement:
   - "Event type registry and schema validation" — references SPEC-0004 REQ "Event Types"

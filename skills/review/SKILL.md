@@ -19,13 +19,13 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
    - If `$ARGUMENTS` is empty (ignoring flags), list available specs by globbing `docs/openspec/specs/*/spec.md`, read the title from each, and use `AskUserQuestion` to ask which spec's PRs to review.
 
    **Flag parsing:**
-   - `--pairs N`: Number of reviewer-responder pairs (default 2). Read `.design.json` `review.max_pairs` as fallback default.
+   - `--pairs N`: Number of reviewer-responder pairs (default 2). Read `.claude-plugin-design.json` `review.max_pairs` as fallback default.
    - `--no-merge`: Approve PRs but do not merge them. Leave for manual merge.
    - `--dry-run`: Preview which PRs would be reviewed without taking any action.
 
 2. **Detect tracker**: Follow the same pattern as `/design:plan`:
 
-   **2.1: Check for saved preference.** Read `.design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly. If it also has `"tracker_config"`, use those settings. If the saved tracker's tools are no longer available, warn and fall through to detection.
+   **2.1: Check for saved preference.** Read `.claude-plugin-design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly. If it also has `"tracker_config"`, use those settings. If the saved tracker's tools are no longer available, warn and fall through to detection.
 
    **2.2: Detect available trackers.** Check for each tracker:
    - **GitHub**: Use `ToolSearch` to probe for MCP tools matching `github`, or check `gh` CLI via `gh --version`.
@@ -48,7 +48,7 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
    - If no governing spec can be inferred (e.g., PRs specified by number with no spec reference), proceed with general code review only and note in the report that spec compliance could not be verified.
    - This context will be sent to all reviewer agents.
 
-5. **Read `.design.json` review config**: Check for `review` section and apply defaults:
+5. **Read `.claude-plugin-design.json` review config**: Check for `review` section and apply defaults:
 
    ```json
    {
@@ -66,7 +66,7 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
    | `merge_strategy` | `"squash"` | Merge strategy: `"squash"`, `"merge"`, or `"rebase"` |
    | `auto_cleanup` | `false` | Remove worktrees after review completion |
 
-   CLI flags override `.design.json` values. `--pairs N` overrides `review.max_pairs`. `--no-merge` prevents merging regardless of config.
+   CLI flags override `.claude-plugin-design.json` values. `--pairs N` overrides `review.max_pairs`. `--no-merge` prevents merging regardless of config.
 
 6. **Dry-run gate**: If `--dry-run` is set, output a preview table and stop:
 
@@ -162,7 +162,7 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
 
     **12.1: Shut down team.** Send `shutdown_request` to all agents via `SendMessage`.
 
-    **12.2: Offer worktree cleanup.** If `.design.json` `review.auto_cleanup` is `true`, remove worktrees for successfully-processed PRs automatically. Otherwise, preserve them.
+    **12.2: Offer worktree cleanup.** If `.claude-plugin-design.json` `review.auto_cleanup` is `true`, remove worktrees for successfully-processed PRs automatically. Otherwise, preserve them.
 
     **12.3: Final report.**
 
@@ -215,7 +215,7 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
 
 - MUST load spec and design context before dispatching reviewers
 - MUST use `ToolSearch` to discover tracker MCP tools at runtime — never assume specific tools are available
-- MUST check `.design.json` for saved tracker preference before running detection
+- MUST check `.claude-plugin-design.json` for saved tracker preference before running detection
 - MUST use round-robin distribution across pairs (Governing: SPEC-0009 REQ "PR Distribution")
 - MUST limit to exactly one review-response round per PR — no unbounded iteration (Governing: ADR-0010)
 - Reviewers MUST reference spec acceptance criteria in their reviews — not just style (Governing: SPEC-0009 REQ "Review Protocol")
@@ -224,7 +224,7 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
 - Responders MUST reply to each review comment with how it was addressed
 - MUST only merge PRs that have been approved by the reviewer
 - MUST NOT merge PRs when `--no-merge` is set
-- Default merge strategy is squash — configurable via `.design.json` `review.merge_strategy`
+- Default merge strategy is squash — configurable via `.claude-plugin-design.json` `review.merge_strategy`
 - MUST report all failures with actionable details — never silently skip (Governing: SPEC-0009 REQ "Error Handling")
 - `--dry-run` MUST NOT submit reviews, push commits, or merge PRs
 - Adaptive pair count: reduce pairs to min(PR count, configured pairs) for small batches
@@ -232,4 +232,4 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
 - MUST verify all CI/CD status checks (GitHub Actions, Gitea Actions, GitLab CI) are green before reviewing a PR — never review a PR with failing checks
 - MUST re-verify CI status after responder pushes fixes — never merge with failing checks
 - MUST NOT merge a PR unless ALL status checks are passing
-- This skill reads `.design.json` but MUST NOT write to it (consumer, not producer) (Governing: SPEC-0009 REQ "Configuration Persistence")
+- This skill reads `.claude-plugin-design.json` but MUST NOT write to it (consumer, not producer) (Governing: SPEC-0009 REQ "Configuration Persistence")

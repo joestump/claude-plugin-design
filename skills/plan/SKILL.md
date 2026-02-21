@@ -45,7 +45,7 @@ You are breaking down an existing specification into trackable work items (epics
 
 4. **Detect the issue tracker**:
 
-   **4.1: Check for saved preference.** Read `.design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly. If it also has `"tracker_config"`, use those settings (owner, repo, project key, etc.) to avoid re-prompting. If the saved tracker's tools are no longer available (e.g., MCP server was removed), warn the user: "Your saved tracker '{name}' is no longer available. Detecting other trackers..." and fall through to detection.
+   **4.1: Check for saved preference.** Read `.claude-plugin-design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly. If it also has `"tracker_config"`, use those settings (owner, repo, project key, etc.) to avoid re-prompting. If the saved tracker's tools are no longer available (e.g., MCP server was removed), warn the user: "Your saved tracker '{name}' is no longer available. Detecting other trackers..." and fall through to detection.
 
    **4.2: Detect available trackers.** Check for each tracker:
    - **Beads**: Look for a `.beads/` directory in the project root, or run `bd --version` to check if Beads is installed.
@@ -60,7 +60,7 @@ You are breaking down an existing specification into trackable work items (epics
    - If exactly one found → use it. Ask the user if they want to save it as default.
    - If none found → generate `tasks.md` (see step 6).
 
-   **4.4: Save preference (if user opts in).** When the user agrees to save their tracker choice, write `.design.json` in the project root. The full schema supports these keys (all new keys are optional and backward-compatible; `null` values mean "use tracker defaults"):
+   **4.4: Save preference (if user opts in).** When the user agrees to save their tracker choice, write `.claude-plugin-design.json` in the project root. The full schema supports these keys (all new keys are optional and backward-compatible; `null` values mean "use tracker defaults"):
 
    ```json
    {
@@ -94,7 +94,7 @@ You are breaking down an existing specification into trackable work items (epics
    - **Linear**: `{ "team_id": "..." }`
    - **Beads**: `{}` (no extra config needed)
 
-   If `.design.json` already exists with other keys, merge — don't overwrite the entire file.
+   If `.claude-plugin-design.json` already exists with other keys, merge — don't overwrite the entire file.
 
 5. **Create issues in the detected tracker**:
 
@@ -117,9 +117,9 @@ You are breaking down an existing specification into trackable work items (epics
      - A `## Requirements` section containing a task checklist (see step 5.3)
      - Acceptance criteria summarized at the end
    - **After creating the issue** (to obtain the issue number), unless `--no-branches` is set, update the issue body to append a `### Branch` section:
-     - Stories: `` `feature/{issue-number}-{slug}` `` (or custom prefix from `--branch-prefix` or `.design.json` `branches.prefix`)
-     - Epics: `` `epic/{issue-number}-{slug}` `` (or custom prefix from `--branch-prefix` or `.design.json` `branches.epic_prefix`)
-     - The slug MUST be derived from the story title using kebab-case, max 50 chars (or `.design.json` `branches.slug_max_length`)
+     - Stories: `` `feature/{issue-number}-{slug}` `` (or custom prefix from `--branch-prefix` or `.claude-plugin-design.json` `branches.prefix`)
+     - Epics: `` `epic/{issue-number}-{slug}` `` (or custom prefix from `--branch-prefix` or `.claude-plugin-design.json` `branches.epic_prefix`)
+     - The slug MUST be derived from the story title using kebab-case, max 50 chars (or `.claude-plugin-design.json` `branches.slug_max_length`)
      - This requires a two-pass approach: create the issue first to get the number, then update the body
 
    **5.3: Write task checklists.** Each story issue body MUST include a `## Requirements` section with a task checklist. The format varies by tracker:
@@ -159,11 +159,11 @@ You are breaking down an existing specification into trackable work items (epics
      - **Beads**: `bd resolve`
      - **Jira**: `{PROJECT-KEY}-{number}` reference
      - **Linear**: `{TEAM}-{number}` reference
-   - Use `.design.json` `pr_conventions` settings when available (close_keyword, ref_keyword, include_spec_reference)
+   - Use `.claude-plugin-design.json` `pr_conventions` settings when available (close_keyword, ref_keyword, include_spec_reference)
 
    **5.4: Set up dependencies between stories.** Where stories have logical ordering (e.g., setup before core logic, core before extensions), set up dependency relationships between story issues using the tracker's native features. If using Beads, use `bd dep add`.
 
-   **5.5: Gather tracker-specific config.** If the tracker requires configuration not already saved (e.g., repo owner/name for GitHub, project key for Jira), use `AskUserQuestion` to ask the user. Offer to save the config to `.design.json`.
+   **5.5: Gather tracker-specific config.** If the tracker requires configuration not already saved (e.g., repo owner/name for GitHub, project key for Jira), use `AskUserQuestion` to ask the user. Offer to save the config to `.claude-plugin-design.json`.
 
    **5.6: Project grouping.** Unless `--no-projects` is set:
    - **Default (per-epic)**: For each epic, create a tracker-native project and add the epic and its child stories:
@@ -175,11 +175,11 @@ You are breaking down an existing specification into trackable work items (epics
      - **Beads**: No-op (the epic IS the grouping)
    - **`--project <name>`**: Create a single project with the given name and add all issues to it
    - Use `ToolSearch` to discover project-creation MCP tools at runtime
-   - Read `.design.json` `projects.default_mode` and `projects.project_ids` for cached settings. If a project ID is already cached for this spec, reuse it instead of creating a new one.
+   - Read `.claude-plugin-design.json` `projects.default_mode` and `projects.project_ids` for cached settings. If a project ID is already cached for this spec, reuse it instead of creating a new one.
    - **Repository linking is critical**: For trackers that support project-repository associations (GitHub Projects V2, Gitea), the project MUST be linked to the repository after creation. Without this step, the project exists but is invisible from the repository's Projects tab.
    - **Graceful failure**: If project creation fails, warn the user but do not block issue creation. Report the failure in the final summary.
 
-   **5.7: Workspace enrichment.** After project creation, enrich the project with navigational context and structure. Read `.design.json` `projects` configuration for custom settings (views, columns, iteration_weeks). All enrichment steps use **graceful degradation**: if a feature is unavailable for the tracker, skip that step and log "Skipped {step}: {tracker} does not support {feature}". (Governing: SPEC-0011, ADR-0012)
+   **5.7: Workspace enrichment.** After project creation, enrich the project with navigational context and structure. Read `.claude-plugin-design.json` `projects` configuration for custom settings (views, columns, iteration_weeks). All enrichment steps use **graceful degradation**: if a feature is unavailable for the tracker, skip that step and log "Skipped {step}: {tracker} does not support {feature}". (Governing: SPEC-0011, ADR-0012)
 
    **For GitHub Projects V2:**
    1. **Set project description**: A short summary referencing the spec number and capability title.
@@ -200,12 +200,12 @@ You are breaking down an existing specification into trackable work items (epics
       ## Dependencies
       - #{n} → #{m} (prerequisite)
       ```
-   3. **Add iteration field**: Create a "Sprint" iteration field via GraphQL with cycle length from `.design.json` `projects.iteration_weeks` (default: 2 weeks). Assign foundation stories to Sprint 1, dependents to Sprint 2, etc.
-   4. **Create named views**: Create three views via GraphQL using names from `.design.json` `projects.views` (default: "All Work" table, "Board" board, "Roadmap" roadmap). If a default "Table" view exists, rename it to the first configured view.
+   3. **Add iteration field**: Create a "Sprint" iteration field via GraphQL with cycle length from `.claude-plugin-design.json` `projects.iteration_weeks` (default: 2 weeks). Assign foundation stories to Sprint 1, dependents to Sprint 2, etc.
+   4. **Create named views**: Create three views via GraphQL using names from `.claude-plugin-design.json` `projects.views` (default: "All Work" table, "Board" board, "Roadmap" roadmap). If a default "Table" view exists, rename it to the first configured view.
 
    **For Gitea:**
    1. **Create milestones**: One milestone per epic. Assign stories to the milestone corresponding to their epic.
-   2. **Configure board columns**: Create columns from `.design.json` `projects.columns` (default: Todo, In Progress, In Review, Done).
+   2. **Configure board columns**: Create columns from `.claude-plugin-design.json` `projects.columns` (default: Todo, In Progress, In Review, Done).
    3. **Create native dependency links**: For each story that depends on another, create a native dependency via `POST /repos/{owner}/{repo}/issues/{index}/dependencies` (or via MCP tools discovered by `ToolSearch`).
 
    **For other trackers**: Skip tracker-specific enrichment. Log skipped steps in the report.
@@ -282,9 +282,9 @@ You are breaking down an existing specification into trackable work items (epics
 - Story groupings SHOULD target 200-500 line PRs — functional cohesion takes priority over line-count targets (Governing: SPEC-0010 REQ "PR Size Target")
 - Coupled requirements (same files, shared data structures) MUST be placed in the same story (Governing: SPEC-0010 REQ "Grouping Heuristics")
 - MUST use `ToolSearch` to discover tracker MCP tools at runtime — never assume specific tools are available
-- MUST check `.design.json` for saved tracker preference before running detection
+- MUST check `.claude-plugin-design.json` for saved tracker preference before running detection
 - MUST offer to save tracker preference when a tracker is selected for the first time
-- When merging into `.design.json`, preserve existing keys — only update changed sections
+- When merging into `.claude-plugin-design.json`, preserve existing keys — only update changed sections
 - Dependency ordering between stories SHOULD reflect logical implementation order, not spec document order
 - Project grouping failures MUST NOT prevent issue creation
 - MUST link created projects to the repository for trackers that support project-repository associations (e.g., GitHub Projects V2 via `gh project link`, Gitea). Without linking, projects are invisible from the repository's Projects tab.
@@ -296,5 +296,5 @@ You are breaking down an existing specification into trackable work items (epics
 - MUST use try-then-create pattern for all label applications — never fail on missing labels (Governing: SPEC-0011 REQ "Auto-Create Labels")
 - MUST enrich projects after creation with descriptions, READMEs, views, iterations (GitHub) or milestones, columns, dependencies (Gitea) (Governing: SPEC-0011, ADR-0012)
 - Enrichment failures MUST be skipped and reported, never fail the entire operation (Governing: SPEC-0011 REQ "Graceful Degradation")
-- `.design.json` `projects.views`, `projects.columns`, `projects.iteration_weeks` are all optional with sensible defaults — do NOT overwrite existing keys when they are absent
+- `.claude-plugin-design.json` `projects.views`, `projects.columns`, `projects.iteration_weeks` are all optional with sensible defaults — do NOT overwrite existing keys when they are absent
 - Story issues MUST be consumable by `/design:work` and `/design:review` — they use the same `### Branch` and `### PR Convention` structural sections (Governing: SPEC-0010 REQ "Downstream Compatibility")

@@ -32,11 +32,11 @@ Both `/design:organize` and `/design:enrich` SHALL accept a spec identifier as t
 
 ### Requirement: Tracker Detection
 
-Both skills SHALL detect the user's issue tracker using the same detection flow as `/design:plan` (SPEC-0007, Requirement: Tracker Detection). Both skills MUST check `.design.json` for a saved tracker preference before running detection.
+Both skills SHALL detect the user's issue tracker using the same detection flow as `/design:plan` (SPEC-0007, Requirement: Tracker Detection). Both skills MUST check `.claude-plugin-design.json` for a saved tracker preference before running detection.
 
 #### Scenario: Saved preference available
 
-- **WHEN** `.design.json` exists with a `"tracker"` key and the tracker is still available
+- **WHEN** `.claude-plugin-design.json` exists with a `"tracker"` key and the tracker is still available
 - **THEN** the skill SHALL use the saved tracker and configuration directly without prompting
 
 #### Scenario: No tracker detected
@@ -103,7 +103,7 @@ The `/design:organize` skill SHALL create tracker-native projects and add discov
 
 #### Scenario: Cached project IDs
 
-- **WHEN** `.design.json` contains a `projects.project_ids` entry for the target spec
+- **WHEN** `.claude-plugin-design.json` contains a `projects.project_ids` entry for the target spec
 - **THEN** the skill SHALL reuse the existing project instead of creating a new one and SHALL add any newly discovered issues to it
 
 #### Scenario: Tracker without project support
@@ -137,7 +137,7 @@ The `/design:enrich` skill SHALL append a `### Branch` section to issue bodies t
 
 #### Scenario: Custom branch prefix
 
-- **WHEN** the user passes `--branch-prefix hotfix` or `.design.json` contains `branches.prefix: "hotfix"`
+- **WHEN** the user passes `--branch-prefix hotfix` or `.claude-plugin-design.json` contains `branches.prefix: "hotfix"`
 - **THEN** the skill SHALL use `hotfix` as the prefix instead of `feature` for task branches
 
 #### Scenario: Branch section already exists
@@ -147,7 +147,7 @@ The `/design:enrich` skill SHALL append a `### Branch` section to issue bodies t
 
 #### Scenario: Branches disabled in config
 
-- **WHEN** `.design.json` contains `branches.enabled: false`
+- **WHEN** `.claude-plugin-design.json` contains `branches.enabled: false`
 - **THEN** the skill SHALL skip `### Branch` sections entirely and inform the user
 
 ### Requirement: PR Convention Enrichment (enrich)
@@ -181,7 +181,7 @@ The `/design:enrich` skill SHALL append a `### PR Convention` section to issue b
 
 #### Scenario: PR conventions disabled in config
 
-- **WHEN** `.design.json` contains `pr_conventions.enabled: false`
+- **WHEN** `.claude-plugin-design.json` contains `pr_conventions.enabled: false`
 - **THEN** the skill SHALL skip `### PR Convention` sections entirely and inform the user
 
 ### Requirement: Slug Derivation
@@ -200,7 +200,7 @@ Both skills SHALL derive branch slugs from issue titles using a deterministic ke
 
 #### Scenario: Long titles
 
-- **WHEN** an issue title produces a slug longer than 50 characters (or `branches.slug_max_length` from `.design.json`)
+- **WHEN** an issue title produces a slug longer than 50 characters (or `branches.slug_max_length` from `.claude-plugin-design.json`)
 - **THEN** the slug SHALL be truncated to the maximum length and trailing hyphens SHALL be stripped
 
 ### Requirement: Dry Run Mode
@@ -219,21 +219,21 @@ Both skills SHALL support a `--dry-run` flag that previews changes without modif
 
 ### Requirement: Configuration Persistence
 
-Both skills SHALL read from `.design.json` for saved configuration. The `/design:organize` skill SHALL offer to save project IDs after successful creation. Neither skill SHALL overwrite existing `.design.json` keys when writing.
+Both skills SHALL read from `.claude-plugin-design.json` for saved configuration. The `/design:organize` skill SHALL offer to save project IDs after successful creation. Neither skill SHALL overwrite existing `.claude-plugin-design.json` keys when writing.
 
 #### Scenario: Organize saves project IDs
 
 - **WHEN** `/design:organize` creates new projects
-- **THEN** the skill SHALL offer to save the project IDs to `.design.json` under `projects.project_ids` keyed by spec number
+- **THEN** the skill SHALL offer to save the project IDs to `.claude-plugin-design.json` under `projects.project_ids` keyed by spec number
 
 #### Scenario: Enrich reads branch config
 
 - **WHEN** `/design:enrich` runs
-- **THEN** the skill SHALL read `.design.json` sections `branches` and `pr_conventions` for saved preferences (prefix, slug_max_length, close_keyword, ref_keyword) and apply them
+- **THEN** the skill SHALL read `.claude-plugin-design.json` sections `branches` and `pr_conventions` for saved preferences (prefix, slug_max_length, close_keyword, ref_keyword) and apply them
 
-#### Scenario: Merging with existing .design.json
+#### Scenario: Merging with existing .claude-plugin-design.json
 
-- **WHEN** `.design.json` already exists with other keys
+- **WHEN** `.claude-plugin-design.json` already exists with other keys
 - **THEN** the skill SHALL merge without overwriting the entire file
 
 ### Requirement: Error Handling and Resilience
@@ -257,7 +257,7 @@ Both skills SHALL produce a summary report after execution.
 #### Scenario: Organize report
 
 - **WHEN** `/design:organize` completes
-- **THEN** the skill SHALL report: number of projects created (or reused), number of issues organized into projects, any failures with issue numbers, and whether `.design.json` was updated
+- **THEN** the skill SHALL report: number of projects created (or reused), number of issues organized into projects, any failures with issue numbers, and whether `.claude-plugin-design.json` was updated
 
 #### Scenario: Enrich report
 

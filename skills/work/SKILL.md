@@ -19,8 +19,8 @@ You are picking up tracker issues and implementing them in parallel using git wo
    - If `$ARGUMENTS` is empty (ignoring flags), list available specs by globbing `docs/openspec/specs/*/spec.md`, read the title from each, and use `AskUserQuestion` to ask which spec to implement.
 
    **Flag parsing:**
-   - `--max-agents N`: Maximum concurrent worker agents (default 3). Read `.design.json` `worktrees.max_agents` as fallback default.
-   - `--draft`: Create draft PRs instead of regular PRs. Default is regular (non-draft) PRs. Read `.design.json` `worktrees.pr_mode` as fallback.
+   - `--max-agents N`: Maximum concurrent worker agents (default 3). Read `.claude-plugin-design.json` `worktrees.max_agents` as fallback default.
+   - `--draft`: Create draft PRs instead of regular PRs. Default is regular (non-draft) PRs. Read `.claude-plugin-design.json` `worktrees.pr_mode` as fallback.
    - `--dry-run`: Preview what would happen without creating worktrees or doing any work. Report the list of issues, branch names, and agent assignments, then stop.
    - `--no-tests`: Skip test execution in workers.
 
@@ -28,7 +28,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
 
 3. **Detect tracker**: Follow the same pattern as `/design:plan`:
 
-   **3.1: Check for saved preference.** Read `.design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly. If it also has `"tracker_config"`, use those settings. If the saved tracker's tools are no longer available, warn and fall through to detection.
+   **3.1: Check for saved preference.** Read `.claude-plugin-design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly. If it also has `"tracker_config"`, use those settings. If the saved tracker's tools are no longer available, warn and fall through to detection.
 
    **3.2: Detect available trackers.** Check for each tracker:
    - **Beads**: Look for `.beads/` directory or run `bd --version`.
@@ -79,7 +79,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
      - If the user says stop, halt and report.
    - Run `git fetch` to ensure we have the latest remote state.
 
-7. **Read `.design.json` worktree config**: Check for `worktrees` section and apply defaults:
+7. **Read `.claude-plugin-design.json` worktree config**: Check for `worktrees` section and apply defaults:
 
    ```json
    {
@@ -99,7 +99,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
    | `auto_cleanup` | `false` | Remove worktrees after PR creation |
    | `pr_mode` | `"ready"` | `"draft"` or `"ready"` |
 
-   CLI flags override `.design.json` values. `--max-agents N` overrides `worktrees.max_agents`. `--draft` overrides `worktrees.pr_mode` to `"draft"`.
+   CLI flags override `.claude-plugin-design.json` values. `--max-agents N` overrides `worktrees.max_agents`. `--draft` overrides `worktrees.pr_mode` to `"draft"`.
 
 8. **Create team**: Use `TeamCreate` to create a coordination team. The lead (you) manages the task queue and monitors progress. Spawn up to `--max-agents` worker agents using `Task` with `subagent_type: "general-purpose"`.
 
@@ -111,7 +111,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
    ```bash
    git worktree add .claude/worktrees/{branch-name} -b {branch-name}
    ```
-   Use the base directory from `.design.json` `worktrees.base_dir` if set, otherwise `.claude/worktrees/`.
+   Use the base directory from `.claude-plugin-design.json` `worktrees.base_dir` if set, otherwise `.claude/worktrees/`.
 
    **9.2: Create a task** using `TaskCreate` for each issue, with the issue details, branch name, and worktree path.
 
@@ -165,7 +165,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
 
     **12.1: Shut down team.** Send `shutdown_request` to all workers via `SendMessage`.
 
-    **12.2: Offer worktree cleanup.** If `.design.json` `worktrees.auto_cleanup` is `true`, remove worktrees for successfully-PRed issues automatically. Otherwise, use `AskUserQuestion`:
+    **12.2: Offer worktree cleanup.** If `.claude-plugin-design.json` `worktrees.auto_cleanup` is `true`, remove worktrees for successfully-PRed issues automatically. Otherwise, use `AskUserQuestion`:
     - "Remove worktrees for completed issues? (Failed issue worktrees are always preserved.)"
     - Options: "Yes, clean up" / "No, keep them"
     - If yes: `git worktree remove .claude/worktrees/{branch-name}` for each successful issue.
@@ -224,7 +224,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
 
 - MUST read spec.md and design.md before dispatching any workers
 - MUST use `ToolSearch` to discover tracker MCP tools at runtime — never assume specific tools are available
-- MUST check `.design.json` for saved tracker preference before running detection
+- MUST check `.claude-plugin-design.json` for saved tracker preference before running detection
 - MUST extract branch names from issue bodies — never invent branch names
 - MUST skip epics (labeled `epic` or titled "Implement ...") — only work on implementation issues
 - MUST skip issues without `### Branch` sections and suggest `/design:enrich`

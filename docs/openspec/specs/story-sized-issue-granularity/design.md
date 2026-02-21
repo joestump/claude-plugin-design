@@ -19,7 +19,7 @@ The `/design:plan` skill (ADR-0008, SPEC-0007) currently creates one tracker iss
 - Enforcing the 200-500 line target as a hard constraint -- functional cohesion takes priority
 - Changing the epic structure -- one epic per spec is preserved
 - Modifying `/design:work` or `/design:review` skill logic -- stories are structurally compatible with existing consumption patterns
-- Adding new `.design.json` keys or flags -- story-sized grouping is the new default behavior, not an opt-in feature
+- Adding new `.claude-plugin-design.json` keys or flags -- story-sized grouping is the new default behavior, not an opt-in feature
 - Providing a way to override the grouping (e.g., a `--per-requirement` flag to restore old behavior)
 
 ## Decisions
@@ -70,7 +70,7 @@ The `/design:plan` skill (ADR-0008, SPEC-0007) currently creates one tracker iss
 
 ### No new flags or configuration
 
-**Choice**: Story-sized grouping is the new default behavior. There is no `--per-requirement` flag to restore old behavior and no new `.design.json` keys.
+**Choice**: Story-sized grouping is the new default behavior. There is no `--per-requirement` flag to restore old behavior and no new `.claude-plugin-design.json` keys.
 **Rationale**: The per-requirement behavior is strictly worse -- it produces tiny PRs, creates tracker noise, and underutilizes workers. There is no use case where a user would prefer 10-15 five-line PRs over 3-4 reviewable PRs. Adding a flag to restore inferior behavior adds complexity without value.
 **Alternatives considered**:
 - `--per-requirement` flag for backward compatibility: No one wants the old behavior; the flag would never be used

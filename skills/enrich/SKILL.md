@@ -27,13 +27,13 @@ You are retroactively adding `### Branch` and `### PR Convention` sections to ex
 
 4. **Detect tracker**: Same flow as `/design:plan`:
 
-   **4.1: Check for saved preference.** Read `.design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly.
+   **4.1: Check for saved preference.** Read `.claude-plugin-design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly.
 
    **4.2: Detect available trackers.** If no saved preference, probe for each tracker using `ToolSearch` and CLI checks (same as plan step 4.2).
 
    **4.3: Choose tracker.** Same rules as plan: multiple → ask user; one → use it; none → error (enrichment requires a tracker).
 
-5. **Read `.design.json` branch/PR config**: Check for saved preferences:
+5. **Read `.claude-plugin-design.json` branch/PR config**: Check for saved preferences:
 
    ```json
    {
@@ -78,7 +78,7 @@ You are retroactively adding `### Branch` and `### PR Convention` sections to ex
 
    d. Determine the slug from the issue title:
       - Convert to kebab-case (lowercase, spaces and special characters replaced with hyphens)
-      - Truncate to max 50 chars (or `branches.slug_max_length` from `.design.json`)
+      - Truncate to max 50 chars (or `branches.slug_max_length` from `.claude-plugin-design.json`)
       - Remove trailing hyphens after truncation
 
    e. Determine if the issue is an epic:
@@ -92,8 +92,8 @@ You are retroactively adding `### Branch` and `### PR Convention` sections to ex
       `{prefix}/{issue-number}-{slug}`
       ```
       Where `{prefix}` is:
-      - For epics: `epic` (or `.design.json` `branches.epic_prefix` or `--branch-prefix`)
-      - For tasks: `feature` (or `.design.json` `branches.prefix` or `--branch-prefix`)
+      - For epics: `epic` (or `.claude-plugin-design.json` `branches.epic_prefix` or `--branch-prefix`)
+      - For tasks: `feature` (or `.claude-plugin-design.json` `branches.prefix` or `--branch-prefix`)
 
    g. If `### PR Convention` section is missing and `pr_conventions.enabled` is not `false`, append:
       ```
@@ -101,7 +101,7 @@ You are retroactively adding `### Branch` and `### PR Convention` sections to ex
       {close-keyword} #{issue-number}
       {ref-keyword} #{epic-number} (SPEC-XXXX)
       ```
-      Tracker-specific close keywords (or use `.design.json` `pr_conventions.close_keyword`):
+      Tracker-specific close keywords (or use `.claude-plugin-design.json` `pr_conventions.close_keyword`):
       - **GitHub/Gitea**: `Closes #{issue-number}`
       - **GitLab**: `Closes #{issue-number}` (in MR description)
       - **Beads**: `bd resolve`
@@ -123,9 +123,9 @@ You are retroactively adding `### Branch` and `### PR Convention` sections to ex
    - Any failures encountered (with issue numbers and error details)
    - Breakdown: how many got `### Branch`, how many got `### PR Convention`
 
-## .design.json Schema Reference
+## .claude-plugin-design.json Schema Reference
 
-This skill reads the `branches` and `pr_conventions` sections of `.design.json`:
+This skill reads the `branches` and `pr_conventions` sections of `.claude-plugin-design.json`:
 
 ```json
 {
@@ -155,6 +155,6 @@ All keys are optional and backward-compatible. `null` values mean "use tracker d
 - PR close keywords MUST match the detected tracker
 - MUST use `ToolSearch` for tracker tools at runtime
 - Failures on individual issues MUST be reported but MUST NOT stop processing remaining issues
-- MUST check `.design.json` for saved tracker preference and branch/PR config before processing
+- MUST check `.claude-plugin-design.json` for saved tracker preference and branch/PR config before processing
 - MUST use try-then-create pattern for all label applications — never fail on missing labels (Governing: SPEC-0011 REQ "Auto-Create Labels")
 - No `--review` support (utility skill)

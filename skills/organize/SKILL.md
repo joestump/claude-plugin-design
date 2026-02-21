@@ -27,7 +27,7 @@ You are retroactively grouping existing tracker issues into tracker-native proje
 
 4. **Detect tracker**: Same flow as `/design:plan`:
 
-   **4.1: Check for saved preference.** Read `.design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly. Also read `projects` settings for cached project IDs and enrichment config (views, columns, iteration_weeks).
+   **4.1: Check for saved preference.** Read `.claude-plugin-design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly. Also read `projects` settings for cached project IDs and enrichment config (views, columns, iteration_weeks).
 
    **4.2: Detect available trackers.** If no saved preference:
    - **Beads**: Look for `.beads/` directory or run `bd --version`
@@ -88,12 +88,12 @@ You are retroactively grouping existing tracker issues into tracker-native proje
    **GitHub workspace enrichment (tier b/c):**
    - Set project description referencing the spec
    - Write project README via GraphQL (agent-navigable context with spec refs, ADR links, story index, dependencies)
-   - Create "Sprint" iteration field via GraphQL with cycle length from `.design.json` `projects.iteration_weeks` (default: 2 weeks)
-   - Create named views via GraphQL using `.design.json` `projects.views` (default: "All Work" table, "Board" board, "Roadmap" roadmap)
+   - Create "Sprint" iteration field via GraphQL with cycle length from `.claude-plugin-design.json` `projects.iteration_weeks` (default: 2 weeks)
+   - Create named views via GraphQL using `.claude-plugin-design.json` `projects.views` (default: "All Work" table, "Board" board, "Roadmap" roadmap)
 
    **Gitea workspace enrichment (tier b/c):**
    - Create milestones (one per epic), assign stories to milestones
-   - Configure board columns from `.design.json` `projects.columns` (default: Todo, In Progress, In Review, Done)
+   - Configure board columns from `.claude-plugin-design.json` `projects.columns` (default: Todo, In Progress, In Review, Done)
 
    **Tier (c) additional steps:**
    - Re-label issues using try-then-create pattern
@@ -108,11 +108,11 @@ You are retroactively grouping existing tracker issues into tracker-native proje
     - Number of issues organized/updated
     - Skipped enrichments (graceful degradation)
     - Any failures encountered (with issue numbers)
-    - Whether `.design.json` was updated with project IDs
+    - Whether `.claude-plugin-design.json` was updated with project IDs
 
-## .design.json Schema Reference
+## .claude-plugin-design.json Schema Reference
 
-This skill reads and writes the `projects` section of `.design.json`:
+This skill reads and writes the `projects` section of `.claude-plugin-design.json`:
 
 ```json
 {
@@ -139,8 +139,8 @@ All keys under `projects` are optional with sensible defaults. When writing, mer
 - MUST skip projects that already exist (idempotent)
 - MUST use `ToolSearch` for project tools at runtime
 - Failures MUST be reported but MUST NOT stop processing remaining issues
-- MUST check `.design.json` for saved tracker preference and cached project IDs before creating
-- When merging into `.design.json`, preserve existing keys
+- MUST check `.claude-plugin-design.json` for saved tracker preference and cached project IDs before creating
+- When merging into `.claude-plugin-design.json`, preserve existing keys
 - MUST link created projects to the repository for trackers that support project-repository associations (e.g., GitHub Projects V2 via `gh project link`, Gitea)
 - MUST use try-then-create pattern for all label applications in tier (c) (Governing: SPEC-0011 REQ "Auto-Create Labels")
 - MUST degrade gracefully when tracker features are unavailable — skip and report, never fail (Governing: SPEC-0011 REQ "Graceful Degradation")
