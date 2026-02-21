@@ -47,7 +47,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
    - **Skip issues without `### Branch` sections**: These lack branch naming conventions. If any are found, suggest `/design:enrich` to add them and report which issues were skipped.
    - **Extract branch names**: Parse the `### Branch` section from each issue body to get the deterministic branch name (e.g., `feature/42-jwt-token-generation`).
    - **Extract PR conventions**: Parse the `### PR Convention` section for close keywords and epic references.
-   - **Detect dependency ordering**: If issue bodies reference dependencies or logical ordering, respect that order when queuing work.
+   - **Detect dependency ordering**: If issue bodies reference dependencies or logical ordering, respect that order when queuing work. For **Gitea**, query native dependencies via `GET /repos/{owner}/{repo}/issues/{index}/dependencies` (or via MCP tools discovered by `ToolSearch`) to find unblocked stories. (Governing: SPEC-0011 REQ "Gitea Native Dependencies")
 
    If no workable issues are found after filtering, report why and suggest `/design:plan` (no issues at all) or `/design:enrich` (issues exist but lack branch sections).
 
@@ -240,3 +240,4 @@ You are picking up tracker issues and implementing them in parallel using git wo
 - `--dry-run` MUST NOT create any worktrees, branches, or PRs
 - Maximum 2 test-fix attempts per worker before reporting blocked
 - When `TeamCreate` fails, MUST fall back to single-agent sequential mode — never error out
+- For Gitea trackers, MUST query native dependencies via API to determine unblocked stories (Governing: SPEC-0011 REQ "Gitea Native Dependencies")

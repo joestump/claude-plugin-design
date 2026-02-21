@@ -7,7 +7,7 @@ argument-hint: [SPEC-XXXX or spec-name] [--project <name>] [--dry-run]
 
 # Organize Issues into Projects
 
-You are retroactively grouping existing tracker issues into tracker-native projects (GitHub Projects V2, Gitea projects, GitLab milestones/boards, Linear projects/cycles, etc.).
+You are retroactively grouping existing tracker issues into tracker-native projects and enriching project workspaces. You use a three-tier intervention model that lets the operator control how invasive the changes are. See ADR-0012 and SPEC-0011.
 
 ## Process
 
@@ -23,11 +23,11 @@ You are retroactively grouping existing tracker issues into tracker-native proje
    - If a capability directory name is provided, look for `docs/openspec/specs/{name}/spec.md`.
    - If the spec doesn't exist, tell the user and suggest `/design:spec` to create one.
 
-3. **Read spec**: Read `docs/openspec/specs/{capability-name}/spec.md` to understand the spec number and requirement names.
+3. **Read spec**: Read `docs/openspec/specs/{capability-name}/spec.md` and `design.md` to understand the spec number, requirement names, and architecture.
 
 4. **Detect tracker**: Same flow as `/design:plan`:
 
-   **4.1: Check for saved preference.** Read `.design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly. Also read `projects` settings for cached project IDs.
+   **4.1: Check for saved preference.** Read `.design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly. Also read `projects` settings for cached project IDs and enrichment config (views, columns, iteration_weeks).
 
    **4.2: Detect available trackers.** If no saved preference:
    - **Beads**: Look for `.beads/` directory or run `bd --version`
@@ -47,40 +47,68 @@ You are retroactively grouping existing tracker issues into tracker-native proje
    - **Linear**: Use MCP tools to search issues containing the spec number
    - **Beads**: No-op — Beads epics ARE the grouping, so inform the user and exit
 
-6. **Identify epics vs tasks**: Classify each found issue:
+6. **Identify epics vs stories**: Classify each found issue:
    - **Epics**: Issues with titles starting with "Implement " or that have an `epic` label
-   - **Tasks**: All other issues referencing the spec
+   - **Stories**: All other issues referencing the spec
 
-7. **Create project groupings**:
+7. **Assess project state** (Governing: SPEC-0011 REQ "Organize Three-Tier Intervention"):
 
-   **Default (no `--project`)**: For each epic, create one tracker-native project:
-   - **GitHub**: `gh project create --owner {owner} --title "{Epic Title}"` then `gh project item-add` for the epic and its associated tasks. **After creating the project, MUST link it to the repository** using `gh project link {project-number} --owner {owner} --repo {owner}/{repo}` so it appears in the repository's Projects tab.
-   - **Gitea**: Use MCP tools (discovered via `ToolSearch`) to create a project and add issues. MUST ensure the project is associated with the repository, not just the organization.
-   - **GitLab**: Create a milestone or board and assign issues to it.
-   - **Jira**: Use existing project scope (no new project needed — issues are already scoped).
-   - **Linear**: Create a project or cycle and add issues.
-   - **Beads**: No-op (the epic IS the grouping).
+   For each project (existing or to-be-created), assess its current state:
+   - Does the project exist? Is it linked to the repository?
+   - Does it have a description? A README?
+   - Does it have named views (GitHub: All Work, Board, Roadmap)?
+   - Does it have an iteration/Sprint field (GitHub)?
+   - Does it have board columns (Gitea: Todo, In Progress, In Review, Done)?
+   - Does it have milestones for epics (Gitea)?
+   - Are native dependency links set (Gitea)?
+   - Are all issues correctly grouped and labeled?
+   - Are `### Branch` and `### PR Convention` sections present in issue bodies?
 
-   **With `--project <name>`**: Create a single project with the given name and add ALL found issues.
+   Present findings to the operator and offer **three intervention tiers** via `AskUserQuestion`:
 
-   Check `.design.json` `projects.project_ids` for cached project IDs keyed by spec number. If a project already exists for this spec, skip creation and just ensure all issues are added to it (idempotent).
+   **(a) Leave as-is**: Report the current state and exit. No changes made.
 
-   Use `ToolSearch` to discover project-creation MCP tools at runtime.
+   **(b) Restructure workspace only**: Add/fix project-level structure without touching any issues:
+   - Create project if missing, link to repository
+   - Add/update project description and README
+   - Create/rename named views (GitHub)
+   - Add iteration field (GitHub)
+   - Create board columns (Gitea)
+   - Create milestones (Gitea)
+   - Add all issues to the project (if not already)
 
-   After successful project creation, offer to save the project ID to `.design.json` `projects.project_ids`.
+   **(c) Complete refactor**: All tier (b) changes PLUS:
+   - Re-group issues across epics (move misplaced stories)
+   - Fix/add labels using try-then-create pattern (epic=#6E40C9, story=#1D76DB, spec=#0E8A16)
+   - Create native dependency links (Gitea)
+   - Update issue bodies with `### Branch` and `### PR Convention` sections (if missing)
 
-   **Repository linking is critical**: For trackers that support project-repository associations (GitHub Projects V2, Gitea), the project MUST be linked to the repository after creation. Without this step, the project exists but is invisible from the repository's Projects tab, making it difficult for developers to discover.
+8. **Execute chosen tier**: Carry out the selected intervention. All enrichment steps use **graceful degradation**: if a feature is unavailable for the tracker, skip and log "Skipped {step}: {tracker} does not support {feature}".
 
-8. **`--dry-run` mode**: If `--dry-run` is set, report what WOULD be created but don't actually create anything:
-   - List the projects that would be created (with names)
-   - List which issues would be added to each project
-   - Show whether any cached project IDs would be reused
+   **GitHub workspace enrichment (tier b/c):**
+   - Set project description referencing the spec
+   - Write project README via GraphQL (agent-navigable context with spec refs, ADR links, story index, dependencies)
+   - Create "Sprint" iteration field via GraphQL with cycle length from `.design.json` `projects.iteration_weeks` (default: 2 weeks)
+   - Create named views via GraphQL using `.design.json` `projects.views` (default: "All Work" table, "Board" board, "Roadmap" roadmap)
 
-9. **Report results**: Provide a summary:
-   - Number of projects created (or reused)
-   - Number of issues organized into projects
-   - Any failures encountered (with issue numbers)
-   - Whether `.design.json` was updated with project IDs
+   **Gitea workspace enrichment (tier b/c):**
+   - Create milestones (one per epic), assign stories to milestones
+   - Configure board columns from `.design.json` `projects.columns` (default: Todo, In Progress, In Review, Done)
+
+   **Tier (c) additional steps:**
+   - Re-label issues using try-then-create pattern
+   - Create Gitea native dependency links
+   - Add `### Branch` / `### PR Convention` to issue bodies that lack them (same logic as `/design:enrich`)
+
+9. **`--dry-run` mode**: If `--dry-run` is set, report the assessment and what WOULD be done at each tier, but don't modify anything.
+
+10. **Report results**: Provide a summary:
+    - Tier selected and actions taken
+    - Number of projects created, enriched, or reused
+    - Number of issues organized/updated
+    - Skipped enrichments (graceful degradation)
+    - Any failures encountered (with issue numbers)
+    - Whether `.design.json` was updated with project IDs
 
 ## .design.json Schema Reference
 
@@ -92,20 +120,28 @@ This skill reads and writes the `projects` section of `.design.json`:
   "tracker_config": { "owner": "...", "repo": "..." },
   "projects": {
     "default_mode": "per-epic",
-    "project_ids": { "SPEC-0007": "PVT_kwDOABCDEF" }
+    "project_ids": { "SPEC-0007": "PVT_kwDOABCDEF" },
+    "views": ["All Work", "Board", "Roadmap"],
+    "columns": ["Todo", "In Progress", "In Review", "Done"],
+    "iteration_weeks": 2
   }
 }
 ```
 
-All keys under `projects` are optional. When writing, merge into the existing file — do not overwrite other sections.
+All keys under `projects` are optional with sensible defaults. When writing, merge into the existing file — do not overwrite other sections. Do NOT overwrite existing keys when new keys are absent.
 
 ## Rules
 
-- MUST NOT modify issue content — only create projects and add issues to them
+- Tier (a) MUST NOT modify anything — report only
+- Tier (b) MUST NOT modify issue content — only project-level structure (views, README, columns, iterations, milestones)
+- Tier (c) MAY modify issue content (labels, body sections, grouping)
+- MUST present the three-tier choice to the operator before making changes (Governing: SPEC-0011 REQ "Organize Three-Tier Intervention")
 - MUST skip projects that already exist (idempotent)
 - MUST use `ToolSearch` for project tools at runtime
 - Failures MUST be reported but MUST NOT stop processing remaining issues
 - MUST check `.design.json` for saved tracker preference and cached project IDs before creating
 - When merging into `.design.json`, preserve existing keys
-- MUST link created projects to the repository for trackers that support project-repository associations (e.g., GitHub Projects V2 via `gh project link`, Gitea). Projects that are not linked to the repository will not appear in the repository's Projects tab, making them effectively invisible to developers browsing the repo.
+- MUST link created projects to the repository for trackers that support project-repository associations (e.g., GitHub Projects V2 via `gh project link`, Gitea)
+- MUST use try-then-create pattern for all label applications in tier (c) (Governing: SPEC-0011 REQ "Auto-Create Labels")
+- MUST degrade gracefully when tracker features are unavailable — skip and report, never fail (Governing: SPEC-0011 REQ "Graceful Degradation")
 - No `--review` support (utility skill)

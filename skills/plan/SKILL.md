@@ -7,7 +7,7 @@ argument-hint: [spec-name or SPEC-XXXX] [--review] [--project <name>] [--no-proj
 
 # Plan Sprint from Specification
 
-You are breaking down an existing specification into trackable work items (epics, tasks, sub-tasks) in the user's issue tracker.
+You are breaking down an existing specification into trackable work items (epics and story-sized issues) in the user's issue tracker. Instead of creating one issue per requirement, you group related requirements into 3-4 story-sized issues by functional area, with task checklists in the issue body for requirement traceability. See ADR-0011 and SPEC-0010.
 
 ## Process
 
@@ -68,7 +68,10 @@ You are breaking down an existing specification into trackable work items (epics
      "tracker_config": {},
      "projects": {
        "default_mode": "per-epic",
-       "project_ids": {}
+       "project_ids": {},
+       "views": ["All Work", "Board", "Roadmap"],
+       "columns": ["Todo", "In Progress", "In Review", "Done"],
+       "iteration_weeks": 2
      },
      "branches": {
        "enabled": true,
@@ -95,32 +98,60 @@ You are breaking down an existing specification into trackable work items (epics
 
 5. **Create issues in the detected tracker**:
 
-   **5.1: Create an epic.** Create an epic (or equivalent) for the specification itself, titled "Implement {Capability Title}" with a body referencing the spec number and linking to the spec/design files.
+   **5.1: Create an epic.** Create an epic (or equivalent) for the specification itself, titled "Implement {Capability Title}" with a body referencing the spec number and linking to the spec/design files. Apply the `epic` label using the **try-then-create pattern**: attempt to apply the label, and if it doesn't exist, create it with color `#6E40C9` and retry. (Governing: SPEC-0011 REQ "Auto-Create Labels")
 
-   **5.2: Create tasks from requirements.** For each `### Requirement:` section in the spec:
-   - Create a task as a child of the epic
-   - Title: the requirement name
+   **5.2: Group requirements into stories.** Instead of creating one issue per requirement, group all `### Requirement:` sections into 3-4 story-sized issues by functional area. This is governed by SPEC-0010 and ADR-0011.
+
+   **Grouping process:**
+   1. Scan all `### Requirement:` sections in the spec and identify the functional areas they affect (e.g., data model, API endpoints, validation, configuration, setup).
+   2. Cluster requirements by functional area cohesion — requirements that affect the same part of the system belong in the same story.
+   3. Apply coupling analysis — requirements that modify the same files or share data structures MUST be placed in the same story.
+   4. Apply dependency ordering — prerequisites go in earlier stories, dependents in later stories.
+   5. Target 3-4 stories for a spec with 10-15 requirements (3-5 requirements per story). For specs with 4 or fewer requirements, create 1-2 stories. For a single-requirement spec, create 1 story.
+   6. Each story SHOULD target a PR in the 200-500 line range. This is a heuristic — functional cohesion takes priority over line-count targets. Do NOT split functionally cohesive requirements across stories solely to meet the line-count target.
+
+   **Creating story issues:**
+   - Title: a descriptive name reflecting the story's functional area (e.g., "Setup & Configuration", "Core Auth Flow", "Validation & Error Handling")
    - Body MUST include:
-     - A reference to the spec and requirement (e.g., "Implements SPEC-0003, Requirement: JWT Token Generation")
-     - Acceptance criteria derived from the requirement's WHEN/THEN scenarios
-     - Links to governing ADRs if the spec references them in its Overview
-   - For complex requirements with multiple scenarios, create sub-tasks for each scenario
+     - A short description of what this story implements and its governing spec/ADR references
+     - A `## Requirements` section containing a task checklist (see step 5.3)
+     - Acceptance criteria summarized at the end
    - **After creating the issue** (to obtain the issue number), unless `--no-branches` is set, update the issue body to append a `### Branch` section:
-     - Tasks: `` `feature/{issue-number}-{slug}` `` (or custom prefix from `--branch-prefix` or `.design.json` `branches.prefix`)
+     - Stories: `` `feature/{issue-number}-{slug}` `` (or custom prefix from `--branch-prefix` or `.design.json` `branches.prefix`)
      - Epics: `` `epic/{issue-number}-{slug}` `` (or custom prefix from `--branch-prefix` or `.design.json` `branches.epic_prefix`)
-     - The slug MUST be derived from the requirement name using kebab-case, max 50 chars (or `.design.json` `branches.slug_max_length`)
+     - The slug MUST be derived from the story title using kebab-case, max 50 chars (or `.design.json` `branches.slug_max_length`)
      - This requires a two-pass approach: create the issue first to get the number, then update the body
 
-   **5.3: Write acceptance criteria.** Each issue MUST include:
-   ```
+   **5.3: Write task checklists.** Each story issue body MUST include a `## Requirements` section with a task checklist. The format varies by tracker:
+
+   **For GitHub, Gitea, GitLab, Jira, and Linear** — use markdown task checklists:
+   ```markdown
+   ## Requirements
+
+   - [ ] **REQ "{Requirement Name}"** (SPEC-XXXX): {normative statement from the requirement}
+     - WHEN {trigger from key scenario} THEN {expected outcome}
+     - WHEN {trigger from another scenario} THEN {expected outcome}
+   - [ ] **REQ "{Another Requirement}"** (SPEC-XXXX): {normative statement}
+     - WHEN {trigger} THEN {outcome}
+
    ## Acceptance Criteria
-   - [ ] Per SPEC-XXXX REQ "Requirement Name": {normative statement from requirement}
-   - [ ] Per SPEC-XXXX Scenario "Scenario Name": WHEN {trigger} THEN {outcome}
+   - [ ] Per SPEC-XXXX REQ "{Req 1}": {summary}
+   - [ ] Per SPEC-XXXX REQ "{Req 2}": {summary}
    - [ ] Governing: ADR-XXXX ({decision title})
    ```
 
-   After acceptance criteria, unless `--no-branches` is set, append a `### PR Convention` section:
-   - Include the tracker-specific close keyword referencing the issue number
+   - The requirement name MUST match the `### Requirement:` heading in the spec exactly
+   - The SPEC reference MUST use the spec's number (e.g., `SPEC-0010`)
+   - WHEN/THEN pairs MUST be derived from the requirement's scenarios, not invented
+   - Every requirement in the spec MUST appear in exactly one story's task checklist
+
+   **For Beads** — use native subtasks:
+   - Create subtasks for each requirement using `bd subtask add`, linking each subtask to the parent story
+   - Each subtask SHALL be titled with the requirement name
+   - Each subtask body SHALL include the normative statement, WHEN/THEN scenarios, and spec reference
+
+   After the requirements and acceptance criteria sections, unless `--no-branches` is set, append a `### PR Convention` section:
+   - Include the tracker-specific close keyword referencing the story issue number
    - Include a reference to the parent epic and governing spec
    - Tracker-specific close keywords:
      - **GitHub/Gitea**: `Closes #{issue-number}`
@@ -130,12 +161,12 @@ You are breaking down an existing specification into trackable work items (epics
      - **Linear**: `{TEAM}-{number}` reference
    - Use `.design.json` `pr_conventions` settings when available (close_keyword, ref_keyword, include_spec_reference)
 
-   **5.4: Set up dependencies.** Where requirements have logical ordering (e.g., setup before implementation, core before extensions), set up dependency relationships using the tracker's native features. If using Beads, use `bd dep add`.
+   **5.4: Set up dependencies between stories.** Where stories have logical ordering (e.g., setup before core logic, core before extensions), set up dependency relationships between story issues using the tracker's native features. If using Beads, use `bd dep add`.
 
    **5.5: Gather tracker-specific config.** If the tracker requires configuration not already saved (e.g., repo owner/name for GitHub, project key for Jira), use `AskUserQuestion` to ask the user. Offer to save the config to `.design.json`.
 
    **5.6: Project grouping.** Unless `--no-projects` is set:
-   - **Default (per-epic)**: For each epic, create a tracker-native project and add the epic and its child tasks:
+   - **Default (per-epic)**: For each epic, create a tracker-native project and add the epic and its child stories:
      - **GitHub**: Projects V2 via `gh project create` CLI or MCP tools, then `gh project item-add` to add issues. **After creating the project, MUST link it to the repository** using `gh project link {project-number} --owner {owner} --repo {owner}/{repo}` so it appears in the repository's Projects tab.
      - **Gitea**: Project via MCP tools (use `ToolSearch` to discover). MUST ensure the project is associated with the repository.
      - **GitLab**: Milestone or board
@@ -147,6 +178,39 @@ You are breaking down an existing specification into trackable work items (epics
    - Read `.design.json` `projects.default_mode` and `projects.project_ids` for cached settings. If a project ID is already cached for this spec, reuse it instead of creating a new one.
    - **Repository linking is critical**: For trackers that support project-repository associations (GitHub Projects V2, Gitea), the project MUST be linked to the repository after creation. Without this step, the project exists but is invisible from the repository's Projects tab.
    - **Graceful failure**: If project creation fails, warn the user but do not block issue creation. Report the failure in the final summary.
+
+   **5.7: Workspace enrichment.** After project creation, enrich the project with navigational context and structure. Read `.design.json` `projects` configuration for custom settings (views, columns, iteration_weeks). All enrichment steps use **graceful degradation**: if a feature is unavailable for the tracker, skip that step and log "Skipped {step}: {tracker} does not support {feature}". (Governing: SPEC-0011, ADR-0012)
+
+   **For GitHub Projects V2:**
+   1. **Set project description**: A short summary referencing the spec number and capability title.
+   2. **Write project README**: Use the GitHub Projects V2 GraphQL API to set the project README field. The README serves as agent-navigable context and SHALL follow this template:
+      ```markdown
+      # {Capability Title}
+      ## Spec
+      - [spec.md](docs/openspec/specs/{name}/spec.md)
+      - [design.md](docs/openspec/specs/{name}/design.md)
+      ## Governing ADRs
+      - ADR-XXXX: {title}
+      ## Key Files
+      - {file}:{line} — {description}
+      ## Stories
+      | # | Title | Branch | Status |
+      |---|-------|--------|--------|
+      | #{n} | {title} | {branch} | Open |
+      ## Dependencies
+      - #{n} → #{m} (prerequisite)
+      ```
+   3. **Add iteration field**: Create a "Sprint" iteration field via GraphQL with cycle length from `.design.json` `projects.iteration_weeks` (default: 2 weeks). Assign foundation stories to Sprint 1, dependents to Sprint 2, etc.
+   4. **Create named views**: Create three views via GraphQL using names from `.design.json` `projects.views` (default: "All Work" table, "Board" board, "Roadmap" roadmap). If a default "Table" view exists, rename it to the first configured view.
+
+   **For Gitea:**
+   1. **Create milestones**: One milestone per epic. Assign stories to the milestone corresponding to their epic.
+   2. **Configure board columns**: Create columns from `.design.json` `projects.columns` (default: Todo, In Progress, In Review, Done).
+   3. **Create native dependency links**: For each story that depends on another, create a native dependency via `POST /repos/{owner}/{repo}/issues/{index}/dependencies` (or via MCP tools discovered by `ToolSearch`).
+
+   **For other trackers**: Skip tracker-specific enrichment. Log skipped steps in the report.
+
+   **Auto-label creation** (cross-cutting, all trackers): When applying labels in any step (epic label, story label, spec label), use the **try-then-create pattern**: attempt to apply the label, and if the tracker returns a "label not found" error, create the label with a default color and retry. Default colors: `epic`=#6E40C9, `story`=#1D76DB, `spec`=#0E8A16, other=#CCCCCC. (Governing: SPEC-0011 REQ "Auto-Create Labels")
 
 6. **Fallback: Generate `tasks.md`** (when no tracker is available):
 
@@ -185,7 +249,7 @@ You are breaking down an existing specification into trackable work items (epics
 
 8. **Report the plan.** Summarize what was created:
    - Which tracker was used (or tasks.md fallback)
-   - Number of epics, tasks, and sub-tasks created
+   - Number of epics and stories created, with how many requirements were grouped into each story
    - Number of project groupings created (or "skipped" if `--no-projects` was set)
    - Whether branch naming conventions were included in issue bodies (or "skipped" if `--no-branches`)
    - Whether PR conventions were included in issue bodies (or "skipped" if `--no-branches`)
@@ -194,12 +258,13 @@ You are breaking down an existing specification into trackable work items (epics
 
 ## Team Handoff Protocol (only for `--review` mode)
 
-1. The planner creates the full issue breakdown (or tasks.md draft) and sends it to the reviewer
+1. The planner creates the full story breakdown (or tasks.md draft) and sends it to the reviewer
 2. The reviewer checks:
-   - Every spec requirement has at least one corresponding issue/task
-   - Acceptance criteria correctly reference WHEN/THEN scenarios
-   - Dependency ordering is logical (setup → core → extensions → testing)
-   - Issue scope is session-sized (not too large, not too granular)
+   - Every spec requirement appears in exactly one story's task checklist
+   - Story groupings are functionally cohesive (coupled requirements are in the same story)
+   - Task checklist items correctly reference requirement names, spec numbers, and WHEN/THEN scenarios
+   - Dependency ordering between stories is logical (setup → core → extensions → testing)
+   - Story scope targets 200-500 line PRs (heuristic, not hard constraint)
 3. The reviewer either:
    a. Sends "APPROVED" to the lead, or
    b. Sends specific revision requests to the planner
@@ -209,19 +274,27 @@ You are breaking down an existing specification into trackable work items (epics
 ## Rules
 
 - MUST read both spec.md and design.md before creating any issues
-- Every `### Requirement:` section in the spec MUST produce at least one issue/task
-- Every issue MUST reference the spec number and requirement name
-- Acceptance criteria MUST be derived from the spec's WHEN/THEN scenarios, not invented
+- MUST group requirements into 3-4 story-sized issues by functional area — NEVER create one issue per requirement (Governing: SPEC-0010 REQ "Requirement Grouping", ADR-0011)
+- Every `### Requirement:` section in the spec MUST appear in exactly one story's task checklist
+- Every story MUST contain a `## Requirements` section with a task checklist referencing the spec number, requirement names, normative statements, and WHEN/THEN scenarios
+- Task checklist WHEN/THEN pairs MUST be derived from the spec's scenarios, not invented
+- For Beads, MUST use native subtasks (`bd subtask add`) instead of markdown checklists
+- Story groupings SHOULD target 200-500 line PRs — functional cohesion takes priority over line-count targets (Governing: SPEC-0010 REQ "PR Size Target")
+- Coupled requirements (same files, shared data structures) MUST be placed in the same story (Governing: SPEC-0010 REQ "Grouping Heuristics")
 - MUST use `ToolSearch` to discover tracker MCP tools at runtime — never assume specific tools are available
 - MUST check `.design.json` for saved tracker preference before running detection
 - MUST offer to save tracker preference when a tracker is selected for the first time
 - When merging into `.design.json`, preserve existing keys — only update changed sections
-- Sub-tasks are OPTIONAL — only create them for complex requirements with 3+ scenarios
-- Dependency ordering SHOULD reflect logical implementation order, not spec document order
+- Dependency ordering between stories SHOULD reflect logical implementation order, not spec document order
 - Project grouping failures MUST NOT prevent issue creation
 - MUST link created projects to the repository for trackers that support project-repository associations (e.g., GitHub Projects V2 via `gh project link`, Gitea). Without linking, projects are invisible from the repository's Projects tab.
-- Branch slug MUST be derived from requirement name (kebab-case, max 50 chars), not invented
+- Branch slug MUST be derived from the story title (kebab-case, max 50 chars), not invented
 - PR close keywords MUST match the detected tracker
 - MUST use `ToolSearch` for project tools at runtime
 - `--project` and `--no-projects` are mutually exclusive; if both provided, warn and use `--no-projects`
 - `--no-branches` disables both `### Branch` AND `### PR Convention` sections
+- MUST use try-then-create pattern for all label applications — never fail on missing labels (Governing: SPEC-0011 REQ "Auto-Create Labels")
+- MUST enrich projects after creation with descriptions, READMEs, views, iterations (GitHub) or milestones, columns, dependencies (Gitea) (Governing: SPEC-0011, ADR-0012)
+- Enrichment failures MUST be skipped and reported, never fail the entire operation (Governing: SPEC-0011 REQ "Graceful Degradation")
+- `.design.json` `projects.views`, `projects.columns`, `projects.iteration_weeks` are all optional with sensible defaults — do NOT overwrite existing keys when they are absent
+- Story issues MUST be consumable by `/design:work` and `/design:review` — they use the same `### Branch` and `### PR Convention` structural sections (Governing: SPEC-0010 REQ "Downstream Compatibility")
