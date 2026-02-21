@@ -2,7 +2,7 @@
 name: work
 description: Pick up tracker issues and implement them in parallel using git worktrees. Use when the user says "work on issues", "implement the spec", "start coding", or wants agents to build from planned issues.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task, WebFetch, WebSearch, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList, TaskGet, SendMessage, AskUserQuestion, ToolSearch, EnterWorktree
-argument-hint: [SPEC-XXXX or issue numbers] [--max-agents N] [--ready] [--dry-run] [--no-tests]
+argument-hint: [SPEC-XXXX or issue numbers] [--max-agents N] [--draft] [--dry-run] [--no-tests]
 ---
 
 # Work on Issues
@@ -20,7 +20,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
 
    **Flag parsing:**
    - `--max-agents N`: Maximum concurrent worker agents (default 3). Read `.design.json` `worktrees.max_agents` as fallback default.
-   - `--ready`: Create non-draft PRs. Default is draft PRs. Read `.design.json` `worktrees.pr_mode` as fallback.
+   - `--draft`: Create draft PRs instead of regular PRs. Default is regular (non-draft) PRs. Read `.design.json` `worktrees.pr_mode` as fallback.
    - `--dry-run`: Preview what would happen without creating worktrees or doing any work. Report the list of issues, branch names, and agent assignments, then stop.
    - `--no-tests`: Skip test execution in workers.
 
@@ -87,7 +87,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
        "base_dir": null,
        "max_agents": 3,
        "auto_cleanup": false,
-       "pr_mode": "draft"
+       "pr_mode": "ready"
      }
    }
    ```
@@ -97,9 +97,9 @@ You are picking up tracker issues and implementing them in parallel using git wo
    | `base_dir` | `.claude/worktrees/` | Where worktrees are created |
    | `max_agents` | `3` | Default concurrent workers |
    | `auto_cleanup` | `false` | Remove worktrees after PR creation |
-   | `pr_mode` | `"draft"` | `"draft"` or `"ready"` |
+   | `pr_mode` | `"ready"` | `"draft"` or `"ready"` |
 
-   CLI flags override `.design.json` values. `--max-agents N` overrides `worktrees.max_agents`. `--ready` overrides `worktrees.pr_mode` to `"ready"`.
+   CLI flags override `.design.json` values. `--max-agents N` overrides `worktrees.max_agents`. `--draft` overrides `worktrees.pr_mode` to `"draft"`.
 
 8. **Create team**: Use `TeamCreate` to create a coordination team. The lead (you) manages the task queue and monitors progress. Spawn up to `--max-agents` worker agents using `Task` with `subagent_type: "general-purpose"`.
 
@@ -152,7 +152,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
     9. Create a PR using the tracker's tools or CLI:
        - Title: the issue title
        - Body: Include the close keyword from `### PR Convention`, reference the epic, reference the spec
-       - Draft by default, non-draft if `--ready` was set
+       - Regular (non-draft) by default, draft if `--draft` was set
     10. Report outcome to lead via `SendMessage`: success (with PR URL) or failure (with details).
 
 11. **Monitor and queue**: The lead tracks worker progress:
@@ -181,8 +181,8 @@ You are picking up tracker issues and implementing them in parallel using git wo
 
     | Issue | Branch | PR | Status |
     |-------|--------|----|--------|
-    | #42 JWT Token Generation | feature/42-jwt-token-generation | #101 | Success (draft) |
-    | #43 Token Validation | feature/43-token-validation | #102 | Success (draft) |
+    | #42 JWT Token Generation | feature/42-jwt-token-generation | #101 | Success |
+    | #43 Token Validation | feature/43-token-validation | #102 | Success |
     | #44 Token Refresh | feature/44-token-refresh | — | Failed: tests failing |
 
     ### Failed Issues
@@ -193,7 +193,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
     - Preserved (failed): 1
 
     ### Next Steps
-    - Review draft PRs and mark ready when satisfied
+    - Review PRs and merge when satisfied
     - Fix failing issue #44 manually or re-run `/design:work 44`
     - Run `/design:check` to verify implementation alignment
     - Run `/design:audit` for comprehensive drift analysis
@@ -229,7 +229,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
 - MUST skip epics (labeled `epic` or titled "Implement ...") — only work on implementation issues
 - MUST skip issues without `### Branch` sections and suggest `/design:enrich`
 - MUST respect dependency ordering when queuing work
-- MUST create draft PRs by default — only create non-draft PRs with `--ready`
+- MUST create regular (non-draft) PRs by default — only create draft PRs with `--draft`
 - MUST leave governing comments (`// Governing: SPEC-XXXX REQ "..."`) in implemented code
 - MUST report all failures with actionable details — never silently skip
 - MUST preserve worktrees for failed issues — never auto-clean failures
