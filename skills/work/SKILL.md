@@ -140,26 +140,39 @@ You are picking up tracker issues and implementing them in parallel using git wo
        // Governing: SPEC-XXXX REQ "Requirement Name"
        ```
     6. Run tests (unless `--no-tests`). If tests fail, attempt to fix (max 2 fix attempts). If still failing after 2 attempts, report blocked with details.
-    7. Stage and commit changes:
+    7. **Assess PR size before creating.** Run `git -C {worktree-path} diff --stat` to see the scope of changes. Use judgement about whether this warrants a standalone PR:
+       - **Comments-only changes** (only comment lines added/changed, no logic): not worth a standalone PR
+       - **Trivially small** (fewer than ~30 lines of substantive code across the whole branch): likely not worth a standalone PR
+       - **100+ lines of meaningful code changes**: clearly worth a standalone PR
+       - The in-between range (30-100 lines) requires judgement — consider whether a reviewer would find it worthwhile to context-switch for
+
+       **If the implementation is too small to justify its own PR**, send the lead a bundle request:
+       ```
+       BUNDLE_REQUEST: #42 implementation is trivially small (8 lines changed, comments only). Requesting additional issues to bundle into this branch before opening a PR.
+       ```
+       Wait for the lead to either assign additional issues or confirm proceeding with a small PR (e.g., queue is exhausted). If additional issues are assigned, return to step 2 for each, implementing them in the same worktree, then proceed with a combined commit and PR covering all bundled issues.
+    8. Stage and commit changes:
        ```bash
        git -C {worktree-path} add .
        git -C {worktree-path} commit -m "{descriptive message}\n\nImplements #{issue-number}\nGoverning: SPEC-XXXX"
        ```
-    8. Push the branch:
+       If multiple issues were bundled, list all of them in the commit message.
+    9. Push the branch:
        ```bash
        git -C {worktree-path} push -u origin {branch-name}
        ```
-    9. Create a PR using the tracker's tools or CLI:
-       - Title: the issue title
-       - Body: Include the close keyword from `### PR Convention`, reference the epic, reference the spec
-       - Regular (non-draft) by default, draft if `--draft` was set
-    10. Report outcome to lead via `SendMessage`: success (with PR URL) or failure (with details).
+    10. Create a PR using the tracker's tools or CLI:
+        - Title: the issue title (or a combined title if issues were bundled)
+        - Body: Include close keywords for all bundled issues, reference the epic, reference the spec
+        - Regular (non-draft) by default, draft if `--draft` was set
+    11. Report outcome to lead via `SendMessage`: success (with PR URL and list of bundled issues) or failure (with details).
 
 11. **Monitor and queue**: The lead tracks worker progress:
     - When a worker finishes, check if there are queued issues waiting.
     - If queued issues have dependency requirements, check if dependencies are now satisfied.
     - Assign the next available issue to the freed worker.
     - If a worker reports failure, note it and continue with other issues.
+    - **Handle bundle requests**: When a worker sends a `BUNDLE_REQUEST`, check the issue queue for additional issues that could be bundled into the same branch. If available (and not blocked by dependencies), assign them to the same worker with instructions to implement in the same worktree before creating a PR. If the queue is exhausted or all remaining issues are blocked, tell the worker to proceed with the small PR as-is.
 
 12. **Cleanup and report**: After all issues are processed:
 
@@ -236,6 +249,9 @@ You are picking up tracker issues and implementing them in parallel using git wo
 - Workers MUST use worktree absolute paths for all file operations
 - Workers MUST NOT modify files outside their assigned worktree
 - Workers MUST push and create PRs before reporting success
+- Workers MUST assess PR size before opening a PR — do NOT create comments-only PRs or trivially small PRs (<30 lines of substantive code) as standalone PRs; send a `BUNDLE_REQUEST` to the lead instead
+- Lead MUST handle `BUNDLE_REQUEST` by checking the queue for additional bundleable issues before telling the worker to proceed
+- If no additional issues are available to bundle, worker MAY create a small PR and SHOULD note in the PR body why it is small (no more queued work to combine)
 - The lead MUST stay in the main working tree — only workers operate in worktrees
 - `--dry-run` MUST NOT create any worktrees, branches, or PRs
 - Maximum 2 test-fix attempts per worker before reporting blocked

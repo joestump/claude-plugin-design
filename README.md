@@ -232,6 +232,7 @@ Picks up tracker issues and implements them in parallel using git worktrees:
 - Creates isolated git worktrees for each issue with deterministic branch names
 - Spawns parallel worker agents (default 3, configurable with `--max-agents`)
 - Workers implement changes, leave `// Governing: SPEC-XXXX REQ "..."` comments, run tests, commit, push, and create PRs
+- Workers assess PR size before opening: comments-only or trivially small changes (<30 lines) are bundled with additional queued issues rather than opened as standalone PRs; the lead assigns more work to the same worktree until the PR is meaningful
 - Regular (non-draft) PRs by default; use `--draft` for draft PRs
 - `--dry-run` previews what would happen without doing anything
 - `--no-tests` skips test execution in workers
