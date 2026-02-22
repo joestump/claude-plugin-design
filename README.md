@@ -18,7 +18,7 @@ A Claude Code plugin for architecture governance: ADRs, specifications, sprint p
 | **Plan** | `/design:plan [spec-name or SPEC-XXXX] [--review] [--project <name>] [--no-projects] [--branch-prefix <prefix>] [--no-branches]` | Break a spec into trackable issues with project grouping and branch conventions |
 | **Organize** | `/design:organize [SPEC-XXXX or spec-name] [--project <name>] [--dry-run]` | Retroactively group existing issues into tracker-native projects |
 | **Enrich** | `/design:enrich [SPEC-XXXX or spec-name] [--branch-prefix <prefix>] [--dry-run]` | Add branch naming and PR conventions to existing issue bodies |
-| **Work** | `/design:work [SPEC-XXXX or issue numbers] [--max-agents N] [--draft] [--dry-run] [--no-tests]` | Pick up tracker issues and implement them in parallel using git worktrees |
+| **Work** | `/design:work [SPEC-XXXX \| issue numbers \| (empty = propose from backlog)] [--max-agents N] [--draft] [--dry-run] [--no-tests]` | Pick up tracker issues and implement them in parallel using git worktrees |
 | **Review** | `/design:review [SPEC-XXXX or PR numbers] [--pairs N] [--no-merge] [--dry-run]` | Review and merge PRs using reviewer-responder agent pairs |
 | **Status** | `/design:status [ID] [status]` | Change the status of an ADR or spec |
 
@@ -224,14 +224,15 @@ Retroactively adds branch naming and PR convention sections to existing issue bo
 ### `/design:work` -- Parallel Issue Implementation
 
 Picks up tracker issues and implements them in parallel using git worktrees:
-- Accepts a spec number (`SPEC-0003`) to work all open issues, or specific issue numbers (`42 43 47`)
-- Reads spec.md, design.md, and referenced ADRs to give workers full architecture context
+- **No spec required**: run `/design:work` with no arguments to analyze the backlog, get a proposed batch of issues (biased toward unblocking dependencies and feature work), and approve before starting
+- Accepts a spec number (`SPEC-0003`) to work all open issues for that spec, or specific issue numbers (`42 43 47`)
+- Reads spec.md, design.md, and referenced ADRs to give workers full architecture context when a spec is available; workers rely on issue body and codebase context alone when there is no spec
 - Detects tracker using the same pattern as `/design:plan` (`.claude-plugin-design.json` preference, then auto-detection)
 - Filters issues: skips epics and issues without `### Branch` sections (suggests `/design:enrich`)
 - Extracts branch names and PR conventions from issue bodies
 - Creates isolated git worktrees for each issue with deterministic branch names
 - Spawns parallel worker agents (default 3, configurable with `--max-agents`)
-- Workers implement changes, leave `// Governing: SPEC-XXXX REQ "..."` comments, run tests, commit, push, and create PRs
+- Workers implement changes, leave `// Governing: SPEC-XXXX REQ "..."` comments when spec context is available, run tests, commit, push, and create PRs
 - Workers assess PR size before opening: comments-only or trivially small changes (<30 lines) are bundled with additional queued issues rather than opened as standalone PRs; the lead assigns more work to the same worktree until the PR is meaningful
 - Regular (non-draft) PRs by default; use `--draft` for draft PRs
 - `--dry-run` previews what would happen without doing anything
@@ -410,7 +411,7 @@ your-project/
 6. **Specify**: `/design:spec Convert ADR-0001 to a spec` — the agent writes requirements and offers to plan a sprint
 7. **Plan**: `/design:plan SPEC-0001` — break the spec into epics, tasks, and sub-tasks in Beads, GitHub, GitLab, Gitea, Jira, or Linear with acceptance criteria referencing spec/requirement numbers
 8. **Organize & Enrich** (retroactive): `/design:organize SPEC-0001` to group issues into projects, `/design:enrich SPEC-0001` to add branch and PR conventions
-9. **Build**: `/design:work SPEC-0001` to pick up issues and implement them in parallel using git worktrees, or `/design:prime` then manually work through issues
+9. **Build**: `/design:work SPEC-0001` (spec-scoped) or `/design:work` (propose from backlog) to implement issues in parallel using git worktrees, or `/design:prime` then manually work through issues
 10. **Review**: `/design:review SPEC-0001` to review and merge PRs with spec-aware feedback, or `--no-merge` for review-only
 11. **Check**: `/design:check src/auth/` to quick-check for drift while coding
 12. **Audit**: `/design:audit --review` for a comprehensive design review

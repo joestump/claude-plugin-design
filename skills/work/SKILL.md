@@ -2,7 +2,7 @@
 name: work
 description: Pick up tracker issues and implement them in parallel using git worktrees. Use when the user says "work on issues", "implement the spec", "start coding", or wants agents to build from planned issues.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task, WebFetch, WebSearch, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList, TaskGet, SendMessage, AskUserQuestion, ToolSearch, EnterWorktree
-argument-hint: [SPEC-XXXX or issue numbers] [--max-agents N] [--draft] [--dry-run] [--no-tests]
+argument-hint: [SPEC-XXXX | issue numbers | (empty = propose from backlog)] [--max-agents N] [--draft] [--dry-run] [--no-tests]
 ---
 
 # Work on Issues
@@ -16,7 +16,28 @@ You are picking up tracker issues and implementing them in parallel using git wo
    **Target resolution:**
    - If a SPEC number is provided (e.g., `SPEC-0003`), find all open tracker issues referencing that spec.
    - If issue numbers are provided (e.g., `42 43 47`), work on those specific issues.
-   - If `$ARGUMENTS` is empty (ignoring flags), list available specs by globbing `docs/openspec/specs/*/spec.md`, read the title from each, and use `AskUserQuestion` to ask which spec to implement.
+   - If `$ARGUMENTS` is empty (ignoring flags), **review the backlog** (see step 4) and propose a work plan (see step 1a below) — do NOT require a spec.
+
+   **1a. Backlog proposal (no arguments):** After discovering workable issues in step 4, analyze the backlog with a bias toward **unblocking work and feature development**:
+   - Prefer issues that are blocking other issues over isolated work.
+   - Prefer feature/enhancement issues over maintenance or chore issues when all else is equal.
+   - Prefer issues with no dependencies (immediately startable) over blocked ones.
+   - Group by epic or project when available to cluster related work.
+   - Select up to `--max-agents` issues (default 3) as the proposed batch.
+
+   Present the proposed batch to the user using `AskUserQuestion`:
+   > "Here are the issues I'd like to work on. Approve or adjust before I start."
+
+   Show a table:
+   ```
+   | # | Issue | Project/Epic | Rationale |
+   |---|-------|-------------|-----------|
+   | 1 | #42 JWT Token Generation | Auth Module | Unblocks #43 and #44 |
+   | 2 | #47 Setup DB Schema | Core | No dependencies, foundational |
+   | 3 | #51 User Registration API | Auth Module | High priority feature |
+   ```
+
+   Options: "Approve this batch" / "Let me pick manually" (if chosen, present full backlog and ask for issue numbers).
 
    **Flag parsing:**
    - `--max-agents N`: Maximum concurrent worker agents (default 3). Read `.claude-plugin-design.json` `worktrees.max_agents` as fallback default.
@@ -24,7 +45,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
    - `--dry-run`: Preview what would happen without creating worktrees or doing any work. Report the list of issues, branch names, and agent assignments, then stop.
    - `--no-tests`: Skip test execution in workers.
 
-2. **Load architecture context**: Read the spec's `spec.md` and `design.md`. Scan for referenced ADRs (e.g., `ADR-0001`) and read those too. This context will be sent to every worker.
+2. **Load architecture context** (when a spec is provided or issues reference a spec): Read the spec's `spec.md` and `design.md`. Scan for referenced ADRs (e.g., `ADR-0001`) and read those too. This context will be sent to every worker. If no spec is associated with the selected issues, skip this step — workers will rely on issue body and codebase context alone.
 
 3. **Detect tracker**: Follow the same pattern as `/design:plan`:
 
@@ -40,7 +61,10 @@ You are picking up tracker issues and implementing them in parallel using git wo
 
    **3.3: Choose tracker.** Same as `/design:plan` — prompt if multiple, use directly if one, fallback to `tasks.md` parsing if none.
 
-4. **Discover workable issues**: Search the tracker for open issues referencing the spec (or use the specific issue numbers provided).
+4. **Discover workable issues**: Search the tracker for open issues:
+   - If a **spec** was provided: find all open issues referencing that spec.
+   - If **issue numbers** were provided: fetch those specific issues.
+   - If **no arguments** were provided: fetch all open, non-epic issues across the tracker (or the configured project/milestone scope in `.claude-plugin-design.json` if present).
 
    **Filtering rules:**
    - **Skip epics**: Issues labeled `epic` or titled "Implement ..." are grouping issues, not implementation work.
@@ -54,7 +78,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
 5. **Dry-run gate**: If `--dry-run` is set, output a preview table and stop:
 
    ```
-   ## Dry Run: /design:work SPEC-0003
+   ## Dry Run: /design:work [SPEC-0003 | issue batch]
 
    Would create {N} worktrees with up to {max-agents} parallel agents.
 
@@ -67,7 +91,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
 
    ### Skipped Issues
    - #45 Implement Auth Service (epic — skipped)
-   - #47 Setup Auth Module (no ### Branch section — run `/design:enrich SPEC-0003`)
+   - #47 Setup Auth Module (no ### Branch section — run `/design:enrich`)
 
    No changes were made.
    ```
@@ -123,9 +147,9 @@ You are picking up tracker issues and implementing them in parallel using git wo
     - Issue number, title, and full body (with acceptance criteria)
     - Branch name (from `### Branch` section)
     - PR convention (from `### PR Convention` section)
-    - Spec content (spec.md)
-    - Design content (design.md)
-    - ADR content (any referenced ADRs)
+    - Spec content (spec.md) — if a spec was resolved for this issue; omitted otherwise
+    - Design content (design.md) — if a spec was resolved; omitted otherwise
+    - ADR content (any referenced ADRs) — if a spec was resolved; omitted otherwise
     - Worktree absolute path
     - Whether to run tests (`--no-tests` flag)
     - PR mode (`draft` or `ready`)
@@ -135,7 +159,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
     2. Read the issue body and understand the acceptance criteria.
     3. Explore existing code in the worktree to understand the codebase structure.
     4. Implement changes to satisfy the acceptance criteria.
-    5. Leave governing comments in the code:
+    5. If spec context was provided, leave governing comments in the code:
        ```
        // Governing: SPEC-XXXX REQ "Requirement Name"
        ```
@@ -186,7 +210,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
     **12.3: Final report.**
 
     ```
-    ## Work Complete: SPEC-0003
+    ## Work Complete: [SPEC-0003 | issue batch]
 
     Implemented {N} of {M} issues using {agent-count} parallel agents.
 
@@ -225,7 +249,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
 | Worker can't complete implementation | Reports failure to lead, worktree preserved for manual pickup |
 | Tests fail after 2 retries | Worker reports blocked with error details, moves to next issue |
 | `TeamCreate` fails | Falls back to single-agent sequential mode |
-| No workable issues found | Suggest `/design:plan` or `/design:enrich` depending on why |
+| No workable issues found | Suggest `/design:plan` (no issues at all) or `/design:enrich` (issues exist but lack `### Branch`) |
 | Uncommitted changes in main tree | Ask user whether to continue or commit first |
 | `git worktree add` fails (branch exists) | Check if the branch already exists remotely. If so, use `git worktree add .claude/worktrees/{branch-name} {branch-name}` (without `-b`) to check out the existing branch |
 | Push fails (remote rejection) | Worker reports the error to lead; worktree preserved |
@@ -235,7 +259,9 @@ You are picking up tracker issues and implementing them in parallel using git wo
 
 ## Rules
 
-- MUST read spec.md and design.md before dispatching any workers
+- A spec is NOT required — `/design:work` can operate from the backlog alone
+- When no arguments are provided, MUST analyze the backlog and propose a batch to the user before starting any work
+- MUST read spec.md and design.md before dispatching workers only when a spec is provided or resolvable from issue bodies
 - MUST use `ToolSearch` to discover tracker MCP tools at runtime — never assume specific tools are available
 - MUST check `.claude-plugin-design.json` for saved tracker preference before running detection
 - MUST extract branch names from issue bodies — never invent branch names
@@ -243,7 +269,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
 - MUST skip issues without `### Branch` sections and suggest `/design:enrich`
 - MUST respect dependency ordering when queuing work
 - MUST create regular (non-draft) PRs by default — only create draft PRs with `--draft`
-- MUST leave governing comments (`// Governing: SPEC-XXXX REQ "..."`) in implemented code
+- MUST leave governing comments (`// Governing: SPEC-XXXX REQ "..."`) in implemented code when spec context is available; omit when there is no spec
 - MUST report all failures with actionable details — never silently skip
 - MUST preserve worktrees for failed issues — never auto-clean failures
 - Workers MUST use worktree absolute paths for all file operations
