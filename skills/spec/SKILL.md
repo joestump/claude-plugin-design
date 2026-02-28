@@ -7,15 +7,17 @@ argument-hint: [capability name or ADR reference] [--review]
 
 # Create an OpenSpec Specification
 
-You are creating an OpenSpec specification consisting of BOTH a `spec.md` and `design.md`.
+You are creating or updating an OpenSpec specification. Every spec is a **paired artifact**: `spec.md` (requirements — what the system does) and `design.md` (architecture and rationale — how and why it does it).
 
-**You MUST ALWAYS create BOTH files. Never one without the other.**
+**You MUST ALWAYS create or update BOTH files together. They are a single unit of truth. Never create, edit, or deliver one without the other.**
+
+**When updating an existing spec, you MUST review the companion file for alignment.** If `spec.md` changes, read `design.md` and update it where the architectural decisions or rationale no longer reflect the updated requirements — and vice versa. The two files MUST remain internally consistent at all times.
 
 ## Process
 
 1. **Determine the capability name**: Use kebab-case (e.g., `web-dashboard`, `webhook-trigger`). If converting from an ADR, derive from the ADR title. If `$ARGUMENTS` is empty (ignoring flags like `--review`), use `AskUserQuestion` to ask the user what capability they want to specify.
 
-2. **Check for existing directory**: If `docs/openspec/specs/{capability-name}/` already exists, use `AskUserQuestion` to ask whether to overwrite or choose a different name. Create `docs/openspec/specs/` if it does not exist.
+2. **Check for existing directory**: If `docs/openspec/specs/{capability-name}/` already exists, use `AskUserQuestion` to ask whether to update the existing spec or choose a different name. If updating: read both the existing `spec.md` and `design.md` before making changes, then update both files maintaining alignment between them.
 
 3. **Determine the next SPEC number**: Scan `docs/openspec/specs/` for existing spec.md files, find the highest SPEC number used, and increment. SPEC numbers are formatted as `SPEC-XXXX` (e.g., SPEC-0001). Start at SPEC-0001 if none exist. **IMPORTANT**: The prefix is `SPEC-`, NOT `RFC-`. Do not confuse spec numbering with RFC 2119 (which is a language standard for requirements keywords).
 
@@ -224,7 +226,8 @@ You are creating an OpenSpec specification consisting of BOTH a `spec.md` and `d
 
 ## Rules
 
-- You MUST ALWAYS create BOTH spec.md AND design.md -- never one without the other
+- You MUST ALWAYS create or update BOTH spec.md AND design.md together -- never one without the other
+- When ANY change is made to spec.md, design.md MUST be reviewed and updated where requirements have changed the architecture, decisions, or rationale -- and vice versa. Both files MUST remain consistent with each other at all times.
 - spec.md MUST use RFC 2119 language (SHALL, MUST, MUST NOT, SHOULD, SHOULD NOT, MAY, REQUIRED, RECOMMENDED, OPTIONAL) for ALL normative requirements
 - spec.md MUST use spec numbering: SPEC-XXXX (sequential, zero-padded to 4 digits). NEVER use RFC-XXXX -- "RFC 2119" refers to the requirements language standard, NOT the spec numbering scheme
 - Scenarios MUST use exactly 4 hashtags (`####`) -- using 3 hashtags or bullets will cause silent failures in downstream tooling

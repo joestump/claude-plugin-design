@@ -2,7 +2,7 @@
 name: plan
 description: Break an existing spec into trackable issues in your issue tracker. Use when the user says "plan a sprint", "create issues from spec", "break down the spec", or wants to turn requirements into tasks.
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, Task, AskUserQuestion, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList, TaskGet, SendMessage, ToolSearch
-argument-hint: [spec-name or SPEC-XXXX] [--review] [--project <name>] [--no-projects] [--branch-prefix <prefix>] [--no-branches]
+argument-hint: [spec-name or SPEC-XXXX] [--review] [--scrum] [--project <name>] [--no-projects] [--branch-prefix <prefix>] [--no-branches]
 ---
 
 # Plan Sprint from Specification
@@ -20,13 +20,16 @@ You are breaking down an existing specification into trackable work items (epics
    - If the spec doesn't exist, tell the user and suggest `/design:spec` to create one.
 
    **Flag parsing:**
-   - `--review`: Enable team review mode (see step 3).
+   - `--scrum`: Enable scrum ceremony mode (see Scrum Mode section below). When set, the skill runs a full team-groomed planning ceremony: spec completeness audit → issue decomposition → multi-agent grooming → organize → enrich → sprint report. Mutually exclusive with `--review`; if both are set, `--scrum` takes precedence.
+   - `--review`: Enable team review mode (see step 3). Ignored when `--scrum` is set.
    - `--project <name>`: Use a single combined project for all issues. Mutually exclusive with `--no-projects`.
    - `--no-projects`: Skip project creation entirely. Mutually exclusive with `--project`.
    - `--branch-prefix <prefix>`: Custom branch prefix instead of the default `feature`/`epic` prefixes.
    - `--no-branches`: Omit `### Branch` and `### PR Convention` sections from issue bodies.
 
    If both `--project` and `--no-projects` are provided, warn the user and use `--no-projects`.
+
+   **If `--scrum` is set, skip to the Scrum Mode section after completing step 1. Do not proceed through steps 2–8 in sequence — scrum mode orchestrates them internally.**
 
 2. **Read the spec**: Read both `docs/openspec/specs/{capability-name}/spec.md` and `docs/openspec/specs/{capability-name}/design.md` to understand the full scope of requirements, scenarios, and architecture.
 
@@ -42,6 +45,113 @@ You are breaking down an existing specification into trackable work items (epics
      - The reviewer MUST verify that every spec requirement has at least one corresponding issue
      - If `TeamCreate` fails, fall back to single-agent mode
    - Maximum 2 revision rounds. After that, the reviewer approves with noted concerns.
+
+---
+
+## Scrum Mode Ceremony (`--scrum`)
+
+When `--scrum` is set, execute the full ceremony below instead of the standard steps 2–8. Steps 2–8 are still used internally within the ceremony phases as described. Governing: SPEC-0012, ADR-0013.
+
+Tell the user: "Starting scrum ceremony. This will audit spec completeness, decompose requirements into stories, run a grooming team review, organize projects, and enrich issue bodies. Give me a few minutes."
+
+### Phase 1: Target Resolution
+
+- If a spec was provided in `$ARGUMENTS`: use steps 2 and the spec identification from step 1 to resolve the target spec.
+- If no spec was provided: scan all issues currently open in the tracker (detected per step 4) and collect them as the grooming scope. All issues in scope that reference a spec will be cross-checked; issues with no spec reference are flagged for spec proposal.
+
+### Phase 2: Spec Completeness Audit
+
+Before spawning the grooming team, audit every spec referenced by any in-scope issue:
+
+1. For each referenced spec, check if `docs/openspec/specs/{name}/design.md` exists alongside `spec.md`.
+2. If `design.md` is **missing**, generate a draft `design.md` co-located with `spec.md`. Use the design.md template from `/design:spec`. Set frontmatter `status: draft`. Log: "Generated draft design.md for {spec-name}."
+3. If a tracker issue has **no backing spec**, generate both `docs/openspec/specs/{issue-slug}/spec.md` and `design.md` as drafts (status: draft), deriving the capability name from the issue title. Log: "Generated draft spec proposal for issue #{n}: {title}."
+4. After all drafts are generated, report the audit results: pass count, missing design.md count, unspec'd issue count, and file paths of generated drafts.
+
+### Phase 3: Issue Decomposition
+
+Follow the standard story-sizing logic (steps 2, 4–5.5) to produce 3-4 story-sized issues per spec. If running in full-backlog mode (no spec arg), decompose each spec independently and collect all stories into a single grooming list. After decomposition, proceed to the grooming ceremony without yet running organize or enrich steps (those run after grooming).
+
+### Phase 4: Backlog Grooming Ceremony
+
+Spawn the five specialist agents and distribute all stories for parallel review. Each agent MUST review every story and submit feedback to the lead via task messages.
+
+**Spawn the following agents with these exact personas:**
+
+**Product Owner (PO)**
+> You are the Product Owner. Your job is to ensure every story delivers clear user value and is correctly prioritized. Review each story for: (1) Is the acceptance criteria complete and user-outcome-focused, not just technically correct? (2) Is this the right priority order — should any story be moved earlier or later? (3) Is scope appropriate — any gold-plating or missing requirements? Submit a brief verdict per story: APPROVED, REVISE (with specific change), or DEFER (with reason).
+
+**Scrum Master (SM)**
+> You are the Scrum Master. Your job is to ensure stories are sprint-ready and the team can start work without blockers. Review each story for: (1) Is it small enough to complete in one sprint? Assign a t-shirt size: XS (< 1 day), S (1-2 days), M (3-4 days), L (1 week), XL (> 1 week). (2) Are dependencies correct and ordering logical? (3) Is anything ambiguous or blocked? Submit a verdict per story: APPROVED (with size), REVISE (with specific change), or DEFER (with reason). You are also the tiebreaker when PO and Engineer B disagree — make fair, process-oriented decisions.
+
+**Engineer A**
+> You are a pragmatic senior engineer. Review each story for: (1) Technical risk — is there anything that could make this significantly harder than it looks? (2) Correct scope — should any requirements be split out or merged in? (3) Are the WHEN/THEN scenarios actually verifiable as acceptance criteria? Submit a verdict per story: APPROVED, REVISE (with specific change), or DEFER (with reason).
+
+**Engineer B (Grumpy)**
+> You are a grumpy, tenured backend engineer. You have seen thousands of requirements docs, and most of them are vague, over-engineered, or missing the actual hard parts. You hold a very high bar. Your job is NOT to approve things — it is to find problems. For each story: (1) Call out any requirement that is too vague to implement. (2) Identify any scope that is larger than it looks. (3) Flag any story that references a spec or ADR incorrectly. (4) Challenge the PO if a story seems to prioritize features over fundamentals. You may APPROVE a story, but only if it genuinely passes your high bar — and you MUST explain why in one sentence. If there is something wrong, say exactly what it is. Do not soften your feedback.
+
+**Architect**
+> You are the system architect. Review each story for: (1) Does the issue body include correct governing comments (`// Governing: SPEC-XXXX REQ "..."` pattern)? (2) Does every story reference the correct ADRs in its acceptance criteria? (3) Is there a design.md for every spec referenced? (4) Do the WHEN/THEN scenarios align with what the design.md specifies? Submit a verdict per story: APPROVED, REVISE (with specific change), or DEFER (with reason).
+
+**Collecting feedback:**
+
+The lead collects all five verdicts per story before proceeding. Stories with all five APPROVED verdicts are finalized immediately. Stories with any REVISE or DEFER verdict enter dissent resolution.
+
+### Phase 5: Dissent Resolution
+
+For each story with dissent:
+
+1. **Identify the dissenting agent(s)** and extract their specific objection.
+2. **One negotiation round**: The lead presents the dissent to the PO and the dissenting agent. Each states their position once. The lead synthesizes a proposed resolution.
+3. **Outcome**:
+   - If the PO accepts the dissenting agent's revision → apply the revision, finalize the story.
+   - If the dissenting agent accepts the PO's justification → finalize the story as-is.
+   - If no agreement → the **Scrum Master makes the final call**: ACCEPT as-is, ACCEPT with revision, or DEFER to a future sprint.
+4. **DEFER**: A deferred story is removed from the current sprint backlog. The lead updates the tracker issue with a `### Grooming Note` section explaining the deferral reason.
+5. **Document all resolutions** in the sprint report, noting which agent objected, what the objection was, and how it was resolved.
+
+### Phase 6: Automatic Organize
+
+After grooming, automatically run the organize step (equivalent to step 5.6 and 5.7 in standard mode) for all finalized stories. Respect `--no-projects` and `--project` flags. Do not prompt the user — this runs automatically. Log each organize action as it happens.
+
+### Phase 7: Automatic Enrich
+
+After organize, automatically run the enrich step (equivalent to the branch + PR convention logic in step 5.3) for all finalized story issue bodies. Respect `--no-branches` flag. Do not prompt the user — this runs automatically.
+
+### Phase 8: Sprint Report
+
+Output the sprint report to the conversation:
+
+```markdown
+## Sprint Report — {Capability Title or "Full Backlog"} — {date}
+
+### Spec Completeness
+- {N} specs audited
+- {N} design.md files generated: {paths}
+- {N} spec proposals generated for unspec'd issues: {paths}
+
+### Grooming Results
+**Accepted ({N} stories)**
+- #{issue} {title} — {size} — {branch}
+
+**Revised ({N} stories)**
+- #{issue} {title} — Revised: {what changed} — Raised by: {Engineer B / Architect / ...}
+
+**Deferred ({N} stories)**
+- #{issue} {title} — Reason: {SM tiebreak / dissent reason}
+
+### Final Sprint Backlog
+Ordered for implementation (dependencies respected):
+1. #{issue} {title} — {branch} — Sprint {N}
+2. #{issue} {title} — {branch} — Sprint {N}
+...
+
+### Next Steps
+- Run `/design:work` to begin parallel implementation
+- Run `/design:prime` before implementation sessions to load architecture context
+```
+
+---
 
 4. **Detect the issue tracker**:
 
@@ -298,3 +408,7 @@ You are breaking down an existing specification into trackable work items (epics
 - Enrichment failures MUST be skipped and reported, never fail the entire operation (Governing: SPEC-0011 REQ "Graceful Degradation")
 - `.claude-plugin-design.json` `projects.views`, `projects.columns`, `projects.iteration_weeks` are all optional with sensible defaults — do NOT overwrite existing keys when they are absent
 - Story issues MUST be consumable by `/design:work` and `/design:review` — they use the same `### Branch` and `### PR Convention` structural sections (Governing: SPEC-0010 REQ "Downstream Compatibility")
+- When `--scrum` is set, organize and enrich MUST run automatically after grooming — NEVER require the user to run `/design:organize` or `/design:enrich` separately (Governing: SPEC-0012 REQ "Automatic Organize and Enrich")
+- Engineer B MUST provide a substantive objection for any story that has a weak requirement, vague scope, or missing spec reference — generic approval without review is not acceptable (Governing: SPEC-0012 REQ "Scrum Team Composition")
+- The sprint report MUST be emitted at the end of every `--scrum` run, even if all stories were deferred (Governing: SPEC-0012 REQ "Sprint Report")
+- `--scrum` and `--review` are mutually exclusive; if both are provided, `--scrum` takes precedence and `--review` is silently ignored
