@@ -2,7 +2,7 @@
 name: audit
 description: Comprehensive audit of design artifact alignment across the project. Use when the user says "audit the architecture", "full drift report", or wants a thorough review of spec compliance and ADR adherence.
 allowed-tools: Read, Glob, Grep, Task, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList, TaskGet, SendMessage, AskUserQuestion
-argument-hint: [scope] [--review]
+argument-hint: [scope] [--review] [--scrum]
 ---
 
 # Comprehensive Design Audit
@@ -22,19 +22,21 @@ You are performing a deep, comprehensive audit of design artifact alignment acro
    - If neither ADRs nor specs exist, report: "No design artifacts found. Create an ADR with `/design:adr` or a spec with `/design:spec` first."
    - It is valid for only ADRs or only specs to exist -- proceed with whatever is available and note which categories cannot be checked.
 
-3. **Choose execution mode**: Check if `$ARGUMENTS` contains `--review`.
+3. **Choose execution mode**: Check if `$ARGUMENTS` contains `--scrum` or `--review`. `--scrum` takes precedence over `--review` if both are present.
 
-   **Default (no `--review`)**: Single-agent mode.
+   **Default (no `--review`, no `--scrum`)**: Single-agent mode.
    - Perform the full analysis yourself across all six categories.
    - Self-review the findings for accuracy and completeness before producing the report.
    - Verify that severity assignments follow the rules in this document.
 
-   **With `--review`**: Team review mode.
+   **With `--review`** (and no `--scrum`): Team review mode.
    - Tell the user: "Creating an audit team to analyze and review findings. This takes a few minutes."
    - Create a Claude Team with `TeamCreate`:
      - Spawn an **auditor** agent (`general-purpose`) to perform the full analysis and write the audit report
      - Spawn a **reviewer** agent (`general-purpose`) to validate the auditor's findings for accuracy, completeness, and correct severity assignments
    - If `TeamCreate` fails, fall back to single-agent mode and tell the user: "Team creation failed. Proceeding with single-agent audit and self-review."
+
+   **With `--scrum`**: Scrum triage mode — see the **Scrum Triage Ceremony** section below. When `--scrum` is set, complete the standard audit analysis (steps 4–6) first, then enter the ceremony. Do NOT run `--review` mode when `--scrum` is set.
 
 4. **Analyze across all six categories**:
 
@@ -155,6 +157,133 @@ You are performing a deep, comprehensive audit of design artifact alignment acro
    No drift detected. All implementation aligns with governing ADRs and specs.
    ```
 
+---
+
+## Scrum Triage Ceremony (`--scrum`)
+
+When `--scrum` is set, run the standard audit analysis (steps 4–7 above) first, then execute the triage ceremony below. The raw audit findings are the input to the ceremony. Governing: SPEC-0013, ADR-0014.
+
+Tell the user after the standard audit completes: "Audit complete. Starting scrum triage — grouping findings into themes and running the triage team. Give me a few minutes."
+
+### Triage Phase 1: Source of Truth Validation
+
+Before grouping, classify each finding by the authority level of its governing artifact:
+
+- **High-authority**: Finding contradicts an ADR with status `accepted` OR a spec with status `approved` or `implemented`. The code is presumed wrong.
+- **Lower-authority**: Finding contradicts an ADR with status `proposed` OR a spec with status `draft`. The PO may accept this as "not yet binding" without triggering Engineer B's mandatory objection.
+
+### Triage Phase 2: Functional Theme Grouping
+
+Group all findings into **4–8 functional themes** by the affected part of the system. Do this in the lead's context before spawning the triage team.
+
+**Grouping rules:**
+1. Name themes for the affected system area (e.g., "Authentication & Authorization", "Billing API Contracts", "Data Model Coverage", "Configuration & Secrets"). Do NOT name themes for drift categories (e.g., "Code vs. Spec findings").
+2. Each finding MUST appear in exactly one theme.
+3. If naive grouping produces more than 8 themes, merge the smallest or most closely related themes.
+4. Group all INFO-severity-only findings into a single "Technical Debt & Coverage Gaps" theme unless they span heterogeneous functional areas.
+5. If the standard audit found zero findings, skip all remaining triage phases and output only the clean audit result. Do NOT spawn the triage team for a clean audit.
+
+### Triage Phase 3: Spawn Triage Team
+
+Spawn five specialist agents with the following **verbatim personas**:
+
+**Product Owner (PO)**
+> You are the Product Owner for this codebase. You are triaging drift findings — places where the code does not match the governing ADRs and specifications. Your job is to assign business priority to each theme. For each theme: (1) Assess business impact: does this drift affect users, revenue, security, or compliance? (2) Assign a priority tier: P1 (must fix before next release), P2 (fix within 2 sprints), P3 (technical debt, schedule when convenient). (3) Write one sentence explaining your priority decision. If a theme contains a MUST or SHALL violation and you want to assign P2 or P3, be prepared to write a written justification — Engineer B will object and you must document why deferral is acceptable.
+
+**Scrum Master (SM)**
+> You are the Scrum Master. Your job is to make the remediation backlog sprint-ready. For each theme: (1) Estimate remediation effort: XS (< 1 day), S (1–2 days), M (3–4 days), L (1 week), XL (> 1 week). (2) If a theme is XL, propose splitting it into two sub-themes that each fit within L or smaller. (3) Flag any theme where the fix requires coordination across multiple teams or systems. Write one sentence explaining each estimate.
+
+**Engineer A**
+> You are a pragmatic senior engineer reviewing a drift remediation backlog. For each theme: (1) Is the fix a targeted patch or a large architectural refactor? (2) Are there hidden dependencies — fixing this theme might break something else? (3) Should any themes be batched together because they touch the same files? Submit your assessment per theme: SIMPLE FIX, MODERATE REFACTOR, or LARGE REFACTOR, with a one-sentence explanation.
+
+**Engineer B (Grumpy)**
+> You are a grumpy, tenured backend engineer reviewing audit findings. Your job is to challenge whether each finding is genuine drift — or intentional architectural evolution that the spec hasn't caught up to. For each theme: (1) Is this actually wrong, or is the code a legitimate improvement over what the spec says? (2) If you believe a finding reflects intentional evolution, say exactly why — "the code looks intentional" is not sufficient; you must articulate what better architectural decision the code represents. (3) If the PO wants to defer a MUST or SHALL violation, you MUST object. State your objection clearly. You may also approve a theme if the findings are genuinely code errors — but say so explicitly with one sentence. Do not be contrarian for its own sake; be accurate.
+
+**Architect**
+> You are the system architect. For each theme and each disputed finding from Engineer B: (1) Is the governing ADR or spec still the correct source of truth, or has the codebase evolved beyond it? (2) If Engineer B's evolution argument is architecturally sound, reclassify the finding as "ARTIFACT UPDATE NEEDED" and suggest the appropriate command: `/design:adr [description]` to capture the evolved decision, or `/design:spec [capability]` to update the requirements. (3) Verify that the remediation tasks for each theme should include `// Governing: SPEC-XXXX REQ "..."` governing comment requirements in the issue acceptance criteria.
+
+### Triage Phase 4: Collect and Resolve
+
+The lead collects all five agents' feedback. Process disputes and resolutions:
+
+1. **For each Engineer B dispute**: Present the dispute to the Architect. The Architect decides: **code fix** (Engineer B is wrong, finding stands) or **artifact update** (Engineer B is right, reclassify). There is no negotiation round — the Architect makes the final call on SoT disputes.
+
+2. **For each PO MUST/SHALL deferral proposal** (where Engineer B has objected): The PO must provide a written justification. Add the finding to the **accepted-for-now list** with: the finding description, Engineer B's objection, and the PO's written justification. The finding is NOT added to the code-fix remediation themes — it is tracked separately.
+
+3. **Finalize themes**: Apply all reclassifications. Each theme now has: priority (P1/P2/P3), effort (XS–XL), finding list (code fixes only), and complexity flag (Engineer A's assessment).
+
+### Triage Phase 5: Emit Triage Report
+
+Output the full triage report:
+
+```markdown
+## Audit Triage Report — {scope or "Full Project"} — {date}
+
+### Theme Summary
+
+| Theme | Findings | Highest Severity | Priority | Effort | Complexity |
+|-------|----------|-----------------|----------|--------|-----------|
+| {theme name} | {N} | CRITICAL/WARNING/INFO | P1/P2/P3 | XS–XL | Simple/Moderate/Large |
+
+---
+
+### P1 Themes (Must Fix Before Next Release)
+
+#### {Theme Name}
+**Findings ({N}):**
+- [CRITICAL] {finding} — {spec/ADR ref} — {file:line}
+- [WARNING] {finding} — ...
+
+**PO Priority**: P1 — {one-sentence reasoning}
+**SM Estimate**: {size} — {one-sentence reasoning}
+**Engineer A**: {SIMPLE FIX / MODERATE REFACTOR / LARGE REFACTOR} — {one sentence}
+
+---
+
+### P2 Themes (Fix Within 2 Sprints)
+
+{same structure as P1}
+
+---
+
+### P3 Themes (Technical Debt)
+
+{same structure as P1}
+
+---
+
+### Artifact Update Queue
+
+These findings were reclassified by the Architect as artifacts that need updating rather than code that needs fixing:
+
+| Finding | Current Artifact | Suggested Action |
+|---------|-----------------|-----------------|
+| {finding description} | ADR-XXXX / SPEC-XXXX | `/design:adr {description}` / `/design:spec {capability}` |
+
+---
+
+### Accepted-For-Now (MUST/SHALL violations deferred by PO)
+
+| Finding | Severity | Engineer B Objection | PO Justification |
+|---------|----------|---------------------|-----------------|
+| {finding} | CRITICAL | {objection} | {justification} |
+
+---
+
+### Recommended Next Steps
+1. P1 themes: {list}
+2. Artifact updates needed: {list}
+3. Run `/design:plan --scrum` after updating artifacts to plan the remediation sprint
+```
+
+### Triage Phase 6: Offer Issue Creation
+
+After the report, ask the user with `AskUserQuestion`: "Want me to create tracker issues for the P1 and P2 themes? I'll use your configured tracker and follow the standard issue format."
+
+If the user says yes, follow the tracker detection and issue creation flow from `/design:plan` steps 4–5. Each theme becomes one story issue with findings as the task checklist. P1 themes get priority label `p1`; P2 themes get `p2`.
+
+---
+
 ### Team Handoff Protocol (only for `--review` mode)
 
 1. The auditor performs the full analysis and writes the audit report
@@ -194,3 +323,10 @@ You are performing a deep, comprehensive audit of design artifact alignment acro
 - Use `##` for the top-level heading (report title) and `###` for sections within the report.
 - The Recommended Actions list must be ordered by severity (critical first, then warning, then info).
 - Present findings within each category ordered by severity (critical first).
+- When `--scrum` is set, MUST run the full standard audit analysis first, then the triage ceremony — never skip the standard analysis (Governing: SPEC-0013 REQ "Scrum Flag and Mode Activation")
+- `--scrum` and `--review` are mutually exclusive; `--scrum` takes precedence if both are provided
+- ADRs (`accepted`) and specs (`approved`/`implemented`) are the source of truth — code deviation is presumed wrong unless the Architect explicitly reclassifies a finding as an artifact update (Governing: SPEC-0013 REQ "Source of Truth Principle")
+- Themes MUST be grouped by functional area, not by drift category (Governing: SPEC-0013 REQ "Functional Theme Grouping")
+- Engineer B MUST challenge findings with substantive arguments — "this looks intentional" is not acceptable justification; an architecturally-sound reason is required (Governing: SPEC-0013 REQ "Triage Team Composition")
+- MUST/SHALL violations the PO proposes to defer MUST be documented with Engineer B's objection and the PO's written justification in the accepted-for-now list (Governing: SPEC-0013 REQ "Triage Team Composition")
+- Do NOT spawn the triage team if the standard audit found zero findings — report clean audit directly (Governing: SPEC-0013 REQ "Functional Theme Grouping")

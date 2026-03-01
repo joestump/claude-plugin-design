@@ -11,7 +11,7 @@ A Claude Code plugin for architecture governance: ADRs, specifications, sprint p
 | **Init** | `/design:init` | Set up CLAUDE.md with architecture context for design-aware sessions |
 | **Prime** | `/design:prime [topic]` | Load ADR and spec context into the session, optionally filtered by topic |
 | **Check** | `/design:check [target]` | Quick-check code against ADRs and specs for drift |
-| **Audit** | `/design:audit [scope] [--review]` | Comprehensive audit of design artifact alignment across the project |
+| **Audit** | `/design:audit [scope] [--review] [--scrum]` | Comprehensive drift audit; use `--scrum` for team-triaged findings grouped into prioritized remediation themes |
 | **Docs** | `/design:docs [project name]` | Generate docs with scaffold/integration modes and manifest-based upgrades |
 | **List** | `/design:list [adr\|spec\|all]` | List all ADRs and specs with their status |
 | **Discover** | `/design:discover [scope]` | Discover implicit architecture from an existing codebase |
