@@ -84,71 +84,47 @@ Once a spec exists, break it down into trackable work items with
 /design:plan SPEC-0003
 ```
 
-The plan skill accepts a spec name or `SPEC-XXXX` number and handles
-sprint planning autonomously:
+The plan skill groups requirements into **3–4 story-sized issues** by
+functional area — not one issue per requirement. Each story targets a
+200–500 line PR and contains a task checklist that maps every requirement
+back to its story for full traceability. This keeps PRs reviewable and
+the tracker uncluttered.
 
-1. **Detects available issue trackers**: The agent checks for
-   [Beads](https://github.com/steveyegge/beads), GitHub (via MCP or
-   `gh` CLI), GitLab (via MCP or `glab` CLI), Gitea (via MCP),
-   Jira (via MCP), and Linear (via MCP) — and asks you to choose if
-   multiple are available. If none are found, it outputs a structured
-   `tasks.md` file co-located with the spec.
+The skill handles the full planning pipeline automatically:
 
-2. **Saves your tracker preference**: On first run, the agent offers to
-   save your chosen tracker to `.claude-plugin-design.json` so you're not asked again.
-   Tracker-specific config (repo owner, project key, team ID) is stored
-   alongside the preference.
+1. **Detects your issue tracker** — checks for [Beads](https://github.com/steveyegge/beads),
+   GitHub, GitLab, Gitea, Jira, and Linear. Saves your choice to
+   `.claude-plugin-design.json` so you're not asked again.
 
-3. **Breaks down requirements into issues**: Each `### Requirement:`
-   in the spec becomes a task, grouped under an epic for the
-   specification. Complex requirements with multiple scenarios get
-   sub-tasks.
+2. **Creates an epic and stories** — one epic per spec, 3–4 story issues
+   grouped by functional area (Setup, Core Logic, Validation, Extensions).
+   Each story body contains a `## Requirements` checklist with requirement
+   names, normative statements, and WHEN/THEN scenarios from the spec.
 
-4. **Writes acceptance criteria**: Every issue includes criteria
-   referencing the spec and requirement numbers:
+3. **Creates and enriches projects** — a tracker-native project with
+   description and README (GitHub Projects V2 gets iteration fields and
+   named views; Gitea gets milestones and board columns).
 
-   ```
-   ## Acceptance Criteria
-   - [ ] Per SPEC-0003 REQ "JWT Token Generation": tokens MUST use RS256 signing
-   - [ ] Per SPEC-0003 Scenario "Token expiry": WHEN token age exceeds TTL
-         THEN refresh endpoint returns new token
-   - [ ] Governing: ADR-0001 (chose JWT over sessions)
-   ```
+4. **Adds branch and PR conventions** — every issue body gets a
+   `### Branch` section (`feature/{issue-number}-{slug}`) and a
+   `### PR Convention` section with the tracker-specific close keyword.
 
-5. **Sets up dependencies**: For Beads, the agent uses `bd dep add` to
-   link tasks that block each other based on requirement relationships.
+5. **Produces a plan report** — counts of epics, stories, and requirements
+   covered, with links to where everything lives.
 
-6. **Creates project groupings**: For each epic, creates a tracker-native
-   project (GitHub Projects V2, Gitea projects, GitLab milestones) and
-   adds the epic and its tasks. Use `--project "Sprint Name"` for a
-   single combined project, or `--no-projects` to skip.
+Falls back to a `tasks.md` file co-located with the spec if no tracker is available.
 
-7. **Adds branch conventions**: Each issue body gets a `### Branch`
-   section with the suggested branch name (`feature/{issue-number}-{slug}`
-   for tasks, `epic/{issue-number}-{slug}` for epics). Skip with
-   `--no-branches`.
-
-8. **Adds PR conventions**: Each issue body gets a `### PR Convention`
-   section with the tracker-specific close keyword (e.g., `Closes #42`
-   for GitHub). Pairs with branch conventions (`--no-branches` disables
-   both).
-
-9. **Reports the plan**: A summary of epics, tasks, and sub-tasks
-   created, with links to where they live.
-
-:::tip Planning from /design:spec
-After creating a new spec, `/design:spec` still offers inline sprint
-planning. For planning existing specs later, use `/design:plan` directly.
-:::
-
-:::tip Use `--review` for thorough planning
-Add `--review` to spawn a planner + reviewer team. The reviewer verifies
-that every spec requirement has a corresponding issue and that acceptance
-criteria correctly reference WHEN/THEN scenarios (max 2 revision rounds).
+:::tip Use `--scrum` for a fully groomed sprint
+Add `--scrum` to run a complete team-groomed ceremony: spec completeness
+audit, five-agent backlog review (including a grumpy high-bar engineer),
+dissent resolution, and automatic organize + enrich — all in one command.
 
 ```
-/design:plan SPEC-0003 --review
+/design:plan SPEC-0003 --scrum
+/design:plan --scrum            # groom full backlog
 ```
+
+See the [Sprint Planning guide](./sprint-planning) for a full walkthrough.
 :::
 
 :::tip Retroactive enrichment
@@ -208,6 +184,18 @@ And run a full audit at milestones:
 /design:audit
 ```
 
+:::tip Use `--scrum` on audit to triage findings
+After a full audit, `--scrum` replaces the raw findings table with a
+prioritized remediation roadmap. A six-role triage team groups findings
+into functional themes, assigns P1/P2/P3 priority and effort estimates,
+and separates "fix the code" findings from "update the spec" findings.
+
+```
+/design:audit --scrum
+/design:audit auth --scrum    # scoped to auth domain
+```
+:::
+
 ## Example: End-to-End
 
 Here's a concrete example of the full workflow for adding a notification
@@ -242,23 +230,25 @@ The agent:
 - **Detects Beads** (finds `.beads/` in the project root) and offers to
   save the preference to `.claude-plugin-design.json`
 - **Creates an epic**: "Implement Notification Service"
-- **Creates tasks** from each requirement:
-  - "Event type registry and schema validation" — references SPEC-0004 REQ "Event Types"
-  - "Delivery rules engine" — references SPEC-0004 REQ "Delivery Rules"
-  - "User notification preferences API" — references SPEC-0004 REQ "Preferences"
-- **Writes acceptance criteria** for each task:
-  ```
+- **Groups requirements into 3 stories** by functional area:
+  - Story 1: "Setup & Event Schema" (REQ "Event Types", REQ "Schema Validation")
+  - Story 2: "Delivery Engine & Preferences" (REQ "Delivery Rules", REQ "Preferences")
+  - Story 3: "Connection Management & Reconnection" (REQ "WebSocket Lifecycle", REQ "Backoff Strategy")
+- **Each story body contains a task checklist**:
+  ```markdown
+  ## Requirements
+  - [ ] **REQ "Event Types"** (SPEC-0004): system MUST validate events against registered schemas
+    - WHEN unregistered event type is received THEN reject with 422 status
+  - [ ] **REQ "Schema Validation"** (SPEC-0004): payloads MUST conform to registered schema
+
   ## Acceptance Criteria
-  - [ ] Per SPEC-0004 REQ "Event Types": system MUST validate events against registered schemas
-  - [ ] Per SPEC-0004 Scenario "Unknown event": WHEN unregistered event type is received
-        THEN system MUST reject with 422 status
+  - [ ] Per SPEC-0004 REQ "Event Types": validation enforced at ingestion boundary
   - [ ] Governing: ADR-0005 (chose WebSocket-based notifications)
   ```
-- **Sets up dependencies**: delivery rules are blocked by the event registry
-- **Creates a project** "Notification Service" in GitHub Projects V2 and adds all issues
-- **Adds branch names** to each issue: `feature/42-event-type-registry`, `feature/43-delivery-rules-engine`, etc.
-- **Adds PR conventions**: each issue body includes `Closes #42` referencing itself and `Part of #41` referencing the epic
-- **Reports**: "Created 1 epic, 3 tasks, and 2 sub-tasks in Beads with dependency links."
+- **Creates a GitHub Project** "Notification Service" with All Work, Board, and Roadmap views, a Sprint iteration field, and a README with spec references and story index
+- **Adds branch names** to each story: `feature/42-setup-event-schema`, `feature/43-delivery-engine-preferences`
+- **Adds PR conventions**: each story body includes `Closes #42` and `Part of #41` (epic)
+- **Reports**: "Created 1 epic, 3 stories covering 6 requirements in GitHub."
 
 You can then plan a second spec the same way:
 

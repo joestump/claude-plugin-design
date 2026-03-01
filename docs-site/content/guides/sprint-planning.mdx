@@ -1,0 +1,270 @@
+---
+title: Sprint Planning
+sidebar_label: Sprint Planning
+sidebar_position: 3
+---
+
+# Sprint Planning
+
+The design plugin offers two modes for turning specs into actionable work: a
+**standard** mode that creates story-sized issues directly, and a **scrum** mode
+that runs a full team-groomed ceremony before committing to the backlog.
+
+## Standard Planning
+
+After writing a spec, break it into trackable issues with `/design:plan`:
+
+```
+/design:plan authentication-service
+/design:plan SPEC-0003
+```
+
+The planner groups your requirements into **3–4 story-sized issues** by functional
+area — not one issue per requirement. Each story targets a 200–500 line PR with a
+task checklist that traces every requirement back to its story.
+
+The pipeline runs automatically:
+
+1. **Detects your tracker** — checks for Beads, GitHub, GitLab, Gitea, Jira, and Linear.
+   Saves your choice to `.claude-plugin-design.json` so you're never asked again.
+2. **Creates an epic and stories** — one epic per spec, 3–4 stories per functional area
+   (Setup, Core Logic, Validation, Extensions) with requirement checklists.
+3. **Enriches projects** — creates a tracker-native project with description and README,
+   iteration fields, and named views (GitHub) or milestones and board columns (Gitea).
+4. **Adds branch and PR conventions** — `feature/{issue-number}-{slug}` and
+   tracker-specific close keywords in every issue body.
+5. **Reports** — counts of epics, stories, and requirements covered, with links.
+
+### When to use standard planning
+
+Standard planning is the right default for most situations:
+
+- You're familiar with the spec and confident in the story breakdown
+- The spec is small (4–6 requirements)
+- You want to move quickly and refine in review
+- You've already done a spec review pass
+
+## Scrum Mode
+
+When you want a team to challenge and refine the backlog before committing,
+add `--scrum`:
+
+```
+/design:plan SPEC-0003 --scrum
+/design:plan --scrum            # groom full backlog
+```
+
+`--scrum` runs a complete sprint planning ceremony, then automatically handles
+organize and enrich — no separate commands needed.
+
+### When to use `--scrum`
+
+Use scrum mode when:
+
+- The spec is large or complex (7+ requirements, multiple subsystems)
+- Requirements touch multiple teams or have unclear boundaries
+- You want a high-bar review before committing to sprint commitments
+- Some work appears unspec'd (existing issues without a backing spec)
+- You haven't run `/design:audit` recently and want freshness validation
+
+### The ceremony
+
+#### Phase 1: Spec completeness audit
+
+Before any grooming begins, the planner audits every spec in scope:
+
+- If a spec has `spec.md` but is missing `design.md`, the design document is
+  generated automatically.
+- If existing tracker issues reference work that has no backing spec, the planner
+  produces **spec proposals** — ready-to-use `/design:spec` commands for each
+  unspec'd area.
+
+This ensures the team grooms against complete, consistent artifacts.
+
+#### Phase 2: Issue decomposition
+
+Requirements are grouped into story-sized issues exactly as in standard mode.
+Stories are drafted before the team review so agents have concrete artifacts to
+critique.
+
+#### Phase 3: Backlog grooming
+
+A five-agent scrum team reviews all stories in parallel, each from their
+distinct perspective:
+
+| Role | Focus |
+|------|-------|
+| **Product Owner** | Business value, priority order, missing acceptance criteria |
+| **Scrum Master** | Completeness, story sizing, dependencies between stories |
+| **Engineer A** | Technical feasibility, implementation clarity, test coverage |
+| **Engineer B** | High bar, explicit objections — "this is underspecified", "this scope is too big", "this will break in production" |
+| **Architect** | Alignment with ADRs, system coherence, governing comments |
+
+Engineer B is intentionally high-bar and pedantic. Vague acceptance criteria,
+oversized stories, and missing edge cases are flagged explicitly — not softened
+into suggestions.
+
+#### Phase 4: Dissent resolution
+
+Each agent submits per-story feedback. Stories with unanimous approval move
+forward immediately. Dissent is resolved in **one negotiation round**:
+
+- Agents with disagreements exchange one rebuttal
+- If still unresolved, the **Scrum Master tiebreaks**
+- Stories that can't be resolved (e.g., require spec clarification) are
+  **deferred** with a note — they are not silently accepted
+
+#### Phase 5: Automatic organize and enrich
+
+After grooming, organize and enrich run automatically:
+
+- Issues are grouped into tracker-native projects
+- Branch naming and PR conventions are added to every issue body
+
+No need to run `/design:organize` or `/design:enrich` separately.
+
+#### Phase 6: Sprint report
+
+The ceremony closes with a sprint report:
+
+```
+## Sprint Report: SPEC-0003 (Authentication Service)
+
+### Accepted ✓
+- Story #42: Setup & Token Schema — approved unanimously
+- Story #43: Core Validation Logic — approved after 1 revision
+
+### Revised ✏️
+- Story #44: Refresh Flow — scoped down, PKCE exchange moved to separate story
+
+### Deferred ⏸
+- Story #45: Device Grant — requires SPEC-0003 to clarify device_code TTL
+
+### Spec Proposals 📋
+- Unspec'd: Rate Limiting — run `/design:spec Rate Limiting` to formalize
+```
+
+## Retroactive Enrichment
+
+Already have issues from a previous `/design:plan` run? Use these to catch up
+without re-creating issues:
+
+```
+/design:organize SPEC-0003     # group into projects
+/design:enrich SPEC-0003       # add branch names and PR conventions
+```
+
+Both commands are idempotent — they skip anything that already exists or already
+has the relevant sections.
+
+## Audit Triage {#audit-scrum}
+
+After implementation, use drift detection to check alignment. For a full
+project-wide audit:
+
+```
+/design:audit
+```
+
+For large projects, the raw findings table can be overwhelming. Add `--scrum`
+to replace it with a prioritized remediation roadmap:
+
+```
+/design:audit --scrum
+/design:audit auth --scrum    # scoped to auth domain
+```
+
+### How audit triage works
+
+The standard audit runs first, producing the full findings set. Then a
+six-role triage team takes over:
+
+#### Step 1: Source of truth validation
+
+ADRs with status `accepted` and specs with status `approved` or `implemented`
+are treated as **presumptively correct**. Code deviation is presumed wrong
+unless explicitly reclassified.
+
+Engineer B may argue that a finding represents intentional evolution — that the
+code is right and the artifact is stale. But the Architect decides whether to
+reclassify, not the team. The result is either:
+
+- **Fix the code** → goes into the remediation roadmap
+- **Update the artifact** → goes into the artifact update queue
+
+This prevents silent drift from being accepted as "the new normal."
+
+#### Step 2: Theme grouping
+
+Raw findings are grouped into **4–8 functional themes** by domain area —
+not by drift category. Instead of a flat table of 23 findings, you get:
+
+| Theme | Findings | Priority | Effort |
+|-------|----------|----------|--------|
+| Authentication drift | 4 | P1 | M |
+| Billing API contracts | 3 | P2 | S |
+| Notification delivery | 2 | P2 | XS |
+| Deprecated patterns | 8 | P3 | L |
+
+#### Step 3: Triage team review
+
+Five agents review the grouped findings:
+
+| Role | Focus |
+|------|-------|
+| **Product Owner** | Business impact, which themes block user-facing value |
+| **Scrum Master** | Effort estimates, sequencing, dependency order |
+| **Engineer A** | Complexity, implementation risk |
+| **Engineer B** | False-positive challenges — "this is intentional evolution, not drift" |
+| **Architect** | Source-of-truth validation, decides code-fix vs. artifact-update |
+
+#### Step 4: Triage report
+
+```
+## Audit Triage Report
+
+### Remediation Roadmap
+
+| Theme | P | Effort | Action | Stories |
+|-------|---|--------|--------|---------|
+| Auth drift | P1 | M | Fix code | #47, #48 |
+| Billing contracts | P2 | S | Fix code | #49 |
+
+### Artifact Update Queue
+
+These findings indicate the **spec or ADR needs updating**, not the code:
+
+- SPEC-0003 REQ "Token Expiry": implementation uses 15m TTL; spec says 1h —
+  update spec to match accepted ADR-0007 decision
+- ADR-0002: status is `proposed` but decision is implemented — mark `accepted`
+
+### Accepted as-is
+
+- 2 findings reclassified as intentional evolution (Architect approved)
+```
+
+After the report, the planner offers to create tracker issues for P1 and P2
+themes automatically.
+
+## Full Lifecycle Example
+
+Here's the complete flow from decision to validated implementation:
+
+```
+# 1. Record the decision
+/design:adr Add WebSocket-based notifications --review
+
+# 2. Write the spec
+/design:spec Notification Service
+
+# 3. Plan with team grooming
+/design:plan SPEC-0004 --scrum
+
+# 4. Prime and build
+/design:prime notifications
+/design:work
+
+# 5. Validate
+/design:check src/notifications/
+/design:audit --scrum
+```

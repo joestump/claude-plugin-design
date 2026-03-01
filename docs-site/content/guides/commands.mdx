@@ -76,11 +76,14 @@ then optionally plan a sprint by breaking requirements into trackable issues.
 
 ### `/design:plan` {#plan}
 
-Break an existing spec into trackable issues in your issue tracker.
+Break an existing spec into story-sized tracker issues, organized into projects
+with branch naming and PR conventions. Use `--scrum` for a full team-groomed
+sprint planning ceremony.
 
 **Usage:**
 ```
 /design:plan [spec-name or SPEC-XXXX]
+/design:plan [spec-name or SPEC-XXXX] --scrum
 /design:plan [spec-name or SPEC-XXXX] [--review] [--project <name>] [--no-projects] [--branch-prefix <prefix>] [--no-branches]
 ```
 
@@ -88,25 +91,41 @@ Break an existing spec into trackable issues in your issue tracker.
 - Accepts a spec directory name (e.g., `authentication-service`) or a spec
   number (e.g., `SPEC-0003`). If omitted, lists available specs and asks
   which one to plan.
+- Groups requirements into **3-4 story-sized issues** by functional area — not
+  one issue per requirement. Each story targets a 200–500 line PR with task
+  checklists for requirement traceability.
 - Detects available issue trackers: [Beads](https://github.com/steveyegge/beads),
   GitHub (via MCP or `gh` CLI), GitLab (via MCP or `glab` CLI), Gitea (via MCP),
   Jira (via MCP), and Linear (via MCP)
 - Saves your tracker preference to `.claude-plugin-design.json` so you're not prompted again
-- Creates epics, tasks, and sub-tasks from the spec's requirements, with
+- Creates an epic for the spec and story issues with requirement checklists and
   acceptance criteria referencing spec and requirement numbers
-- Sets up dependency relationships between tasks
-- Creates tracker-native projects for each epic, or a single combined project with `--project`. Skip with `--no-projects`.
-- Adds `### Branch` sections to issue bodies with `feature/{issue-number}-{slug}` naming convention. Customize prefix with `--branch-prefix`, skip with `--no-branches`.
-- Adds `### PR Convention` sections with tracker-specific close keywords (e.g., `Closes #N` for GitHub).
+- Creates tracker-native projects with descriptions, READMEs, iteration fields,
+  and named views (GitHub) or milestones and board columns (Gitea)
+- Adds `### Branch` sections: `feature/{issue-number}-{slug}` for stories,
+  `epic/{issue-number}-{slug}` for epics. Customize with `--branch-prefix`, skip with `--no-branches`.
+- Adds `### PR Convention` sections with tracker-specific close keywords
 - Falls back to a structured `tasks.md` file co-located with the spec if no
   tracker is available
-- With `--review`, spawns a planner + reviewer team (max 2 revision rounds).
-  The reviewer verifies every spec requirement has a corresponding issue.
+
+**`--scrum` mode** (full team-groomed ceremony):
+- Audits spec completeness before planning — generates missing `design.md` files
+  and proposes specs for any unspec'd issues
+- Spawns a five-agent scrum team: Product Owner, Scrum Master, Engineer A,
+  Engineer B (grumpy, high-bar), and Architect
+- Each agent reviews all stories and submits role-specific feedback in parallel
+- Dissent is resolved in one negotiation round; the Scrum Master tiebreaks
+- Organize and enrich run automatically after grooming — no separate commands needed
+- Emits a sprint report: accepted, revised, deferred, and new spec proposals
+
+See the [Sprint Planning guide](./sprint-planning) for a full walkthrough.
 
 **Examples:**
 ```
 /design:plan authentication-service
 /design:plan SPEC-0003
+/design:plan SPEC-0003 --scrum
+/design:plan --scrum                    # groom full backlog
 /design:plan SPEC-0003 --review
 /design:plan SPEC-0003 --project "Auth Sprint"
 /design:plan SPEC-0003 --no-branches
@@ -202,26 +221,46 @@ during development — like running a linter.
 ### `/design:audit` {#audit}
 
 Comprehensive analysis of the entire project (or a scope) for all forms
-of drift, coverage gaps, stale artifacts, and policy violations.
+of drift, coverage gaps, stale artifacts, and policy violations. Use `--scrum`
+for a team-triaged remediation roadmap.
 
 **Usage:**
 ```
 /design:audit [scope]
 /design:audit [scope] --review
+/design:audit [scope] --scrum
 ```
 
 **What it does:**
 - Examines the project for: code-vs-spec drift, code-vs-ADR drift,
   ADR-vs-spec inconsistencies, coverage gaps, stale artifact detection,
   and policy violations
-- Produces a structured report with prioritized findings (critical, warning, info)
-- With `--review`, spawns an auditor + reviewer team
+- Produces a structured report with findings (critical, warning, info) grouped
+  by category
+- With `--review`, spawns an auditor + reviewer team (max 2 revision rounds)
+
+**`--scrum` mode** (team-triaged remediation):
+- Runs the full standard audit first, then layers a triage ceremony on top
+- Groups raw findings into **4–8 functional themes** (e.g., "Authentication drift",
+  "Billing API Contracts") instead of raw category tables
+- Spawns a five-agent triage team: Product Owner (business priority),
+  Scrum Master (effort estimates), Engineer A (complexity), Engineer B
+  (false-positive challenge), Architect (source-of-truth validation)
+- ADRs/specs are the source of truth — Engineer B can challenge a finding as
+  intentional evolution, but the Architect decides: code fix or artifact update
+- Produces a prioritized roadmap: P1/P2/P3 × XS–XL per theme, plus an
+  **artifact update queue** for findings where the spec needs updating (not the code)
+- Offers to create tracker issues for P1 and P2 themes after the report
+
+See the [Sprint Planning guide](./sprint-planning#audit-scrum) for triage workflow details.
 
 **Examples:**
 ```
 /design:audit
 /design:audit src/
 /design:audit --review
+/design:audit --scrum
+/design:audit auth --scrum       # scope triage to auth domain
 ```
 
 ---

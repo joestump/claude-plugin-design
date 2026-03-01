@@ -103,6 +103,10 @@ const config: Config = {
               to: '/guides/commands',
             },
             {
+              label: 'Sprint Planning',
+              to: '/guides/sprint-planning',
+            },
+            {
               label: 'Architecture Decisions',
               to: '/decisions',
             },
