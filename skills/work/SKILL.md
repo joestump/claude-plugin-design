@@ -47,19 +47,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
 
 2. **Load architecture context** (when a spec is provided or issues reference a spec): Read the spec's `spec.md` and `design.md`. Scan for referenced ADRs (e.g., `ADR-0001`) and read those too. This context will be sent to every worker. If no spec is associated with the selected issues, skip this step — workers will rely on issue body and codebase context alone.
 
-3. **Detect tracker**: Follow the same pattern as `/design:plan`:
-
-   **3.1: Check for saved preference.** Read `.claude-plugin-design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly. If it also has `"tracker_config"`, use those settings. If the saved tracker's tools are no longer available, warn and fall through to detection.
-
-   **3.2: Detect available trackers.** Check for each tracker:
-   - **Beads**: Look for `.beads/` directory or run `bd --version`.
-   - **GitHub**: Use `ToolSearch` to probe for MCP tools matching `github`, or check `gh` CLI via `gh --version`.
-   - **GitLab**: Use `ToolSearch` to probe for MCP tools matching `gitlab`, or check `glab` CLI via `glab --version`.
-   - **Gitea**: Use `ToolSearch` to probe for MCP tools matching `gitea`, or check if `tea` CLI is available via `tea --version`.
-   - **Jira**: Use `ToolSearch` to probe for MCP tools matching `jira`.
-   - **Linear**: Use `ToolSearch` to probe for MCP tools matching `linear`.
-
-   **3.3: Choose tracker.** Same as `/design:plan` — prompt if multiple, use directly if one, fallback to `tasks.md` parsing if none.
+3. **Detect tracker**: Follow the "Tracker Detection" flow in the plugin's `references/shared-patterns.md`. Fallback to `tasks.md` parsing if no tracker is found.
 
 4. **Discover workable issues**: Search the tracker for open issues:
    - If a **spec** was provided: find all open issues referencing that spec.
@@ -103,27 +91,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
      - If the user says stop, halt and report.
    - Run `git fetch` to ensure we have the latest remote state.
 
-7. **Read `.claude-plugin-design.json` worktree config**: Check for `worktrees` section and apply defaults:
-
-   ```json
-   {
-     "worktrees": {
-       "base_dir": null,
-       "max_agents": 3,
-       "auto_cleanup": false,
-       "pr_mode": "ready"
-     }
-   }
-   ```
-
-   | Key | Default | Description |
-   |-----|---------|-------------|
-   | `base_dir` | `.claude/worktrees/` | Where worktrees are created |
-   | `max_agents` | `3` | Default concurrent workers |
-   | `auto_cleanup` | `false` | Remove worktrees after PR creation |
-   | `pr_mode` | `"ready"` | `"draft"` or `"ready"` |
-
-   CLI flags override `.claude-plugin-design.json` values. `--max-agents N` overrides `worktrees.max_agents`. `--draft` overrides `worktrees.pr_mode` to `"draft"`.
+7. **Read `.claude-plugin-design.json` worktree config**: Read the `worktrees` section (see plugin's `references/shared-patterns.md` § "Config Schema"). Defaults: `base_dir`=`.claude/worktrees/`, `max_agents`=3, `auto_cleanup`=false, `pr_mode`="ready". CLI flags override config values.
 
 8. **Create team**: Use `TeamCreate` to create a coordination team. The lead (you) manages the task queue and monitors progress. Spawn up to `--max-agents` worker agents using `Task` with `subagent_type: "general-purpose"`.
 
@@ -230,7 +198,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
     - Preserved (failed): 1
 
     ### Next Steps
-    - Review PRs and merge when satisfied
+    - Run `/design:review` for automated spec-aware PR review and merge
     - Fix failing issue #44 manually or re-run `/design:work 44`
     - Run `/design:check` to verify implementation alignment
     - Run `/design:audit` for comprehensive drift analysis

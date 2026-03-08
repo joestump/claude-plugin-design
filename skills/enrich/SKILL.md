@@ -18,20 +18,11 @@ You are retroactively adding `### Branch` and `### PR Convention` sections to ex
 
    If no spec identifier is provided, list available specs by globbing `docs/openspec/specs/*/spec.md`, read the title from each, and use `AskUserQuestion` to ask which spec to enrich.
 
-2. **Resolve spec**: Same resolution flow as `/design:plan`:
-   - If a SPEC number is provided, find the matching spec directory by scanning `docs/openspec/specs/*/spec.md` for the SPEC number in the title.
-   - If a capability directory name is provided, look for `docs/openspec/specs/{name}/spec.md`.
-   - If the spec doesn't exist, tell the user and suggest `/design:spec` to create one.
+2. **Resolve spec**: Follow the plugin's `references/shared-patterns.md` § "Spec Resolution".
 
 3. **Read spec**: Read `docs/openspec/specs/{capability-name}/spec.md` to get the spec number and understand the requirements.
 
-4. **Detect tracker**: Same flow as `/design:plan`:
-
-   **4.1: Check for saved preference.** Read `.claude-plugin-design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly.
-
-   **4.2: Detect available trackers.** If no saved preference, probe for each tracker using `ToolSearch` and CLI checks (same as plan step 4.2).
-
-   **4.3: Choose tracker.** Same rules as plan: multiple → ask user; one → use it; none → error (enrichment requires a tracker).
+4. **Detect tracker**: Follow the "Tracker Detection" flow in the plugin's `references/shared-patterns.md`. If no tracker is found, error — enrichment requires a tracker.
 
 5. **Read `.claude-plugin-design.json` branch/PR config**: Check for saved preferences:
 
@@ -101,12 +92,7 @@ You are retroactively adding `### Branch` and `### PR Convention` sections to ex
       {close-keyword} #{issue-number}
       {ref-keyword} #{epic-number} (SPEC-XXXX)
       ```
-      Tracker-specific close keywords (or use `.claude-plugin-design.json` `pr_conventions.close_keyword`):
-      - **GitHub/Gitea**: `Closes #{issue-number}`
-      - **GitLab**: `Closes #{issue-number}` (in MR description)
-      - **Beads**: `bd resolve`
-      - **Jira**: `{PROJECT-KEY}-{number}` reference
-      - **Linear**: `{TEAM}-{number}` reference
+      Tracker-specific close keywords: see the plugin's `references/shared-patterns.md` § "PR Close Keywords".
 
    h. **Auto-create labels** (Governing: SPEC-0011 REQ "Auto-Create Labels"): When applying labels like `epic` or `story` during enrichment, use the **try-then-create pattern**: attempt to apply the label, and if the tracker returns a "label not found" error, create the label with a default color (epic=#6E40C9, story=#1D76DB, spec=#0E8A16, other=#CCCCCC) and retry.
 
@@ -123,30 +109,9 @@ You are retroactively adding `### Branch` and `### PR Convention` sections to ex
    - Any failures encountered (with issue numbers and error details)
    - Breakdown: how many got `### Branch`, how many got `### PR Convention`
 
-## .claude-plugin-design.json Schema Reference
+## Config Reference
 
-This skill reads the `branches` and `pr_conventions` sections of `.claude-plugin-design.json`:
-
-```json
-{
-  "tracker": "github",
-  "tracker_config": { "owner": "...", "repo": "..." },
-  "branches": {
-    "enabled": true,
-    "prefix": null,
-    "epic_prefix": "epic",
-    "slug_max_length": 50
-  },
-  "pr_conventions": {
-    "enabled": true,
-    "close_keyword": null,
-    "ref_keyword": "Part of",
-    "include_spec_reference": true
-  }
-}
-```
-
-All keys are optional and backward-compatible. `null` values mean "use tracker defaults."
+This skill reads the `branches` and `pr_conventions` sections of `.claude-plugin-design.json`. See the plugin's `references/shared-patterns.md` § "Config Schema" for the full schema and § "Branch Naming Conventions" and "PR Close Keywords" for conventions.
 
 ## Rules
 

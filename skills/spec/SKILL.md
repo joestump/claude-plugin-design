@@ -42,79 +42,7 @@ You are creating or updating an OpenSpec specification. Every spec is a **paired
 
 7. **Summarize** what happened (files created, spec documented, review outcome).
 
-8. **Sprint planning** (offer after spec creation):
-   After the spec is written (and approved if `--review`), offer to break it down into trackable work items. Use `AskUserQuestion` to ask: "Want me to plan a sprint from this spec? I'll break requirements into issues with acceptance criteria."
-
-   If the user says yes:
-
-   **8.1: Detect available issue trackers.**
-
-   First, check for a saved preference: read `.claude-plugin-design.json` in the project root. If it contains a `"tracker"` key, use that tracker directly (and `"tracker_config"` for settings like owner/repo). If the saved tracker's tools are no longer available, warn the user and fall through to detection.
-
-   If no saved preference, detect trackers:
-   - **Beads**: Look for a `.beads/` directory in the project root, or run `bd --version` to check if Beads is installed. Beads is the preferred tracker for AI-agent workflows.
-   - **GitHub**: Check if GitHub MCP tools are available (tools matching `mcp__github__*` or `mcp__*github*`), or if `gh` CLI is available via `gh --version`.
-   - **GitLab**: Check if GitLab MCP tools are available (tools matching `mcp__*gitlab*`), or if `glab` CLI is available via `glab --version`.
-   - **Gitea**: Check if Gitea MCP tools are available (tools matching `mcp__gitea__*` or `mcp__*gitea*`), or if `tea` CLI is available via `tea --version`.
-   - **Jira**: Check if Jira MCP tools are available (tools matching `mcp__*jira*`).
-   - **Linear**: Check if Linear MCP tools are available (tools matching `mcp__*linear*`).
-
-   If multiple trackers are found, use `AskUserQuestion` to let the user choose. Offer to save the choice to `.claude-plugin-design.json`.
-
-   > **Tip**: For planning against existing specs, use `/design:plan` — it provides a dedicated workflow for breaking specs into issues with full tracker detection and preference persistence.
-
-   **If none are found**, generate a `tasks.md` file as a durable openspec artifact instead (per ADR-0007 and SPEC-0006). Write it to `docs/openspec/specs/{capability-name}/tasks.md`, co-located with `spec.md` and `design.md`. Follow these rules:
-
-   - **Derive tasks from spec requirements**: Read the `spec.md` just created. Each `### Requirement:` section MUST produce at least one task. Complex requirements with multiple scenarios MAY produce multiple tasks or a dedicated section.
-   - **Use numbered section headings**: Group tasks under `## N. Section Title` headings (e.g., `## 1. Setup`, `## 2. Core Implementation`). Order sections so prerequisite work appears in earlier sections.
-   - **Use checkbox task format**: Every task MUST be a checkbox item: `- [ ] X.Y Task description` where `X` is the section number and `Y` is the sequential task number within that section.
-   - **Reference governing requirements**: Each task SHOULD reference the spec requirement or scenario it implements (e.g., "Implement REQ Tracker Detection Fallback").
-   - **Keep tasks session-sized**: Each task SHALL be small enough to complete in one coding session and SHALL have a verifiable completion criterion.
-   - **Completion tracking**: When a task is completed, the checkbox is updated from `- [ ]` to `- [x]`. Downstream tooling can parse these to compute progress percentage.
-
-   **tasks.md template:**
-
-   ```markdown
-   # Tasks: {Capability Title}
-
-   > Generated from SPEC-XXXX. See [spec.md](./spec.md) and [design.md](./design.md).
-
-   ## 1. Setup
-
-   - [ ] 1.1 Create new module structure (REQ "{Requirement Name}")
-   - [ ] 1.2 Add dependencies to package.json
-
-   ## 2. Core Implementation
-
-   - [ ] 2.1 Implement data export function (REQ "{Requirement Name}")
-   - [ ] 2.2 Add CSV formatting utilities (REQ "{Requirement Name}", Scenario "{Scenario Name}")
-
-   ## 3. Testing & Validation
-
-   - [ ] 3.1 Add unit tests for export function
-   - [ ] 3.2 Validate against spec scenarios
-   ```
-
-   **8.2: Break down requirements into issues.** Read the spec.md just created and for each `### Requirement:` section:
-   - Create an **epic** for the specification itself (e.g., "Implement {Capability Title}")
-   - Create a **task** for each requirement, as a child of the epic
-   - For complex requirements with multiple scenarios, create **sub-tasks**
-
-   **8.3: Write acceptance criteria.** Each issue MUST include:
-   - A reference to the spec and requirement number (e.g., "Implements SPEC-0003, Requirement: JWT Token Generation")
-   - Acceptance criteria derived from the requirement's WHEN/THEN scenarios
-   - Links to governing ADRs if the spec references them in its Overview
-   - Example format:
-     ```
-     ## Acceptance Criteria
-     - [ ] Per SPEC-0003 REQ "JWT Token Generation": tokens MUST use RS256 signing
-     - [ ] Per SPEC-0003 Scenario "Token expiry": WHEN token age exceeds TTL THEN refresh endpoint returns new token
-     - [ ] Governing: ADR-0001 (chose JWT over sessions)
-     ```
-
-   **8.4: Set up dependencies.** If using Beads, use `bd dep add` to link tasks that block each other based on the requirement relationships.
-
-   **8.5: Report the plan.** Summarize what was created: number of epics, tasks, sub-tasks, and where the user can find them.
+8. **Suggest sprint planning**: After the spec is written, suggest: "To break this spec into trackable issues, run `/design:plan SPEC-XXXX`."
 
 9. **CLAUDE.md integration**: Check if this is the first spec (i.e., `docs/openspec/specs/` was just created or contains only this new directory). If so:
    - Check if a `CLAUDE.md` exists in the project root
@@ -124,13 +52,8 @@ You are creating or updating an OpenSpec specification. Every spec is a **paired
    - If `CLAUDE.md` doesn't exist, suggest creating one
 
 ### Team Handoff Protocol (only for `--review` mode)
-1. The spec-writer writes both spec.md and design.md to the target path
-2. The spec-writer sends a message to the architect: "Draft ready for review at [path]"
-3. The architect reads both files, reviews against the checklist below, and either:
-   a. Sends "APPROVED" to the lead, or
-   b. Sends specific revision requests to the spec-writer
-4. Maximum 2 revision rounds. After that, the architect approves with noted concerns.
-5. The lead agent finalizes only after receiving "APPROVED"
+
+Follow the standard team handoff protocol from the plugin's `references/shared-patterns.md`. The drafter is the spec-writer; the reviewer is the architect who checks both spec.md and design.md against the Rules checklist below.
 
 ## spec.md Template
 

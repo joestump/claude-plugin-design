@@ -13,11 +13,7 @@ You are breaking down an existing specification into trackable work items (epics
 
 1. **Identify the target spec and parse flags**: Parse `$ARGUMENTS`.
 
-   **Spec resolution:**
-   - If a SPEC number is provided (e.g., `SPEC-0003`), find the matching spec directory by scanning `docs/openspec/specs/*/spec.md` for the SPEC number in the title.
-   - If a capability directory name is provided (e.g., `web-dashboard`), look for `docs/openspec/specs/{name}/spec.md`.
-   - If `$ARGUMENTS` is empty (ignoring flags), list available specs by globbing `docs/openspec/specs/*/spec.md`, read the title from each, and use `AskUserQuestion` to ask which spec to plan.
-   - If the spec doesn't exist, tell the user and suggest `/design:spec` to create one.
+   **Spec resolution:** Follow the standard flow in the plugin's `references/shared-patterns.md` § "Spec Resolution".
 
    **Flag parsing:**
    - `--scrum`: Enable scrum ceremony mode (see Scrum Mode section below). When set, the skill runs a full team-groomed planning ceremony: spec completeness audit → issue decomposition → multi-agent grooming → organize → enrich → sprint report. Mutually exclusive with `--review`; if both are set, `--scrum` takes precedence.
@@ -79,19 +75,19 @@ Spawn the five specialist agents and distribute all stories for parallel review.
 **Spawn the following agents with these exact personas:**
 
 **Product Owner (PO)**
-> You are the Product Owner. Your job is to ensure every story delivers clear user value and is correctly prioritized. Review each story for: (1) Is the acceptance criteria complete and user-outcome-focused, not just technically correct? (2) Is this the right priority order — should any story be moved earlier or later? (3) Is scope appropriate — any gold-plating or missing requirements? Submit a brief verdict per story: APPROVED, REVISE (with specific change), or DEFER (with reason).
+> Review each story for user value, priority order, and scope. Assign verdict: APPROVED, REVISE (with specific change), or DEFER (with reason). If deferring a MUST/SHALL violation, provide written justification.
 
 **Scrum Master (SM)**
-> You are the Scrum Master. Your job is to ensure stories are sprint-ready and the team can start work without blockers. Review each story for: (1) Is it small enough to complete in one sprint? Assign a t-shirt size: XS (< 1 day), S (1-2 days), M (3-4 days), L (1 week), XL (> 1 week). (2) Are dependencies correct and ordering logical? (3) Is anything ambiguous or blocked? Submit a verdict per story: APPROVED (with size), REVISE (with specific change), or DEFER (with reason). You are also the tiebreaker when PO and Engineer B disagree — make fair, process-oriented decisions.
+> Ensure stories are sprint-ready. Assign t-shirt size (XS/S/M/L/XL). Flag ambiguity, incorrect dependencies, or blockers. Tiebreaker when PO and Engineer B disagree.
 
 **Engineer A**
-> You are a pragmatic senior engineer. Review each story for: (1) Technical risk — is there anything that could make this significantly harder than it looks? (2) Correct scope — should any requirements be split out or merged in? (3) Are the WHEN/THEN scenarios actually verifiable as acceptance criteria? Submit a verdict per story: APPROVED, REVISE (with specific change), or DEFER (with reason).
+> Assess technical risk, scope correctness, and whether WHEN/THEN scenarios are verifiable. Verdict: APPROVED, REVISE, or DEFER.
 
 **Engineer B (Grumpy)**
-> You are a grumpy, tenured backend engineer. You have seen thousands of requirements docs, and most of them are vague, over-engineered, or missing the actual hard parts. You hold a very high bar. Your job is NOT to approve things — it is to find problems. For each story: (1) Call out any requirement that is too vague to implement. (2) Identify any scope that is larger than it looks. (3) Flag any story that references a spec or ADR incorrectly. (4) Challenge the PO if a story seems to prioritize features over fundamentals. You may APPROVE a story, but only if it genuinely passes your high bar — and you MUST explain why in one sentence. If there is something wrong, say exactly what it is. Do not soften your feedback.
+> High-bar reviewer. Find problems: vague requirements, hidden scope, incorrect spec/ADR references. APPROVE only with explicit one-sentence justification. Do not soften feedback.
 
 **Architect**
-> You are the system architect. Review each story for: (1) Does the issue body include correct governing comments (`// Governing: SPEC-XXXX REQ "..."` pattern)? (2) Does every story reference the correct ADRs in its acceptance criteria? (3) Is there a design.md for every spec referenced? (4) Do the WHEN/THEN scenarios align with what the design.md specifies? Submit a verdict per story: APPROVED, REVISE (with specific change), or DEFER (with reason).
+> Verify governing comments, ADR references in acceptance criteria, design.md existence, and WHEN/THEN alignment with design.md. Verdict: APPROVED, REVISE, or DEFER.
 
 **Collecting feedback:**
 
@@ -153,58 +149,7 @@ Ordered for implementation (dependencies respected):
 
 ---
 
-4. **Detect the issue tracker**:
-
-   **4.1: Check for saved preference.** Read `.claude-plugin-design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly. If it also has `"tracker_config"`, use those settings (owner, repo, project key, etc.) to avoid re-prompting. If the saved tracker's tools are no longer available (e.g., MCP server was removed), warn the user: "Your saved tracker '{name}' is no longer available. Detecting other trackers..." and fall through to detection.
-
-   **4.2: Detect available trackers.** Check for each tracker:
-   - **Beads**: Look for a `.beads/` directory in the project root, or run `bd --version` to check if Beads is installed.
-   - **GitHub**: Use `ToolSearch` to probe for MCP tools matching `github` (e.g., `mcp__*github*`), or check if `gh` CLI is available via `gh --version`.
-   - **GitLab**: Use `ToolSearch` to probe for MCP tools matching `gitlab` (e.g., `mcp__*gitlab*`), or check if `glab` CLI is available via `glab --version`.
-   - **Gitea**: Use `ToolSearch` to probe for MCP tools matching `gitea` (e.g., `mcp__*gitea*`), or check if `tea` CLI is available via `tea --version`.
-   - **Jira**: Use `ToolSearch` to probe for MCP tools matching `jira` (e.g., `mcp__*jira*`).
-   - **Linear**: Use `ToolSearch` to probe for MCP tools matching `linear` (e.g., `mcp__*linear*`).
-
-   **4.3: Choose tracker.**
-   - If multiple trackers found → use `AskUserQuestion` to let the user pick one. Include an option to save the choice as default.
-   - If exactly one found → use it. Ask the user if they want to save it as default.
-   - If none found → generate `tasks.md` (see step 6).
-
-   **4.4: Save preference (if user opts in).** When the user agrees to save their tracker choice, write `.claude-plugin-design.json` in the project root. The full schema supports these keys (all new keys are optional and backward-compatible; `null` values mean "use tracker defaults"):
-
-   ```json
-   {
-     "tracker": "{tracker-name}",
-     "tracker_config": {},
-     "projects": {
-       "default_mode": "per-epic",
-       "project_ids": {},
-       "views": ["All Work", "Board", "Roadmap"],
-       "columns": ["Todo", "In Progress", "In Review", "Done"],
-       "iteration_weeks": 2
-     },
-     "branches": {
-       "enabled": true,
-       "prefix": null,
-       "epic_prefix": "epic",
-       "slug_max_length": 50
-     },
-     "pr_conventions": {
-       "enabled": true,
-       "close_keyword": null,
-       "ref_keyword": "Part of",
-       "include_spec_reference": true
-     }
-   }
-   ```
-
-   The `tracker_config` object stores tracker-specific settings so the user isn't re-prompted:
-   - **GitHub/Gitea/GitLab**: `{ "owner": "...", "repo": "..." }`
-   - **Jira**: `{ "project_key": "..." }`
-   - **Linear**: `{ "team_id": "..." }`
-   - **Beads**: `{}` (no extra config needed)
-
-   If `.claude-plugin-design.json` already exists with other keys, merge — don't overwrite the entire file.
+4. **Detect the issue tracker**: Follow the "Tracker Detection" flow in the plugin's `references/shared-patterns.md`. Read the full "Config Schema" section there for the `.claude-plugin-design.json` format. The config includes `projects`, `branches`, and `pr_conventions` sections — read those for project grouping, branch naming, and PR close keyword settings used in steps 5–7.
 
 5. **Create issues in the detected tracker**:
 
@@ -324,36 +269,11 @@ Ordered for implementation (dependencies respected):
 
 6. **Fallback: Generate `tasks.md`** (when no tracker is available):
 
-   Write a `tasks.md` file to `docs/openspec/specs/{capability-name}/tasks.md`, co-located with spec.md and design.md. Follow these rules:
-
-   - **Derive tasks from spec requirements**: Read the spec.md. Each `### Requirement:` section MUST produce at least one task. Complex requirements with multiple scenarios MAY produce multiple tasks.
-   - **Use numbered section headings**: Group tasks under `## N. Section Title` headings (e.g., `## 1. Setup`, `## 2. Core Implementation`). Order sections so prerequisite work appears earlier.
-   - **Use checkbox task format**: Every task MUST be a checkbox item: `- [ ] X.Y Task description` where `X` is the section number and `Y` is the sequential task number.
-   - **Reference governing requirements**: Each task SHOULD reference the spec requirement or scenario it implements.
-   - **Keep tasks session-sized**: Each task SHALL be small enough to complete in one coding session with a verifiable completion criterion.
-
-   **tasks.md template:**
-
-   ```markdown
-   # Tasks: {Capability Title}
-
-   > Generated from SPEC-XXXX. See [spec.md](./spec.md) and [design.md](./design.md).
-
-   ## 1. Setup
-
-   - [ ] 1.1 Create new module structure (REQ "{Requirement Name}")
-   - [ ] 1.2 Add dependencies to package.json
-
-   ## 2. Core Implementation
-
-   - [ ] 2.1 Implement data export function (REQ "{Requirement Name}")
-   - [ ] 2.2 Add CSV formatting utilities (REQ "{Requirement Name}", Scenario "{Scenario Name}")
-
-   ## 3. Testing & Validation
-
-   - [ ] 3.1 Add unit tests for export function
-   - [ ] 3.2 Validate against spec scenarios
-   ```
+   Write `docs/openspec/specs/{capability-name}/tasks.md` co-located with spec.md. Rules:
+   - Each `### Requirement:` MUST produce at least one task
+   - Use numbered section headings (`## N. Section Title`) ordered by prerequisites
+   - Checkbox format: `- [ ] X.Y Task description` referencing the governing requirement
+   - Keep tasks session-sized with verifiable completion criteria
 
 7. **Clean up** the team when done (if `--review` was used).
 
@@ -368,18 +288,7 @@ Ordered for implementation (dependencies respected):
 
 ## Team Handoff Protocol (only for `--review` mode)
 
-1. The planner creates the full story breakdown (or tasks.md draft) and sends it to the reviewer
-2. The reviewer checks:
-   - Every spec requirement appears in exactly one story's task checklist
-   - Story groupings are functionally cohesive (coupled requirements are in the same story)
-   - Task checklist items correctly reference requirement names, spec numbers, and WHEN/THEN scenarios
-   - Dependency ordering between stories is logical (setup → core → extensions → testing)
-   - Story scope targets 200-500 line PRs (heuristic, not hard constraint)
-3. The reviewer either:
-   a. Sends "APPROVED" to the lead, or
-   b. Sends specific revision requests to the planner
-4. Maximum 2 revision rounds. After that, the reviewer approves with noted concerns.
-5. The lead agent finalizes only after receiving "APPROVED"
+Follow the standard protocol from the plugin's `references/shared-patterns.md` § "Team Handoff Protocol". The drafter is the planner; the reviewer checks that every spec requirement appears in exactly one story, groupings are functionally cohesive, task checklists correctly reference specs, and dependency ordering is logical.
 
 ## Rules
 

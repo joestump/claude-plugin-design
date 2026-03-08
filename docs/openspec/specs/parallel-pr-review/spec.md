@@ -186,7 +186,31 @@ After the responder addresses feedback, the reviewer SHALL re-evaluate the PR. I
 #### Scenario: Issue closure on merge
 
 - **WHEN** a PR is merged and the PR body contains a close keyword (e.g., `Closes #42`)
-- **THEN** the tracker SHALL automatically close the linked issue via its native close-on-merge behavior
+- **THEN** the tracker SHALL automatically close the linked story issue via its native close-on-merge behavior
+
+### Requirement: Epic Closure on Story Completion
+
+After a successful merge, the skill SHALL check whether the parent epic should be closed. If all child story issues under an epic are closed, the epic SHALL be closed automatically.
+
+#### Scenario: All stories merged — epic closed
+
+- **WHEN** a PR is merged, the linked story issue is closed, and all other story issues under the same parent epic are also closed
+- **THEN** the skill SHALL close the parent epic issue and add a comment indicating automatic closure
+
+#### Scenario: Some stories still open — epic remains open
+
+- **WHEN** a PR is merged and the linked story issue is closed, but other story issues under the same parent epic are still open
+- **THEN** the skill SHALL NOT close the parent epic
+
+#### Scenario: No epic reference in PR
+
+- **WHEN** a PR is merged but the PR body contains no epic reference (no `Part of #XX` or configured `ref_keyword`)
+- **THEN** the skill SHALL skip the epic closure check for that PR without error
+
+#### Scenario: Epic closure failure
+
+- **WHEN** an attempt to close an epic fails (API error, permission issue)
+- **THEN** the skill SHALL log a warning and include the failure in the final report, leaving the epic open for manual closure
 
 ### Requirement: Dry Run Mode
 

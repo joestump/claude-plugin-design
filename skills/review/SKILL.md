@@ -23,18 +23,7 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
    - `--no-merge`: Approve PRs but do not merge them. Leave for manual merge.
    - `--dry-run`: Preview which PRs would be reviewed without taking any action.
 
-2. **Detect tracker**: Follow the same pattern as `/design:plan`:
-
-   **2.1: Check for saved preference.** Read `.claude-plugin-design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly. If it also has `"tracker_config"`, use those settings. If the saved tracker's tools are no longer available, warn and fall through to detection.
-
-   **2.2: Detect available trackers.** Check for each tracker:
-   - **GitHub**: Use `ToolSearch` to probe for MCP tools matching `github`, or check `gh` CLI via `gh --version`.
-   - **GitLab**: Use `ToolSearch` to probe for MCP tools matching `gitlab`, or check `glab` CLI via `glab --version`.
-   - **Gitea**: Use `ToolSearch` to probe for MCP tools matching `gitea`, or check if `tea` CLI is available via `tea --version`.
-
-   **2.3: Choose tracker.** Same as `/design:plan` — prompt if multiple, use directly if one, error if none (a tracker with PR/MR support is required).
-
-   Note: Beads, Jira, and Linear do not have native PR/MR support. If one of these is the saved tracker, inform the user that `/design:review` requires a tracker with PR support (GitHub, GitLab, or Gitea).
+2. **Detect tracker**: Follow the "Tracker Detection" flow in the plugin's `references/shared-patterns.md`, but only GitHub, GitLab, and Gitea are supported (PR/MR capability required). If the saved tracker is Beads, Jira, or Linear, inform the user that `/design:review` requires a tracker with PR support.
 
 3. **Discover target PRs**: Search the tracker for open PRs matching the target.
    - **GitHub**: `gh pr list --search "SPEC-XXXX" --json number,title,headRefName,body,url --limit 50` or `gh pr view {number} --json number,title,headRefName,body,url` for explicit PR numbers.
@@ -48,25 +37,7 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
    - If no governing spec can be inferred (e.g., PRs specified by number with no spec reference), proceed with general code review only and note in the report that spec compliance could not be verified.
    - This context will be sent to all reviewer agents.
 
-5. **Read `.claude-plugin-design.json` review config**: Check for `review` section and apply defaults:
-
-   ```json
-   {
-     "review": {
-       "max_pairs": 2,
-       "merge_strategy": "squash",
-       "auto_cleanup": false
-     }
-   }
-   ```
-
-   | Key | Default | Description |
-   |-----|---------|-------------|
-   | `max_pairs` | `2` | Default number of reviewer-responder pairs |
-   | `merge_strategy` | `"squash"` | Merge strategy: `"squash"`, `"merge"`, or `"rebase"` |
-   | `auto_cleanup` | `false` | Remove worktrees after review completion |
-
-   CLI flags override `.claude-plugin-design.json` values. `--pairs N` overrides `review.max_pairs`. `--no-merge` prevents merging regardless of config.
+5. **Read `.claude-plugin-design.json` review config**: Read the `review` section (see plugin's `references/shared-patterns.md` § "Config Schema"). Defaults: `max_pairs`=2, `merge_strategy`="squash", `auto_cleanup`=false. CLI flags override: `--pairs N` overrides `max_pairs`, `--no-merge` prevents merging.
 
 6. **Dry-run gate**: If `--dry-run` is set, output a preview table and stop:
 
@@ -155,8 +126,21 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
        - **GitHub**: `gh pr merge {number} --squash` (or `--merge` / `--rebase` per config).
        - **Gitea**: Use MCP tools (discovered via `ToolSearch`) to merge.
        - **GitLab**: Use MCP tools or `glab mr merge`.
-       - The tracker's native close-on-merge behavior will automatically close the linked issue.
-    6. If approved and `--no-merge` IS set, report as "approved, pending manual merge".
+       - The tracker's native close-on-merge behavior will automatically close the linked story issue.
+    6. **Close parent epic if all stories are done**: After a successful merge, check whether the closed story's parent epic should also be closed:
+       a. Parse the PR body for an epic reference (e.g., `Part of #XX` or the configured `ref_keyword` from `.claude-plugin-design.json`). If no epic reference is found, skip this step.
+       b. Fetch the epic issue and extract its child story references. Identify child stories by:
+          - **GitHub**: Search for open issues that reference the epic number in their body (`Part of #{epic-number}`), or list issues in the same project/milestone.
+          - **Gitea**: Use MCP tools (discovered via `ToolSearch`) to list issues referencing the epic, or query the epic's milestone for open issues.
+          - **GitLab**: Use MCP tools or `glab` CLI to find open issues referencing the epic.
+       c. If **all** child story issues are now closed (no open stories remain), close the epic issue:
+          - **GitHub**: `gh issue close {epic-number}`
+          - **Gitea**: Use MCP tools (discovered via `ToolSearch`) to close the issue.
+          - **GitLab**: Use MCP tools or `glab issue close {epic-number}`.
+          - Add a comment on the epic: "All child stories have been merged. Closing epic automatically."
+       d. If some child stories are still open, do nothing — the epic remains open.
+       e. Report epic closure (or not) to the lead via `SendMessage`.
+    7. If approved and `--no-merge` IS set, report as "approved, pending manual merge".
 
 12. **Cleanup and report** (Governing: SPEC-0009 REQ "Reporting"):
 
@@ -185,6 +169,10 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
     ### Skipped (CI failing)
     - (none in this example)
 
+    ### Epics
+    - Closed: #50 Implement Auth Module (all 2 stories merged)
+    - Still open: (none in this example)
+
     ### Worktrees
     - Reused: 2
     - Created: 1
@@ -210,6 +198,8 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
 | Worktree in unexpected state | `git pull` and verify correct branch; if unrecoverable, create fresh worktree |
 | CI checks failing or pending | Skip review for that PR; report as blocked until checks pass |
 | CI checks pass after re-evaluation but code issues remain | Report as "CI green, code changes requested" — do not merge |
+| Epic closure fails (API error) | Log warning, report in final summary — epic remains open for manual closure |
+| Cannot determine parent epic from PR body | Skip epic closure check for that PR — no error |
 
 ## Rules
 
@@ -224,6 +214,8 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
 - Responders MUST reply to each review comment with how it was addressed
 - MUST only merge PRs that have been approved by the reviewer
 - MUST NOT merge PRs when `--no-merge` is set
+- MUST check for parent epic closure after every successful merge — if all child stories under the epic are closed, close the epic automatically
+- MUST NOT close an epic if any child story is still open
 - Default merge strategy is squash — configurable via `.claude-plugin-design.json` `review.merge_strategy`
 - MUST report all failures with actionable details — never silently skip (Governing: SPEC-0009 REQ "Error Handling")
 - `--dry-run` MUST NOT submit reviews, push commits, or merge PRs

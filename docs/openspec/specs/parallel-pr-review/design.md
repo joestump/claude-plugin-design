@@ -55,6 +55,14 @@ The design plugin's workflow pipeline covers architectural decisions (ADR), spec
 - Always create new worktrees: Wastes time re-checking out code that may already be local
 - Require worktrees to exist: Too strict; users who cleaned up after `/design:work` would be blocked
 
+### Automatic epic closure after final story merge
+
+**Choice**: After merging a PR and its linked story issue is closed, check if all sibling stories under the parent epic are also closed; if so, close the epic automatically.
+**Rationale**: Epics are grouping issues created by `/design:plan` to represent a spec's implementation scope. They have no standalone value once all their child stories are merged. Leaving them open creates tracker noise and makes it appear that work is incomplete when it is not. The "Part of #XX" reference in PR bodies provides a reliable link from story to epic, and checking sibling story status is a cheap API call.
+**Alternatives considered**:
+- Manual epic closure: Adds a tedious manual step that is easy to forget, which is exactly the problem users reported
+- Close epic when Nth PR merges (fixed threshold): Fragile; story counts vary per spec
+
 ### Squash merge as default
 
 **Choice**: Default merge strategy is squash, configurable via `.claude-plugin-design.json` `review.merge_strategy`.
@@ -106,7 +114,10 @@ flowchart TD
     K -->|"No"| M["Merge PR\n(squash default)"]
     K -->|"Yes"| N["Report as\napproved-not-merged"]
 
-    M --> O["Final report"]
+    M --> M1{"All sibling\nstories closed?"}
+    M1 -->|"Yes"| M2["Close parent epic"]
+    M1 -->|"No"| O["Final report"]
+    M2 --> O
     N --> O
     L --> O
 ```
@@ -142,6 +153,9 @@ sequenceDiagram
 
     Lead->>Tracker: Merge PR #101 (squash)
     Tracker-->>Lead: Merged, issue #42 closed
+    Lead->>Tracker: Check sibling stories for epic #50
+    Tracker-->>Lead: All stories closed
+    Lead->>Tracker: Close epic #50
 ```
 
 ```mermaid

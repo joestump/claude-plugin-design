@@ -18,26 +18,11 @@ You are retroactively grouping existing tracker issues into tracker-native proje
 
    If no spec identifier is provided, list available specs by globbing `docs/openspec/specs/*/spec.md`, read the title from each, and use `AskUserQuestion` to ask which spec to organize.
 
-2. **Resolve spec**: Same resolution flow as `/design:plan`:
-   - If a SPEC number is provided, find the matching spec directory by scanning `docs/openspec/specs/*/spec.md` for the SPEC number in the title.
-   - If a capability directory name is provided, look for `docs/openspec/specs/{name}/spec.md`.
-   - If the spec doesn't exist, tell the user and suggest `/design:spec` to create one.
+2. **Resolve spec**: Follow the plugin's `references/shared-patterns.md` § "Spec Resolution".
 
 3. **Read spec**: Read `docs/openspec/specs/{capability-name}/spec.md` and `design.md` to understand the spec number, requirement names, and architecture.
 
-4. **Detect tracker**: Same flow as `/design:plan`:
-
-   **4.1: Check for saved preference.** Read `.claude-plugin-design.json` in the project root. If it exists and contains a `"tracker"` key, use that tracker directly. Also read `projects` settings for cached project IDs and enrichment config (views, columns, iteration_weeks).
-
-   **4.2: Detect available trackers.** If no saved preference:
-   - **Beads**: Look for `.beads/` directory or run `bd --version`
-   - **GitHub**: Use `ToolSearch` for MCP tools matching `github`, or check `gh` CLI
-   - **GitLab**: Use `ToolSearch` for MCP tools matching `gitlab`, or check `glab` CLI
-   - **Gitea**: Use `ToolSearch` for MCP tools matching `gitea`, or check `tea` CLI via `tea --version`
-   - **Jira**: Use `ToolSearch` for MCP tools matching `jira`
-   - **Linear**: Use `ToolSearch` for MCP tools matching `linear`
-
-   **4.3: Choose tracker.** Same rules as plan: multiple → ask user; one → use it; none → error (projects require a tracker).
+4. **Detect tracker**: Follow the "Tracker Detection" flow in the plugin's `references/shared-patterns.md`. Also read `projects` settings from `.claude-plugin-design.json` for cached project IDs and enrichment config (views, columns, iteration_weeks). If no tracker is found, error — projects require a tracker.
 
 5. **Find existing issues**: Search the tracker for issues whose body references the spec number.
    - **GitHub**: `gh issue list --search "SPEC-XXXX" --json number,title,body,labels --limit 100`
@@ -110,25 +95,9 @@ You are retroactively grouping existing tracker issues into tracker-native proje
     - Any failures encountered (with issue numbers)
     - Whether `.claude-plugin-design.json` was updated with project IDs
 
-## .claude-plugin-design.json Schema Reference
+## Config Reference
 
-This skill reads and writes the `projects` section of `.claude-plugin-design.json`:
-
-```json
-{
-  "tracker": "github",
-  "tracker_config": { "owner": "...", "repo": "..." },
-  "projects": {
-    "default_mode": "per-epic",
-    "project_ids": { "SPEC-0007": "PVT_kwDOABCDEF" },
-    "views": ["All Work", "Board", "Roadmap"],
-    "columns": ["Todo", "In Progress", "In Review", "Done"],
-    "iteration_weeks": 2
-  }
-}
-```
-
-All keys under `projects` are optional with sensible defaults. When writing, merge into the existing file — do not overwrite other sections. Do NOT overwrite existing keys when new keys are absent.
+This skill reads and writes the `projects` section of `.claude-plugin-design.json`. See the plugin's `references/shared-patterns.md` § "Config Schema" for the full schema. All keys are optional with sensible defaults. When writing, merge — do not overwrite.
 
 ## Rules
 

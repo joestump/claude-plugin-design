@@ -44,13 +44,8 @@ You are creating a new ADR using the MADR (Markdown Architectural Decision Recor
    - If `CLAUDE.md` doesn't exist, suggest creating one
 
 ### Team Handoff Protocol (only for `--review` mode)
-1. The drafter writes the ADR to the target path
-2. The drafter sends a message to the architect: "Draft ready for review at [path]"
-3. The architect reads the file, reviews against the checklist below, and either:
-   a. Sends "APPROVED" to the lead, or
-   b. Sends specific revision requests to the drafter
-4. Maximum 2 revision rounds. After that, the architect approves with noted concerns.
-5. The lead agent finalizes only after receiving "APPROVED"
+
+Follow the standard team handoff protocol from the plugin's `references/shared-patterns.md`. The drafter writes the ADR; the architect reviews against the Rules checklist below.
 
 ## MADR Template
 

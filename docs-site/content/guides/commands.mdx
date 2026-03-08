@@ -55,14 +55,8 @@ then optionally plan a sprint by breaking requirements into trackable issues.
   rationale, and tradeoffs
 - Assigns the next sequential `SPEC-XXXX` number
 - With `--review`, spawns a drafter + architect team (max 2 revision rounds)
-- **After writing the spec**, offers to plan a sprint inline:
-  - Detects available issue trackers ([Beads](https://github.com/steveyegge/beads),
-    GitHub, GitLab, Gitea, Jira, and Linear via MCP or CLI)
-  - Creates epics, tasks, and sub-tasks from the spec's requirements
-  - Writes acceptance criteria referencing spec and requirement numbers
-  - Sets up dependency relationships between tasks
-  - Falls back to a structured `tasks.md` file if no tracker is available
-  - For planning existing specs later, use [`/design:plan`](#plan) instead
+- After writing the spec, suggests running [`/design:plan`](#plan) to break
+  requirements into trackable issues
 
 **Examples:**
 ```
@@ -186,6 +180,86 @@ issue bodies.
 /design:enrich SPEC-0003
 /design:enrich authentication-service --branch-prefix hotfix
 /design:enrich SPEC-0003 --dry-run
+```
+
+---
+
+## Implementation {#implementation}
+
+### `/design:work` {#work}
+
+Pick up tracker issues and implement them in parallel using git worktrees.
+Each issue gets its own worktree and worker agent.
+
+**Usage:**
+```
+/design:work [SPEC-XXXX | issue numbers]
+/design:work [SPEC-XXXX | issue numbers] [--max-agents N] [--draft] [--dry-run] [--no-tests]
+```
+
+**What it does:**
+- If a spec is provided, finds all open issues referencing that spec. If issue
+  numbers are given, works on those. If empty, **proposes a batch from the backlog**
+  with a bias toward unblocking work and feature development.
+- Creates a coordination team with up to N worker agents (default 3)
+- Each worker gets its own git worktree with the branch name from the issue's
+  `### Branch` section
+- Workers implement the acceptance criteria, leave governing comments
+  (`// Governing: SPEC-XXXX REQ "..."`), run tests, and create PRs
+- Workers assess PR size — trivially small changes are bundled with additional
+  issues rather than opening tiny standalone PRs
+- Respects dependency ordering: blocked issues wait until prerequisites complete
+- Falls back to single-agent sequential mode if team creation fails
+- Skips epics and issues without `### Branch` sections (suggests `/design:enrich`)
+- After completion, suggests `/design:review` for automated spec-aware PR review
+
+**Examples:**
+```
+/design:work SPEC-0003
+/design:work 42 43 47
+/design:work                          # propose from backlog
+/design:work SPEC-0003 --max-agents 5
+/design:work SPEC-0003 --draft
+/design:work SPEC-0003 --dry-run
+/design:work SPEC-0003 --no-tests
+```
+
+---
+
+### `/design:review` {#review}
+
+Review and merge PRs produced by `/design:work` using reviewer-responder
+agent pairs. Each pair processes PRs through exactly one review-response
+round.
+
+**Usage:**
+```
+/design:review [SPEC-XXXX or PR numbers]
+/design:review [SPEC-XXXX or PR numbers] [--pairs N] [--no-merge] [--dry-run]
+```
+
+**What it does:**
+- If a spec is provided, finds all open PRs referencing that spec. If PR numbers
+  are given, reviews those. If empty, asks which spec's PRs to review.
+- Creates N reviewer-responder pairs (default 2) and distributes PRs round-robin
+- **Phase 1 — Review**: Reviewers check CI status, then review the diff against
+  spec acceptance criteria and ADR compliance. Clean PRs are approved immediately.
+- **Phase 2 — Response**: For PRs with requested changes, responders reuse the
+  existing worktree (or create one), address feedback, push fixes, and reply to
+  each review comment
+- **Phase 3 — Merge**: After response, reviewers re-check CI and either approve
+  + merge (squash by default) or leave comments for human follow-up
+- Automatically closes parent epics when all child stories are merged
+- Only supports GitHub, GitLab, and Gitea (PR/MR capability required)
+- Falls back to single-agent sequential mode if team creation fails
+
+**Examples:**
+```
+/design:review SPEC-0003
+/design:review 101 102 105
+/design:review SPEC-0003 --pairs 3
+/design:review SPEC-0003 --no-merge
+/design:review SPEC-0003 --dry-run
 ```
 
 ---

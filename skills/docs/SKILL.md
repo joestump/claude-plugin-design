@@ -76,307 +76,44 @@ find . -maxdepth 2 -name 'docusaurus.config.*' -not -path './docs-site/*' -not -
 
 ### Step 3A: Scaffold Mode
 
-This is the original behavior -- creates a standalone Docusaurus site.
-
-1. **Check for existing docs-site**: Look for `docs-site/` in the project root. If it exists, ask the user before overwriting.
-
-2. **Copy the plugin's Docusaurus templates** using `cp -r` from the plugin's `templates/docusaurus/` directory to `docs-site/` in the project root. The plugin is installed at the path shown in the skill context.
-
-3. **Customize for the project** by reading and modifying only these files:
-   - `docs-site/package.json` -- update the project name from `$ARGUMENTS` or inferred from the repo
-   - `docs-site/docusaurus.config.ts` -- update title, baseUrl, and GitHub URL for this project
-
-4. **Adapt paths**: The transform scripts need to know where ADRs and specs live relative to the docs-site. By default:
-   - ADRs: `../docs/adrs/` (relative to docs-site)
-   - OpenSpecs: `../docs/openspec/specs/` (relative to docs-site)
-   - Output: `docs-generated/` directory at project root
-
-5. **Run the SPEC mapping build** to populate `spec-emojis.json` and `spec-mapping.json` from existing specs.
-
-6. **Run `npm install`** in the docs-site directory.
-
-7. **Update `.claudeignore`**: Check if `.claudeignore` exists at the project root. If not, create it. Add entries to ignore the docs-site build artifacts that would cause Claude Code to freeze on startup:
-
-   ```
-   docs-site/node_modules/
-   docs-site/build/
-   docs-site/.docusaurus/
-   ```
-
-   If `.claudeignore` already exists, append any missing entries.
-
-8. **Report and offer to start**: Tell the user what was created, then ask: "Docs site created! Want me to start the dev server? (`cd docs-site && npm run dev`)"
+Read and follow the plugin's `skills/docs/references/scaffold-mode.md` for the full scaffold workflow. After completion, proceed to Step 4 below.
 
 ---
 
 ### Step 3B: Integration Mode
 
-Generates a build-time Docusaurus plugin into an existing site. The plugin runs the same transforms as scaffold mode but writes output into the existing site's docs tree.
-
-Let `{site}` be the path to the existing Docusaurus site directory (e.g., `website/`).
-
-#### 3B.1: Copy the sync plugin
-
-Copy the integration plugin template from the plugin's `templates/integration/sync-design-docs/` directory to `{site}/plugins/sync-design-docs/`:
-
-```bash
-cp -r {plugin-path}/templates/integration/sync-design-docs {site}/plugins/sync-design-docs
-```
-
-If `{site}/plugins/sync-design-docs/` already exists, ask the user before overwriting.
-
-#### 3B.2: Copy React components
-
-Copy all component files from `{plugin-path}/templates/docusaurus/src/components/` to `{site}/src/components/design-docs/`:
-
-```bash
-mkdir -p {site}/src/components/design-docs
-cp {plugin-path}/templates/docusaurus/src/components/*.tsx {site}/src/components/design-docs/
-```
-
-#### 3B.3: Add CSS styles
-
-Read `{plugin-path}/templates/docusaurus/src/css/custom.css` and create `{site}/src/css/design-docs.css` containing ONLY the design-specific styles. **Exclude** the `:root { ... }` and `[data-theme='dark'] { ... }` CSS variable blocks at the top of the file (the ones that set `--ifm-color-primary-*` and `--docusaurus-highlighted-code-line-bg`). These are Docusaurus theme colors that would override the existing site's color scheme.
-
-Include everything from the `/* Badge Components */` comment onwards.
-
-Then add the CSS import. Check how the site loads custom CSS:
-- If the site's `docusaurus.config.ts` has a `customCss` option, add `'./src/css/design-docs.css'` as an additional entry (it can be an array)
-- Otherwise, add `@import './design-docs.css';` at the top of the site's existing custom CSS file
-
-#### 3B.4: Register MDX components
-
-Check if `{site}/src/theme/MDXComponents.tsx` exists:
-
-**If it does NOT exist**, create it:
-
-```tsx
-import React from 'react';
-import MDXComponents from '@theme-original/MDXComponents';
-import DateBadge from '@site/src/components/design-docs/DateBadge';
-import DomainBadge from '@site/src/components/design-docs/DomainBadge';
-import PriorityBadge from '@site/src/components/design-docs/PriorityBadge';
-import SeverityBadge from '@site/src/components/design-docs/SeverityBadge';
-import StatusBadge from '@site/src/components/design-docs/StatusBadge';
-import RFCLevelBadge from '@site/src/components/design-docs/RFCLevelBadge';
-import RequirementBox from '@site/src/components/design-docs/RequirementBox';
-import Field from '@site/src/components/design-docs/Field';
-import FieldGroup from '@site/src/components/design-docs/FieldGroup';
-
-export default {
-  ...MDXComponents,
-  DateBadge,
-  DomainBadge,
-  PriorityBadge,
-  SeverityBadge,
-  StatusBadge,
-  RFCLevelBadge,
-  RequirementBox,
-  Field,
-  FieldGroup,
-};
-```
-
-**If it DOES exist**, read the existing file and merge the design-docs imports:
-- Add the import lines for each component from `@site/src/components/design-docs/`
-- Add the component names to the default export object
-- Preserve all existing imports and component registrations
-
-#### 3B.5: Register the plugin in docusaurus.config
-
-Read `{site}/docusaurus.config.ts` (or `.js`) and add the sync plugin to the `plugins` array. Determine the correct `projectRoot` by computing the relative path from `{site}` to the project root.
-
-Example -- if the site is at `website/` and the project root is `..`:
-
-```typescript
-plugins: [
-  ['./plugins/sync-design-docs', {
-    projectRoot: '..',
-    docsPath: 'docs',  // adjust to match the site's existing docs path
-  }],
-],
-```
-
-To find the existing docs path, look for the `docs` preset options in the config:
-- Find the `path` option in the classic preset's `docs` config (e.g., `path: 'docs'`)
-- Use that value for `docsPath`
-- If not specified, Docusaurus defaults to `'docs'`
-
-If the config already has a `plugins` array, append to it. If not, add a new `plugins` property.
-
-#### 3B.6: Add .gitignore entries
-
-Check for `.gitignore` at the project root. Add entries for the generated output directory:
-
-```
-# Design docs (generated by sync-design-docs plugin)
-{site}/docs/architecture/
-```
-
-Use the actual site directory name (e.g., `website/docs/architecture/`).
-
-#### 3B.7: Run initial build and verify
-
-Run the Docusaurus build to verify the plugin works:
-
-```bash
-cd {site} && npx docusaurus build 2>&1 | tail -20
-```
-
-If the build fails, diagnose and fix the issue. Common problems:
-- Missing dependencies: run `npm install` in the site directory
-- MDXComponents merge conflict: check the merge was done correctly
-- Plugin path error: verify the relative `projectRoot` is correct
-
-#### 3B.8: Update `.claudeignore`
-
-Check if `.claudeignore` exists at the project root. If not, create it. Add entries to ignore the site's build artifacts:
-
-```
-{site}/node_modules/
-{site}/build/
-{site}/.docusaurus/
-```
-
-If `.claudeignore` already exists, append any missing entries. Use the actual site directory name (e.g., `website/node_modules/`).
-
-#### 3B.9: Report results
-
-Tell the user what was created and where:
-- Plugin installed at `{site}/plugins/sync-design-docs/`
-- Components installed at `{site}/src/components/design-docs/`
-- CSS added at `{site}/src/css/design-docs.css`
-- Generated docs will appear at `{site}/docs/architecture/`
-- The plugin auto-syncs when ADRs or specs change during `npm run start`
-
-Then ask: "Integration complete! Want me to start the dev server? (`cd {site} && npm run start`)"
+Read and follow the plugin's `skills/docs/references/integration-mode.md` for the full integration workflow. After completion, proceed to Step 4 below.
 
 ---
 
-### Step 3C: Upgrade Mode (updates `.claudeignore` if missing)
+### Step 3C: Upgrade Mode
 
-Entered when `.design-docs.json` exists and the referenced `siteDir` is present on disk. This flow updates an existing docs installation to the latest plugin templates while preserving user customizations.
-
-Read the manifest from `.design-docs.json`. Let `{mode}` be the manifest's `mode` field (`"scaffold"` or `"integration"`), and `{site}` be the resolved `siteDir`.
-
-#### 3C.1: Determine template source paths
-
-Based on the manifest's `mode`:
-
-- **Scaffold**: template root is `{plugin-path}/templates/docusaurus/`
-- **Integration**: template root is `{plugin-path}/templates/integration/sync-design-docs/` for plugin files, and `{plugin-path}/templates/docusaurus/src/components/` for shared components
-
-#### 3C.2: Process each managed file
-
-For each entry in the manifest's `files` object where `managed` is `true`:
-
-1. **Compute the current SHA-256** of the file on disk
-2. **Compare** against the manifest's stored `checksum`:
-   - **Checksums match** (file unmodified by user) → replace silently with the new template version from the plugin
-   - **Checksums differ** (user has modified the file) → use `AskUserQuestion` to present the conflict:
-     - Show which file changed: `"{relative-path}" has been modified since last install.`
-     - Offer three choices:
-       - "Accept new version" → overwrite with the template version
-       - "Keep current" → leave the file as-is, update the manifest checksum to the current file's hash
-       - "Opt out of management" → set `managed: false` in the manifest for this file (skip in future upgrades)
-   - **File missing from disk** → re-create from the template
-
-For entries where `managed` is `false`, skip entirely.
-
-#### 3C.3: Detect new template files
-
-Check for files in the current plugin templates that are NOT listed in the manifest:
-
-- For **scaffold** mode: scan `templates/docusaurus/scripts/`, `templates/docusaurus/src/components/`, `templates/docusaurus/src/css/`, `templates/docusaurus/src/theme/`
-- For **integration** mode: scan `templates/integration/sync-design-docs/`, `templates/docusaurus/src/components/`
-
-For each new file found:
-- Install it to the appropriate location in `{site}`
-- Add it to the manifest with `managed: true` and its SHA-256 checksum
-
-#### 3C.4: Update the manifest
-
-Write the updated `.design-docs.json`:
-- Set `version` to the current plugin version from `.claude-plugin/plugin.json`
-- Set `updatedAt` to the current ISO timestamp
-- Update all `checksum` values to reflect the current on-disk state
-- Preserve `createdAt` and `mode` from the original manifest
-
-#### 3C.5: Ensure `.claudeignore` exists
-
-Check if `.claudeignore` at the project root already includes ignore entries for `{site}/node_modules/`, `{site}/build/`, and `{site}/.docusaurus/`. If any are missing, append them. This ensures projects scaffolded before this step was added get the fix on upgrade.
-
-#### 3C.6: Run build and verify
-
-- For **scaffold** mode: run `npm install` in `{site}` if `package.json` changed, then offer to start the dev server
-- For **integration** mode: run a Docusaurus build to verify the plugin still works
-
-#### 3C.7: Report results
-
-Tell the user:
-- How many files were updated silently (checksum matched)
-- How many files had conflicts and what the user chose for each
-- How many new files were added
-- How many files were skipped (managed: false)
-- The new plugin version recorded in the manifest
+Read and follow the plugin's `skills/docs/references/upgrade-mode.md` for the full upgrade workflow. This handles manifest-based file management, conflict resolution, and new template detection.
 
 ---
 
 ### Step 4: Create Manifest
 
-This step runs after **Step 3A.8** (scaffold complete) or **Step 3B.9** (integration complete) to establish upgrade tracking for future runs.
+Runs after Step 3A or 3B to establish upgrade tracking.
 
-#### 4.1: Determine managed files
+**Determine managed files** based on mode:
+- **Scaffold**: files in `docs-site/scripts/`, `docs-site/src/components/`, `docs-site/src/css/`, `docs-site/src/theme/`
+- **Integration**: files in `{site}/plugins/sync-design-docs/`, `{site}/src/components/design-docs/`, `{site}/src/css/design-docs.css`, `{site}/src/theme/MDXComponents.tsx` (if created/modified)
 
-Based on the mode that was just completed:
-
-**Scaffold mode** — track files in:
-- `docs-site/scripts/` (all `.js` files)
-- `docs-site/src/components/` (all `.tsx` files)
-- `docs-site/src/css/` (all `.css` files)
-- `docs-site/src/theme/` (all `.tsx` files)
-
-**Integration mode** — track files in:
-- `{site}/plugins/sync-design-docs/` (all files recursively)
-- `{site}/src/components/design-docs/` (all `.tsx` files)
-- `{site}/src/css/design-docs.css`
-- `{site}/src/theme/MDXComponents.tsx` (only if it was created or modified by Step 3B)
-
-#### 4.2: Compute checksums
-
-For each file identified in 4.1, compute its SHA-256 checksum:
-
-```bash
-shasum -a 256 {file-path}
-```
-
-#### 4.3: Write the manifest
-
-Create `.design-docs.json` at the project root with this schema:
+Compute SHA-256 checksum for each file (`shasum -a 256 {file-path}`), then write `.design-docs.json`:
 
 ```json
 {
   "version": "<plugin version from .claude-plugin/plugin.json>",
   "mode": "scaffold" | "integration",
-  "siteDir": "<relative path to site dir from project root>",
-  "createdAt": "<ISO 8601 timestamp>",
-  "updatedAt": "<ISO 8601 timestamp>",
+  "siteDir": "<relative path to site dir>",
+  "createdAt": "<ISO 8601>",
+  "updatedAt": "<ISO 8601>",
   "files": {
-    "<relative-path-from-project-root>": {
-      "checksum": "sha256:<hex-digest>",
-      "managed": true
-    }
+    "<relative-path>": { "checksum": "sha256:<hex-digest>", "managed": true }
   }
 }
 ```
-
-- `version`: read from `.claude-plugin/plugin.json` (e.g., `"1.3.0"`)
-- `mode`: `"scaffold"` or `"integration"` based on which step was just completed
-- `siteDir`: relative path to the site directory (e.g., `"docs-site"` or `"website"`)
-- `createdAt` and `updatedAt`: both set to the current ISO 8601 timestamp
-- `files`: one entry per managed file, keyed by its path relative to the project root
-
-#### 4.4: Confirm manifest creation
 
 Tell the user: "Created `.design-docs.json` with {N} tracked files. Future runs of `/design:docs` will detect changes and offer upgrades."
 

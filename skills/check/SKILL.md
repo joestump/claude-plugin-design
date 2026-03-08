@@ -96,7 +96,7 @@ You are performing a fast, focused drift check on a specific target. This skill 
 ## Rules
 
 - This skill is always single-agent. It does NOT support `--review`.
-- Only analyze the three drift categories: Code vs. Spec, Code vs. ADR, ADR vs. Spec. Do NOT check for coverage gaps, stale artifacts, or policy violations -- those are `/design:audit` territory.
+- Only analyzes three of six drift categories: Code vs. Spec, Code vs. ADR, ADR vs. Spec. Coverage gaps, stale artifacts, and policy violations are NOT checked — use `/design:audit` for a comprehensive six-category analysis.
 - Keep analysis focused and fast. Read only the files relevant to the target, not the entire codebase.
 - Always use full artifact identifiers in output: `ADR-0001`, `SPEC-0002`, `Req 3`. Do not abbreviate.
 - Include file paths with line numbers in the Location column when possible (e.g., `src/auth/login.ts:45`).
