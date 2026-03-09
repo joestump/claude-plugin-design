@@ -93,9 +93,9 @@ h1, h2, h3, h4, h5, h6 {
 .status-badge.active { background-color: #28a745; color: white; border-color: #1e7e34; }
 .status-badge.proposed { background-color: #17a2b8; color: white; border-color: #138496; }
 .status-badge.draft { background-color: #17a2b8; color: white; border-color: #138496; }
-.status-badge.deprecated { background-color: #6c757d; color: white; border-color: #5a6268; }
+.status-badge.deprecated { background-color: #6c757d; color: white; border-color: #5a6268; text-decoration: line-through; }
 .status-badge.inactive { background-color: #6c757d; color: white; border-color: #5a6268; }
-.status-badge.superseded { background-color: #fd7e14; color: white; border-color: #e96b02; }
+.status-badge.superseded { background-color: #fd7e14; color: white; border-color: #e96b02; text-decoration: line-through; }
 .status-badge.rejected { background-color: #dc3545; color: white; border-color: #c82333; }
 .status-badge.unknown { background-color: #6c757d; color: white; border-color: #5a6268; }
 
@@ -289,5 +289,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 .dd-field-value {
   color: var(--ifm-color-emphasis-900);
+}
+
+/* ============================================
+   Deprecated/Superseded ADR Sidebar Strikethrough
+   ============================================ */
+.adr-struck > a {
+  text-decoration: line-through;
+  opacity: 0.7;
 }
 

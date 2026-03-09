@@ -150,9 +150,12 @@ function transformAdr(srcPath, destPath, fileName) {
 </FieldGroup>
 ` : '';
 
+  const isStricken = ['deprecated', 'superseded'].includes(status.toLowerCase());
+  const sidebarClassName = isStricken ? '\nsidebar_class_name: adr-struck' : '';
+
   const frontmatter = `---\ntitle: "${escapeYaml(title)}"
 sidebar_label: "${escapeYaml(sidebarLabel)}"
-slug: /decisions/${slug}
+slug: /decisions/${slug}${sidebarClassName}
 ---
 ${badgeHeader}
 `;
