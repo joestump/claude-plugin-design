@@ -34,7 +34,9 @@ You are performing a fast, focused drift check on a specific target. This skill 
    - If the target is an ADR: read the ADR, find related specs and code files that should implement the decision.
    - If the target is a SPEC: read the spec, find related ADRs and code files that should implement the requirements.
 
-5. **Analyze for drift** across three categories:
+5. **Validate spec artifact pairing**: For each spec directory found under `docs/openspec/specs/`, check that both `spec.md` and `design.md` exist. If a `spec.md` exists without a corresponding `design.md` (or vice versa), report as `[WARNING]` under "Code vs. Spec" with finding: "Unpaired spec artifact: {path} exists but {missing-file} is missing. Per ADR-0003, spec.md and design.md are a paired unit." (Governing: ADR-0003, SPEC-0003)
+
+6. **Analyze for drift** across three categories:
 
    **Code vs. Spec**: Does the implementation match the spec's requirements and scenarios?
    - Check MUST/SHALL requirements -- violations are `[CRITICAL]`
@@ -49,7 +51,7 @@ You are performing a fast, focused drift check on a specific target. This skill 
    - Check for contradictions between ADR decisions and spec requirements -- contradictions are `[CRITICAL]`
    - Check for terminology or approach mismatches -- mismatches are `[WARNING]`
 
-6. **Produce the findings table** using the standard format:
+7. **Produce the findings table** using the standard format:
 
    ```
    ## Drift Check: {target}
@@ -69,13 +71,13 @@ You are performing a fast, focused drift check on a specific target. This skill 
    - Info: {N}
    ```
 
-7. **Add suggested actions** at the end based on findings:
+8. **Add suggested actions** at the end based on findings:
    - If critical issues exist, suggest `/design:audit {target} --review` for deeper analysis
    - If stale artifact findings exist, suggest `/design:status` to update
    - If coverage gaps suggest a missing spec, suggest `/design:spec`
    - Always provide at least one actionable fix suggestion for the highest-severity finding
 
-8. **Handle clean results**: If no drift is found, report:
+9. **Handle clean results**: If no drift is found, report:
 
    ```
    ## Drift Check: {target}

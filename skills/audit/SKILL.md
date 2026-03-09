@@ -38,7 +38,9 @@ You are performing a deep, comprehensive audit of design artifact alignment acro
 
    **With `--scrum`**: Scrum triage mode — see the **Scrum Triage Ceremony** section below. When `--scrum` is set, complete the standard audit analysis (steps 4–6) first, then enter the ceremony. Do NOT run `--review` mode when `--scrum` is set.
 
-4. **Analyze across all six categories**:
+4. **Validate spec artifact pairing**: For each spec directory found under `docs/openspec/specs/`, check that both `spec.md` and `design.md` exist. If a `spec.md` exists without a corresponding `design.md` (or vice versa), report as `[WARNING]` under "Stale Artifacts" with finding: "Unpaired spec artifact: {path} exists but {missing-file} is missing. Per ADR-0003, spec.md and design.md are a paired unit." (Governing: ADR-0003, SPEC-0003)
+
+5. **Analyze across all six categories**:
 
    **Code vs. Specification Drift**: Does the implementation match spec requirements and scenarios?
    - Read each spec's requirements and scenarios
@@ -73,7 +75,7 @@ You are performing a deep, comprehensive audit of design artifact alignment acro
    - Check for contradictory requirements within the same spec -- `[CRITICAL]`
    - Check for requirements that are untestable or ambiguous -- `[INFO]`
 
-5. **Produce the audit report** using the standard format:
+6. **Produce the audit report** using the standard format:
 
    ```
    ## Design Audit Report
@@ -140,13 +142,13 @@ You are performing a deep, comprehensive audit of design artifact alignment acro
    3. [INFO] {action}
    ```
 
-6. **Add recommended actions** at the end, ordered by severity:
+7. **Add recommended actions** at the end, ordered by severity:
    - For stale artifact findings, suggest `/design:status` to update
    - For coverage gaps suggesting missing ADRs, suggest `/design:adr`
    - For coverage gaps suggesting missing specs, suggest `/design:spec`
    - Never suggest `/design:check` (audit is a superset of check)
 
-7. **Handle clean results**: If no drift is found across any category:
+8. **Handle clean results**: If no drift is found across any category:
 
    ```
    ## Design Audit Report
@@ -161,7 +163,7 @@ You are performing a deep, comprehensive audit of design artifact alignment acro
 
 ## Scrum Triage Ceremony (`--scrum`)
 
-When `--scrum` is set, run the standard audit analysis (steps 4–7 above) first, then execute the triage ceremony below. The raw audit findings are the input to the ceremony. Governing: SPEC-0013, ADR-0014.
+When `--scrum` is set, run the standard audit analysis (steps 4–8 above) first, then execute the triage ceremony below. The raw audit findings are the input to the ceremony. Governing: SPEC-0013, ADR-0014.
 
 Tell the user after the standard audit completes: "Audit complete. Starting scrum triage — grouping findings into themes and running the triage team. Give me a few minutes."
 
@@ -316,6 +318,7 @@ See the plugin's `references/shared-patterns.md` § "Severity Assignment Rules" 
 - Use `##` for the top-level heading (report title) and `###` for sections within the report.
 - The Recommended Actions list must be ordered by severity (critical first, then warning, then info).
 - Present findings within each category ordered by severity (critical first).
+- MUST validate spec.md + design.md pairing in step 4 — report unpaired artifacts as [WARNING] under Stale Artifacts (Governing: ADR-0003, SPEC-0003)
 - When `--scrum` is set, MUST run the full standard audit analysis first, then the triage ceremony — never skip the standard analysis (Governing: SPEC-0013 REQ "Scrum Flag and Mode Activation")
 - `--scrum` and `--review` are mutually exclusive; `--scrum` takes precedence if both are provided
 - ADRs (`accepted`) and specs (`approved`/`implemented`) are the source of truth — code deviation is presumed wrong unless the Architect explicitly reclassifies a finding as an artifact update (Governing: SPEC-0013 REQ "Source of Truth Principle")

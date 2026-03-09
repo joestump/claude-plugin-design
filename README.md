@@ -170,13 +170,7 @@ Creates paired spec.md + design.md using [OpenSpec](https://github.com/Fission-A
 - Mermaid architecture diagrams required in design.md
 - Stored in `docs/openspec/specs/{capability-name}/`
 - Single-agent by default; add `--review` for team-based drafting with architect review
-- **Sprint planning**: After writing the spec, offers to break requirements into trackable issues:
-  - Detects [Beads](https://github.com/steveyegge/beads), GitHub, GitLab, Gitea, Jira, or Linear (MCP or CLI)
-  - Saves tracker preference to `.claude-plugin-design.json` for future use
-  - Creates epics, tasks, and sub-tasks with acceptance criteria referencing spec/requirement numbers
-  - Sets up dependency relationships between tasks
-  - Falls back to generating `tasks.md` as a co-located openspec artifact when no tracker is available (per ADR-0007)
-  - For planning against existing specs, use `/design:plan` instead
+- After writing the spec, suggests running `/design:plan SPEC-XXXX` to break requirements into trackable issues
 
 ### `/design:plan` -- Sprint Planning
 

@@ -2,7 +2,7 @@
 
 ## Context
 
-The `/design:spec` skill's sprint planning step (step 8 in SKILL.md) detects issue trackers in priority order: Beads, GitHub, Gitea. When none are found, the current behavior is to "output the sprint plan as a structured markdown table instead" — ephemeral output lost when the conversation ends. ADR-0007 decided to generate a durable `tasks.md` artifact instead, co-located with the spec's existing `spec.md` and `design.md`. See ADR-0007 and SPEC-0003.
+The `/design:plan` skill (ADR-0008) detects issue trackers at runtime (see `references/shared-patterns.md` § "Tracker Detection"). When none are found, the fallback behavior generates a durable `tasks.md` artifact co-located with the spec's existing `spec.md` and `design.md`. Sprint planning was originally embedded in `/design:spec` but was extracted into a standalone `/design:plan` skill per ADR-0008. See ADR-0007, ADR-0008, and SPEC-0003.
 
 ## Goals / Non-Goals
 
@@ -49,7 +49,7 @@ The `/design:spec` skill's sprint planning step (step 8 in SKILL.md) detects iss
 
 ```mermaid
 flowchart TD
-    A["Sprint planning<br/>(spec skill step 8)"] --> B{"Detect trackers"}
+    A["Sprint planning<br/>(/design:plan step 6)"] --> B{"Detect trackers"}
 
     B -->|"Beads (.beads/ or bd)"| C["Create Beads issues"]
     B -->|"GitHub (MCP or gh)"| D["Create GitHub issues"]
@@ -79,8 +79,8 @@ flowchart TD
 
 ## Migration Plan
 
-1. Update the `/design:spec` SKILL.md to replace the markdown table fallback (step 8, "none found" branch) with `tasks.md` generation
-2. Add `tasks.md` template documentation to the skill instructions
+1. The `/design:plan` SKILL.md (step 6) implements the `tasks.md` generation fallback when no tracker is detected
+2. Template format and generation rules are documented in the plan skill's step 6
 3. No breaking changes — existing specs without `tasks.md` are unaffected
 
 ## Open Questions

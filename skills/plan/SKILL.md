@@ -149,7 +149,7 @@ Ordered for implementation (dependencies respected):
 
 ---
 
-4. **Detect the issue tracker**: Follow the "Tracker Detection" flow in the plugin's `references/shared-patterns.md`. Read the full "Config Schema" section there for the `.claude-plugin-design.json` format. The config includes `projects`, `branches`, and `pr_conventions` sections — read those for project grouping, branch naming, and PR close keyword settings used in steps 5–7.
+4. **Detect the issue tracker**: Follow the "Tracker Detection" flow in the plugin's `references/shared-patterns.md`. Read the full "Config Schema" section there for the `.claude-plugin-design.json` format — it defines tracker-specific `tracker_config` fields (GitHub/Gitea/GitLab: `owner`/`repo`, Jira: `project_key`, Linear: `team_id`, Beads: `{}`), plus `projects`, `branches`, and `pr_conventions` sections used in steps 5–7. When the user selects a tracker for the first time, offer to save both `tracker` and `tracker_config` to `.claude-plugin-design.json`.
 
 5. **Create issues in the detected tracker**:
 
@@ -238,7 +238,7 @@ Ordered for implementation (dependencies respected):
 
    **For GitHub Projects V2:**
    1. **Set project description**: A short summary referencing the spec number and capability title.
-   2. **Write project README**: Use the GitHub Projects V2 GraphQL API to set the project README field. The README serves as agent-navigable context and SHALL follow this template:
+   2. **Write project README**: Use the GitHub Projects V2 GraphQL API to set the project README field. The README serves as agent-navigable context and SHALL follow this template. To populate the **Key Files** section, read the spec's `design.md` for referenced file paths and architectural components, then use `Grep` to find the primary implementation files (entry points, config, models, routes) relevant to the spec's domain. Include file paths with line numbers pointing to key symbols (class definitions, function signatures, config blocks).
       ```markdown
       # {Capability Title}
       ## Spec
@@ -247,7 +247,7 @@ Ordered for implementation (dependencies respected):
       ## Governing ADRs
       - ADR-XXXX: {title}
       ## Key Files
-      - {file}:{line} — {description}
+      - {file}:{line} — {description of what this entry point / class / config does}
       ## Stories
       | # | Title | Branch | Status |
       |---|-------|--------|--------|
@@ -267,13 +267,35 @@ Ordered for implementation (dependencies respected):
 
    **Auto-label creation** (cross-cutting, all trackers): When applying labels in any step (epic label, story label, spec label), use the **try-then-create pattern**: attempt to apply the label, and if the tracker returns a "label not found" error, create the label with a default color and retry. Default colors: `epic`=#6E40C9, `story`=#1D76DB, `spec`=#0E8A16, other=#CCCCCC. (Governing: SPEC-0011 REQ "Auto-Create Labels")
 
-6. **Fallback: Generate `tasks.md`** (when no tracker is available):
+6. **Fallback: Generate `tasks.md`** (when no tracker is available). Governing: SPEC-0006, ADR-0007.
 
-   Write `docs/openspec/specs/{capability-name}/tasks.md` co-located with spec.md. Rules:
+   Write `docs/openspec/specs/{capability-name}/tasks.md` co-located with spec.md and design.md. MUST NOT generate `tasks.md` when a tracker is available — tasks live in the tracker OR in `tasks.md`, never both.
+
+   **Template format:**
+   ```markdown
+   # Tasks: {Capability Title}
+
+   Spec: SPEC-XXXX
+   Generated: {date}
+
+   ## 1. {Section Title}
+
+   - [ ] 1.1 {Task description} (REQ "{Requirement Name}", SPEC-XXXX)
+   - [ ] 1.2 {Task description} (REQ "{Requirement Name}", SPEC-XXXX)
+
+   ## 2. {Section Title}
+
+   - [ ] 2.1 {Task description} (REQ "{Requirement Name}", SPEC-XXXX)
+   ```
+
+   **Generation rules:**
    - Each `### Requirement:` MUST produce at least one task
-   - Use numbered section headings (`## N. Section Title`) ordered by prerequisites
-   - Checkbox format: `- [ ] X.Y Task description` referencing the governing requirement
-   - Keep tasks session-sized with verifiable completion criteria
+   - Group tasks into numbered `## N. Section Title` sections by functional area, ordered by prerequisites
+   - Checkbox format: `- [ ] X.Y Task description` where X is section number, Y is task number within section
+   - Each task MUST reference the governing requirement name and spec number in parentheses
+   - Complex requirements with multiple scenarios MAY produce multiple tasks
+   - Tasks SHALL be small enough to complete in one coding session with a verifiable completion criterion
+   - Progress is tracked by counting `- [x]` (completed) vs `- [ ]` (pending) lines
 
 7. **Clean up** the team when done (if `--review` was used).
 

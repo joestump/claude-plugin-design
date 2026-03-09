@@ -128,7 +128,7 @@ The templates directory contains production-ready versions of all files. The `cp
 #### Transform Scripts (scripts/)
 - `build-docs.js` -- Orchestrator that runs all transforms
 - `transform-adrs.js` -- Transforms ADR markdown to .mdx with badges, RFC 2119 keyword highlighting, cross-references
-- `transform-openspecs.js` -- Transforms OpenSpec markdown to .mdx with requirement boxes, domain badges, RFC 2119 highlighting
+- `transform-openspecs.js` -- Transforms OpenSpec markdown to .mdx with requirement boxes, domain badges, RFC 2119 highlighting. Generates separate pages for `spec.md` and `design.md` within a directory-per-spec structure, with a `_category_.json` file per spec directory for Docusaurus sidebar configuration (Governing: ADR-0006, SPEC-0004)
 - `mdx-escape.js` -- Escapes MDX v3 unsafe patterns (curly braces, angle brackets) while preserving JSX components
 - `build-spec-mapping.js` -- Scans specs for SPEC ID prefixes and generates mapping JSON
 - `generate-index.js` -- Creates the landing page (index.mdx) with links to ADRs and specs sections with counts
