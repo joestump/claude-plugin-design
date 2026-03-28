@@ -1,3 +1,5 @@
+<!-- Governing: ADR-0017 (Parallel Agent Coordination), SPEC-0015 REQ "Parallelism Limits" -->
+
 ---
 name: work
 description: Pick up tracker issues and implement them in parallel using git worktrees. Use when the user says "work on issues", "implement the spec", "start coding", or wants agents to build from planned issues.
@@ -93,7 +95,34 @@ You are picking up tracker issues and implementing them in parallel using git wo
 
 7. **Read `.claude-plugin-design.json` worktree config**: Read the `worktrees` section (see plugin's `references/shared-patterns.md` § "Config Schema"). Defaults: `base_dir`=`.claude/worktrees/`, `max_agents`=3, `auto_cleanup`=false, `pr_mode`="ready". CLI flags override config values.
 
-8. **Create team**: Use `TeamCreate` to create a coordination team. The lead (you) manages the task queue and monitors progress. Spawn up to `--max-agents` worker agents using `Task` with `subagent_type: "general-purpose"`.
+7a. **Resolve parallelism limit** (Governing: SPEC-0015 REQ "Parallelism Limits", ADR-0017 Layer 1):
+
+   Determine the maximum number of concurrent agents using this precedence order (highest to lowest):
+   1. `--max-agents N` CLI flag (if provided)
+   2. CLAUDE.md `## Design Plugin Configuration` section, key `max-parallel-agents` (if present)
+   3. `.claude-plugin-design.json` `worktrees.max_agents` (if present)
+   4. Default: **4**
+
+   **Reading from CLAUDE.md:** Scan the project's `CLAUDE.md` for a `## Design Plugin Configuration` section. Look for a line matching `- **Max parallel agents**: N` or `max-parallel-agents: N`. Parse the integer value. Example:
+   ```markdown
+   ## Design Plugin Configuration
+
+   - **Max parallel agents**: 2
+   - **Hotspot threshold**: 40%
+   ```
+
+   **Enforce the cap:** The resolved limit MUST NOT be exceeded. When more stories are ready for parallel execution than the limit allows:
+   - Start up to `max-parallel-agents` stories immediately
+   - Queue excess stories in dependency-respecting order
+   - As active agents complete (transition to `in-review` or `merged`), start the next queued story
+
+   **Report before starting:** Before spawning any agents, report the parallelism plan to the user:
+   ```
+   Starting {N} of {M} ready stories ({Q} queued, max-parallel-agents: {limit})
+   ```
+   Example: "Starting 4 of 8 ready stories (4 queued, max-parallel-agents: 4)"
+
+8. **Create team**: Use `TeamCreate` to create a coordination team. The lead (you) manages the task queue and monitors progress. Spawn up to the resolved parallelism limit (from step 7a) worker agents using `Task` with `subagent_type: "general-purpose"`.
 
    If `TeamCreate` fails, fall back to single-agent sequential mode: work through each issue one at a time in the main session using `git worktree add` for each.
 
@@ -159,12 +188,14 @@ You are picking up tracker issues and implementing them in parallel using git wo
         - Regular (non-draft) by default, draft if `--draft` was set
     11. Report outcome to lead via `SendMessage`: success (with PR URL and list of bundled issues) or failure (with details).
 
-11. **Monitor and queue**: The lead tracks worker progress:
+11. **Monitor and queue**: The lead tracks worker progress (Governing: SPEC-0015 REQ "Parallelism Limits"):
+    - **Enforce parallelism cap**: Never exceed the resolved `max-parallel-agents` limit from step 7a. Track the count of active agents at all times.
     - When a worker finishes, check if there are queued issues waiting.
     - If queued issues have dependency requirements, check if dependencies are now satisfied.
-    - Assign the next available issue to the freed worker.
-    - If a worker reports failure, note it and continue with other issues.
+    - Assign the next available issue to the freed worker, maintaining up to `max-parallel-agents` active agents.
+    - If a worker reports failure, note it and continue with other issues. The freed slot is available for queued work.
     - **Handle bundle requests**: When a worker sends a `BUNDLE_REQUEST`, check the issue queue for additional issues that could be bundled into the same branch. If available (and not blocked by dependencies), assign them to the same worker with instructions to implement in the same worktree before creating a PR. If the queue is exhausted or all remaining issues are blocked, tell the worker to proceed with the small PR as-is.
+    - **Queue status reporting**: After each agent completion or queue change, log the current state: "Active: {N}/{limit}, Queued: {Q}, Completed: {C}, Failed: {F}"
 
 12. **Cleanup and report**: After all issues are processed:
 
@@ -251,3 +282,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
 - Maximum 2 test-fix attempts per worker before reporting blocked
 - When `TeamCreate` fails, MUST fall back to single-agent sequential mode — never error out
 - For Gitea trackers, MUST query native dependencies via API to determine unblocked stories (Governing: SPEC-0011 REQ "Gitea Native Dependencies")
+- MUST NOT spawn more than `max-parallel-agents` concurrent agents (default: 4); resolve from CLI flag → CLAUDE.md → `.claude-plugin-design.json` → default (Governing: SPEC-0015 REQ "Parallelism Limits", ADR-0017 Layer 1)
+- MUST read `## Design Plugin Configuration` from CLAUDE.md for `max-parallel-agents` setting before falling back to `.claude-plugin-design.json` or default
+- MUST queue excess stories when more are ready than the parallelism limit allows, starting them as active agents complete
+- MUST report active agent count and queue depth to the user before starting work ("Starting N of M ready stories (Q queued, max-parallel-agents: limit)")

@@ -1,3 +1,5 @@
+<!-- Governing: ADR-0017 (Parallel Agent Coordination), SPEC-0015 REQ "Foundation Story Detection", SPEC-0015 REQ "Hotspot Analysis" -->
+
 ---
 name: plan
 description: Break an existing spec into trackable issues in your issue tracker. Use when the user says "plan a sprint", "create issues from spec", "break down the spec", or wants to turn requirements into tasks.
@@ -165,6 +167,45 @@ Ordered for implementation (dependencies respected):
    5. Target 3-4 stories for a spec with 10-15 requirements (3-5 requirements per story). For specs with 4 or fewer requirements, create 1-2 stories. For a single-requirement spec, create 1 story.
    6. Each story SHOULD target a PR in the 200-500 line range. This is a heuristic — functional cohesion takes priority over line-count targets. Do NOT split functionally cohesive requirements across stories solely to meet the line-count target.
 
+   **5.2a: Foundation Story Detection.** After grouping requirements into stories, analyze the grouped stories to identify shared types, packages, and helper functions needed by two or more stories. Follow the "Foundation Story Detection" pattern in the plugin's `references/shared-patterns.md`. (Governing: ADR-0017 Layer 1, SPEC-0015 REQ "Foundation Story Detection")
+
+   **Process:**
+   1. For each story, extract the types, structs, interfaces, helper functions, config fields, and packages it will need to create or modify (inferred from the spec requirements and the existing codebase).
+   2. Cross-reference across all stories: any type, package, or helper function needed by 2+ stories is a **shared dependency**.
+   3. For each cluster of shared dependencies, create a **foundation story** that extracts or defines them:
+      - Title: descriptive of the shared code (e.g., "Extract shared LLM client package", "Stub config fields and route registration for sprint N")
+      - Apply the `foundation` label using the try-then-create pattern (color: `#D4A017`)
+      - Foundation stories MUST be scheduled to merge before any dependent feature story begins work
+   4. When multiple features need to add config fields or server wiring to the same file, consolidate into a single "wiring story" that stubs all config fields and route registrations. Feature stories then only fill in handler implementations.
+   5. Update the dependency graph: each feature story that depends on shared code MUST declare a dependency on the corresponding foundation story using machine-readable `blocks:` syntax in the epic body (e.g., `- [ ] #281 (blocks: #282, #283)`).
+   6. Output the dependency graph to the user showing which feature stories depend on which foundation stories.
+
+   **5.2b: Hotspot Analysis.** Before making parallelization decisions, analyze recent git history to identify files that are frequent sources of merge conflicts. Follow the "Hotspot Analysis" pattern in the plugin's `references/shared-patterns.md`. (Governing: ADR-0017 Layer 1, SPEC-0015 REQ "Hotspot Analysis")
+
+   **Process:**
+   1. Run git log analysis on recent history:
+      ```bash
+      git log --name-only --pretty=format:"---COMMIT---" --merges -50
+      ```
+      Also consider the last 30 days if that yields more commits:
+      ```bash
+      git log --name-only --pretty=format:"---COMMIT---" --merges --since="30 days ago"
+      ```
+      Use whichever window is larger.
+   2. For each file, calculate the percentage of recent PRs (merge commits) that modified it.
+   3. Files modified by more than 50% of recent PRs are classified as **hotspot files**. The 50% threshold is the default; read the `## Design Plugin Configuration` section in CLAUDE.md for a `hotspot-threshold` override.
+   4. Report detected hotspots to the user:
+      ```
+      ### Hotspot Analysis
+      - `cmd/server/main.go` — modified by 7/10 recent PRs (70%) ⚠ HOTSPOT
+      - `internal/config/config.go` — modified by 6/10 recent PRs (60%) ⚠ HOTSPOT
+      - No other files exceed the 50% threshold.
+      ```
+   5. Stories that modify hotspot files MUST be serialized rather than parallelized:
+      - Add explicit ordering constraints in the dependency graph
+      - Mark these stories with a `### Serialization Constraint` section in their issue body explaining which hotspot file(s) caused serialization
+   6. If no hotspots are detected, report "No hotspots detected — stories will be parallelized based on dependency analysis alone."
+
    **Creating story issues:**
    - Title: a descriptive name reflecting the story's functional area (e.g., "Setup & Configuration", "Core Auth Flow", "Validation & Error Handling")
    - Body MUST include:
@@ -302,11 +343,32 @@ Ordered for implementation (dependencies respected):
 8. **Report the plan.** Summarize what was created:
    - Which tracker was used (or tasks.md fallback)
    - Number of epics and stories created, with how many requirements were grouped into each story
+   - **Foundation stories** created (if any), with the `foundation` label and their dependent feature stories
+   - **Dependency graph** showing the ordering of foundation stories, serialized stories, and parallelizable stories (Governing: SPEC-0015 REQ "Foundation Story Detection")
+   - **Hotspot analysis results**: list of detected hotspot files with percentages, and any serialization constraints applied (Governing: SPEC-0015 REQ "Hotspot Analysis")
    - Number of project groupings created (or "skipped" if `--no-projects` was set)
    - Whether branch naming conventions were included in issue bodies (or "skipped" if `--no-branches`)
    - Whether PR conventions were included in issue bodies (or "skipped" if `--no-branches`)
    - Where the user can find them
    - Suggest `/design:prime` before starting implementation so agents have architecture context
+
+   **Example dependency graph output:**
+   ```
+   ### Dependency Graph
+
+   Foundation (merge first):
+     #281 Extract shared LLM client package [foundation]
+     #282 Stub config fields and route registration [foundation]
+
+   Serialized (hotspot: cmd/server/main.go):
+     #283 Server wiring → #284 Route handlers (sequential)
+
+   Parallel (no conflicts):
+     #285 CLI tool
+     #286 Batch processor
+
+   Order: #281, #282 (foundation) → #283, #285, #286 (parallel) → #284 (after #283)
+   ```
 
 ## Team Handoff Protocol (only for `--review` mode)
 
@@ -343,3 +405,11 @@ Follow the standard protocol from the plugin's `references/shared-patterns.md` �
 - Engineer B MUST provide a substantive objection for any story that has a weak requirement, vague scope, or missing spec reference — generic approval without review is not acceptable (Governing: SPEC-0012 REQ "Scrum Team Composition")
 - The sprint report MUST be emitted at the end of every `--scrum` run, even if all stories were deferred (Governing: SPEC-0012 REQ "Sprint Report")
 - `--scrum` and `--review` are mutually exclusive; if both are provided, `--scrum` takes precedence and `--review` is silently ignored
+- MUST identify shared types, packages, and helper functions needed by 2+ stories and extract them into `foundation`-labeled stories (Governing: SPEC-0015 REQ "Foundation Story Detection", ADR-0017 Layer 1)
+- Foundation stories MUST be scheduled to merge before any dependent feature story begins work
+- When multiple features require the same config fields or server wiring, MUST create a single consolidated wiring story rather than allowing independent additions
+- MUST output a dependency graph showing which feature stories depend on which foundation stories
+- MUST analyze recent git history (last 50 commits or 30 days, whichever is larger) for hotspot files modified by >50% of recent PRs (Governing: SPEC-0015 REQ "Hotspot Analysis", ADR-0017 Layer 1)
+- Stories touching hotspot files MUST be serialized, not parallelized
+- MUST report detected hotspots with file path and percentage of recent PRs that touched them
+- The hotspot threshold (default 50%) SHOULD be read from CLAUDE.md `## Design Plugin Configuration` if present
