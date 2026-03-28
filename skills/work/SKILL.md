@@ -1,4 +1,4 @@
-<!-- Governing: ADR-0017 (Parallel Agent Coordination), SPEC-0015 REQ "Issue Lifecycle Labels" -->
+<!-- Governing: ADR-0017 (Parallel Agent Coordination), SPEC-0015 REQ "Issue Lifecycle Labels", SPEC-0015 REQ "Design Document Isolation" -->
 
 ---
 name: work
@@ -217,6 +217,22 @@ You are picking up tracker issues and implementing them in parallel using git wo
     2. Read the issue body and understand the acceptance criteria.
     3. Explore existing code in the worktree to understand the codebase structure.
     3a. **Coordinate with sibling workers.** Follow the "Worker Communication Protocol" in `references/shared-patterns.md`. Workers MUST broadcast FILE_CLAIM, TYPE_CREATED, and handle CONFLICT_ALERT per the protocol.
+    3b. **Design document isolation** (Governing: ADR-0017, ADR-0020, SPEC-0015 REQ "Design Document Isolation"): Workers MUST NOT modify any of the following protected paths in feature PRs:
+       - Spec files: `docs/openspec/specs/**/*` (or the resolved `{spec-dir}`)
+       - ADR files: `docs/adrs/**/*` (or the resolved ADR directory)
+       - Root CLAUDE.md
+       - Shared config files (e.g., `.claude-plugin-design.json`)
+
+       If the implementation suggests a spec or ADR update is needed (e.g., marking a requirement as implemented, updating a status), **do NOT make the change**. Instead, record it in the commit message or PR body under a `### Deferred Design Doc Updates` section:
+       ```
+       ### Deferred Design Doc Updates
+       - Mark SPEC-0003 REQ "Token Validation" as implemented
+       - Update ADR-0001 to reference this implementation
+       ```
+       These deferred updates will be batched into a single post-merge PR by the lead (step 12.4).
+
+       **Exception**: Governing comments (per ADR-0020) MUST be added in the implementing feature PR as file-level header blocks in the code files being modified — this is NOT a design doc modification.
+
     4. Implement changes to satisfy the acceptance criteria.
     5. If spec context was provided, leave governing comments in the code per `references/shared-patterns.md` § "Governing Comment Format":
        ```
@@ -234,6 +250,16 @@ You are picking up tracker issues and implementing them in parallel using git wo
        BUNDLE_REQUEST: #42 implementation is trivially small (8 lines changed, comments only). Requesting additional issues to bundle into this branch before opening a PR.
        ```
        Wait for the lead to either assign additional issues or confirm proceeding with a small PR (e.g., queue is exhausted). If additional issues are assigned, return to step 2 for each, implementing them in the same worktree, then proceed with a combined commit and PR covering all bundled issues.
+    7a. **Validate design document isolation** (Governing: SPEC-0015 REQ "Design Document Isolation"): Before staging, verify no protected files were modified:
+       ```bash
+       git -C {worktree-path} diff --name-only
+       ```
+       If any files match protected paths (`docs/adrs/`, `docs/openspec/specs/`, root `CLAUDE.md`, `.claude-plugin-design.json`), **unstage and revert those changes**:
+       ```bash
+       git -C {worktree-path} checkout -- {protected-file-path}
+       ```
+       Record what was reverted in the PR body under `### Deferred Design Doc Updates`.
+
     8. Stage and commit changes:
        ```bash
        git -C {worktree-path} add .
@@ -279,7 +305,21 @@ You are picking up tracker issues and implementing them in parallel using git wo
     - Options: "Yes, clean up" / "No, keep them"
     - If yes: `git worktree remove .claude/worktrees/{branch-name}` for each successful issue.
 
-    **12.3: Final report.**
+    **12.3: Create batch design docs PR** (Governing: ADR-0017, ADR-0020, SPEC-0015 REQ "Design Document Isolation"):
+
+    After all feature PRs in the sprint have been merged, collect deferred design doc updates from all PR bodies (the `### Deferred Design Doc Updates` sections) and create a single batch PR:
+
+    1. Create a new branch: `docs/design-updates-sprint-{N}` (or `docs/design-updates-{date}` if no sprint identifier).
+    2. Apply all deferred updates: spec status changes, ADR cross-references, and any other design doc modifications that workers deferred.
+    3. Commit with message: "Update design docs for Sprint N" (or similar).
+    4. Push and create a PR:
+       ```bash
+       gh pr create --title "Update design docs for Sprint N" --body "Batched design document updates from feature PRs.\n\n{list of deferred updates}"
+       ```
+
+    If no deferred updates were collected, skip this step.
+
+    **12.4: Final report.**
 
     ```
     ## Work Complete: [SPEC-0003 | issue batch]
@@ -337,6 +377,9 @@ You are picking up tracker issues and implementing them in parallel using git wo
 | Dependency issue not found in tracker | Treat as unblocked (dependency may have been deleted or moved) with a warning |
 | All issues are blocked by dependencies | Report the dependency graph and suggest resolving blocking issues first |
 | Circular dependency detected | Report the cycle and refuse to start any issue in the cycle; suggest the user break the cycle manually |
+| Worker modifies protected design doc | Revert the change before staging, record in PR body under "Deferred Design Doc Updates" |
+| No deferred design doc updates after sprint | Skip batch design docs PR creation — nothing to update |
+| Batch design docs PR creation fails | Report failure with deferred updates list so user can create manually |
 
 ## Rules
 
@@ -386,3 +429,8 @@ You are picking up tracker issues and implementing them in parallel using git wo
 - MUST place blocked issues in a deferred queue and re-check when dependencies transition to `merged`
 - MUST detect circular dependencies and refuse to start any issue in the cycle
 - Queue status reporting MUST include blocked count: "Active: {N}/{limit}, Queued: {Q}, Completed: {C}, Failed: {F}, Blocked: {B}"
+- Workers MUST NOT modify spec files (`docs/openspec/specs/`), ADR files (`docs/adrs/`), root CLAUDE.md, or shared config files in feature PRs (Governing: SPEC-0015 REQ "Design Document Isolation")
+- Workers MUST validate their diff for protected file modifications before staging and revert any that were accidentally changed
+- Deferred design doc updates MUST be recorded in the PR body under `### Deferred Design Doc Updates`
+- After all sprint feature PRs merge, the lead MUST create a single batch PR for all deferred design doc updates
+- Governing comments (per ADR-0020) MUST be added in the implementing feature PR — they are NOT design doc modifications and MUST NOT be deferred

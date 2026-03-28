@@ -5,7 +5,7 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task, WebFetch, WebSearch, T
 argument-hint: [SPEC-XXXX or PR numbers] [--pairs N] [--no-merge] [--dry-run] [--module <name>]
 ---
 
-<!-- Governing: ADR-0015 (Markdown-Native Configuration), SPEC-0014 REQ "Config Resolution Pattern" -->
+<!-- Governing: ADR-0015 (Markdown-Native Configuration), ADR-0017 (Parallel Agent Coordination), SPEC-0014 REQ "Config Resolution Pattern", SPEC-0015 REQ "Conflict-Marker CI Gate" -->
 
 # Review and Merge PRs
 
@@ -78,6 +78,38 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
    - PR 1 → Pair 1, PR 2 → Pair 2, PR 3 → Pair 1, PR 4 → Pair 2, ...
 
    Create tasks via `TaskCreate` for each PR, assign to the appropriate pair.
+
+8a. **Conflict-marker CI gate** (Governing: ADR-0017, SPEC-0015 REQ "Conflict-Marker CI Gate"):
+
+   Before any review logic runs, check ALL files in each PR diff for unresolved merge conflict markers. This is a hard gate — no PR with conflict markers may proceed to review.
+
+   For each PR in the batch:
+   1. Fetch the list of modified files:
+      - **GitHub**: `gh pr diff {number} --name-only`
+      - **Gitea**: Use MCP tools (discovered via `ToolSearch`) to get the PR diff file list.
+      - **GitLab**: Use MCP tools or `glab mr diff --name-only`.
+   2. For each modified file, scan for conflict markers:
+      ```bash
+      gh pr diff {number} | grep -n '^\(<<<<<<<\|=======\|>>>>>>>\)'
+      ```
+      Or fetch the file content from the PR branch and scan:
+      ```bash
+      git fetch origin {branch-name} && git show origin/{branch-name}:{file-path} | grep -n '<<<<<<<\|=======\|>>>>>>>'
+      ```
+   3. If **any** conflict markers are found in **any** file (code, markdown, config — any file type):
+      - **Reject the PR immediately** — do NOT proceed to review.
+      - Submit a review with `REQUEST_CHANGES`:
+        ```
+        BLOCKED: Conflict markers found. Resolve merge conflicts before review.
+
+        | File | Lines |
+        |------|-------|
+        | internal/handlers/api_handlers.go | 47, 55 |
+        | README.md | 12, 18 |
+        ```
+      - Report to lead: "PR #{number} BLOCKED — conflict markers found in {N} file(s). Skipping review."
+      - Move to the next PR in the batch.
+   4. If no conflict markers are found, the gate passes silently and review proceeds normally.
 
 9. **Phase 1 — Review** (Governing: SPEC-0009 REQ "Review Protocol"):
 
@@ -207,6 +239,8 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
 | CI checks pass after re-evaluation but code issues remain | Report as "CI green, code changes requested" — do not merge |
 | Epic closure fails (API error) | Log warning, report in final summary — epic remains open for manual closure |
 | Cannot determine parent epic from PR body | Skip epic closure check for that PR — no error |
+| Conflict markers found in PR diff | Reject PR immediately with file paths and line numbers — do NOT proceed to review |
+| Conflict-marker scan fails (API error) | Log warning and proceed to review — do NOT block on scan failure |
 
 ## Rules
 
@@ -232,3 +266,8 @@ You are reviewing PRs produced by `/design:work` using reviewer-responder agent 
 - MUST re-verify CI status after responder pushes fixes — never merge with failing checks
 - MUST NOT merge a PR unless ALL status checks are passing
 - This skill reads CLAUDE.md configuration but MUST NOT write to it (consumer, not producer) (Governing: SPEC-0009 REQ "Configuration Persistence")
+- MUST check all PR files for conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`) BEFORE any other review logic (Governing: SPEC-0015 REQ "Conflict-Marker CI Gate")
+- MUST reject any PR containing conflict markers with a clear error identifying the file(s) and line numbers
+- MUST NOT approve or merge a PR that contains conflict markers under any circumstances
+- Conflict-marker check applies to ALL file types — code, markdown, config, any file in the diff
+- Conflict-marker gate runs once per PR before review — if the gate fails, the PR is skipped entirely for that review cycle
