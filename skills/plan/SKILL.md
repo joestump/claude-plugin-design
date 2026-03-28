@@ -38,7 +38,7 @@ You are breaking down an existing specification into trackable work items (epics
 
    **If `--scrum` is set, skip to the Scrum Mode section after completing step 1. Do not proceed through steps 2–8 in sequence — scrum mode orchestrates them internally.**
 
-2. **Read the spec**: Read both `{spec-dir}/{capability-name}/spec.md` and `{spec-dir}/{capability-name}/design.md` to understand the full scope of requirements, scenarios, and architecture. Follow the "Spec Pairing Validation" pattern in `references/shared-patterns.md`. If either spec.md or design.md is missing, error and suggest `/design:spec`.
+2. **Read the spec**: Read both `{spec-dir}/{capability-name}/spec.md` and `{spec-dir}/{capability-name}/design.md` to understand the full scope of requirements, scenarios, and architecture. Validate spec pairing per `references/shared-patterns.md` § "Spec Pairing Validation". If either spec.md or design.md is missing, error and suggest `/design:spec`.
 
 3. **Choose drafting mode**: Check if `$ARGUMENTS` contains `--review`.
 

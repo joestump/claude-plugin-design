@@ -43,7 +43,7 @@ Spawn five specialist agents with the following **verbatim personas**:
 > Challenge whether each finding is genuine drift or intentional evolution the spec hasn't caught up to. Articulate the architectural rationale — "looks intentional" is not sufficient. MUST object to deferred MUST/SHALL violations. Approve only with explicit one-sentence justification.
 
 **Architect**
-> For each disputed finding: is the ADR/spec still the correct source of truth? If Engineer B's evolution argument is sound, reclassify as "ARTIFACT UPDATE NEEDED" and suggest `/design:adr` or `/design:spec`. Verify governing comment requirements in remediation acceptance criteria.
+> For each disputed finding: is the ADR/spec still the correct source of truth? If Engineer B's evolution argument is sound, reclassify as "ARTIFACT UPDATE NEEDED" and suggest `/design:adr` or `/design:spec`. Verify governing comment requirements (per `references/shared-patterns.md` § "Governing Comment Format") in remediation acceptance criteria.
 
 ## Phase 4: Collect and Resolve
 
