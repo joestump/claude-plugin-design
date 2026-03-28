@@ -25,7 +25,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
    - Prefer feature/enhancement issues over maintenance or chore issues when all else is equal.
    - Prefer issues with no dependencies (immediately startable) over blocked ones.
    - Group by epic or project when available to cluster related work.
-   - Select up to `--max-agents` issues (default 3) as the proposed batch.
+   - Select up to `--max-agents` issues (default 4) as the proposed batch.
 
    Present the proposed batch to the user using `AskUserQuestion`:
    > "Here are the issues I'd like to work on. Approve or adjust before I start."
@@ -42,7 +42,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
    Options: "Approve this batch" / "Let me pick manually" (if chosen, present full backlog and ask for issue numbers).
 
    **Flag parsing:**
-   - `--max-agents N`: Maximum concurrent worker agents (default 3). Read `.claude-plugin-design.json` `worktrees.max_agents` as fallback default.
+   - `--max-agents N`: Maximum concurrent worker agents (default 4). Read `.claude-plugin-design.json` `worktrees.max_agents` as fallback default.
    - `--draft`: Create draft PRs instead of regular PRs. Default is regular (non-draft) PRs. Read `.claude-plugin-design.json` `worktrees.pr_mode` as fallback.
    - `--dry-run`: Preview what would happen without creating worktrees or doing any work. Report the list of issues, branch names, and agent assignments, then stop.
    - `--no-tests`: Skip test execution in workers.
@@ -155,6 +155,19 @@ You are picking up tracker issues and implementing them in parallel using git wo
     1. All file operations use the worktree absolute path (read, write, edit, glob, grep).
     2. Read the issue body and understand the acceptance criteria.
     3. Explore existing code in the worktree to understand the codebase structure.
+    3a. **Broadcast file claims.** Before modifying any file, the worker MUST broadcast to all sibling workers via `SendMessage`:
+        ```
+        FILE_CLAIM: #{issue-number} claiming {file-path}
+        ```
+        This notifies siblings that this file is being modified and they should avoid it or coordinate.
+    3b. **Broadcast type/function creation.** After creating any new type, struct, interface, or shared helper function, the worker MUST broadcast:
+        ```
+        TYPE_CREATED: #{issue-number} created {TypeName} in {file-path}
+        ```
+        Siblings receiving this MUST import from the specified location rather than creating their own version.
+    3c. **Handle incoming broadcasts.** Workers MUST listen for broadcasts from siblings:
+        - On receiving `FILE_CLAIM` for a file they also plan to modify: send `CONFLICT_ALERT: #{my-issue} also needs {file-path}` to the claiming worker and the lead, then wait for coordination instructions from the lead.
+        - On receiving `TYPE_CREATED` for a type they need: import from the specified location instead of creating a duplicate. Send `TYPE_IMPORTED: #{my-issue} will import {TypeName} from {file-path}` to acknowledge.
     4. Implement changes to satisfy the acceptance criteria.
     5. If spec context was provided, leave governing comments in the code:
        ```
@@ -286,3 +299,7 @@ You are picking up tracker issues and implementing them in parallel using git wo
 - MUST read `## Design Plugin Configuration` from CLAUDE.md for `max-parallel-agents` setting before falling back to `.claude-plugin-design.json` or default
 - MUST queue excess stories when more are ready than the parallelism limit allows, starting them as active agents complete
 - MUST report active agent count and queue depth to the user before starting work ("Starting N of M ready stories (Q queued, max-parallel-agents: limit)")
+- Workers MUST broadcast `FILE_CLAIM` via `SendMessage` before modifying any file
+- Workers MUST broadcast `TYPE_CREATED` via `SendMessage` after creating new types, structs, interfaces, or shared helpers
+- Workers receiving `TYPE_CREATED` MUST import the type rather than creating a duplicate
+- Workers receiving `FILE_CLAIM` for a file they also need MUST send `CONFLICT_ALERT` and wait for lead coordination
