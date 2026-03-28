@@ -1,4 +1,4 @@
-<!-- Governing: ADR-0017 (Parallel Agent Coordination), SPEC-0015 REQ "Parallelism Limits" -->
+<!-- Governing: ADR-0017 (Parallel Agent Coordination), SPEC-0015 REQ "Issue Lifecycle Labels" -->
 
 ---
 name: work
@@ -53,6 +53,29 @@ You are picking up tracker issues and implementing them in parallel using git wo
 
 3. **Detect tracker**: Follow the "Tracker Detection" flow in the plugin's `references/shared-patterns.md`. Fallback to `tasks.md` parsing if no tracker is found.
 
+3a. **Ensure lifecycle labels exist** (Governing: SPEC-0015 REQ "Issue Lifecycle Labels"):
+
+   Create the lifecycle labels using a **try-then-create** approach — attempt to use each label, and only create it if it doesn't exist. This avoids failures on repeated runs.
+
+   | Label | Color | Meaning |
+   |-------|-------|---------|
+   | `queued` | `#CCCCCC` | Issue is in the work queue, not yet started |
+   | `in-progress` | `#FBCA04` | An agent is actively working on this issue |
+   | `in-review` | `#0E8A16` | A PR has been created and is awaiting review |
+   | `merged` | `#6E40C9` | The PR has been merged |
+
+   **For GitHub:**
+   ```bash
+   gh label create "queued" --color "CCCCCC" --description "Issue is queued for work" --force
+   gh label create "in-progress" --color "FBCA04" --description "Agent is actively working" --force
+   gh label create "in-review" --color "0E8A16" --description "PR created, awaiting review" --force
+   gh label create "merged" --color "6E40C9" --description "PR has been merged" --force
+   ```
+
+   **For Gitea:** Use `ToolSearch` to discover label MCP tools (e.g., `mcp__gitea__label_write`). Create labels via the API equivalent. If labels already exist, the API will return an error — ignore it and proceed.
+
+   **For `tasks.md` fallback:** Skip label creation (labels are not applicable to file-based tracking).
+
 4. **Discover workable issues**: Search the tracker for open issues:
    - If a **spec** was provided: find all open issues referencing that spec.
    - If **issue numbers** were provided: fetch those specific issues.
@@ -64,6 +87,17 @@ You are picking up tracker issues and implementing them in parallel using git wo
    - **Extract branch names**: Parse the `### Branch` section from each issue body to get the deterministic branch name (e.g., `feature/42-jwt-token-generation`).
    - **Extract PR conventions**: Parse the `### PR Convention` section for close keywords and epic references.
    - **Detect dependency ordering**: If issue bodies reference dependencies or logical ordering, respect that order when queuing work. For **Gitea**, query native dependencies via `GET /repos/{owner}/{repo}/issues/{index}/dependencies` (or via MCP tools discovered by `ToolSearch`) to find unblocked stories. (Governing: SPEC-0011 REQ "Gitea Native Dependencies")
+
+   - **Enforce dependency readiness** (Governing: SPEC-0015 REQ "Issue Lifecycle Labels"): Before marking any issue as ready to work, check its dependencies:
+     1. Parse the issue body for dependency references: `Depends on #NNN`, `Blocked by #NNN`, `blocks:` syntax, or any `#NNN` reference in a dependencies section.
+     2. For each dependency, query the tracker for that issue's labels.
+     3. If **any** dependency does NOT have the `merged` label, the issue is **blocked** and MUST NOT be started.
+     4. Report blocked issues clearly:
+        ```
+        Issue #274 is blocked by #273 (currently: in-progress)
+        ```
+     5. Place blocked issues in a **deferred queue**. When a dependency reaches `merged` state (detected during monitoring in step 11), automatically move newly-unblocked issues to the ready queue.
+     6. For Gitea trackers, also check native dependencies via the API in addition to body parsing.
 
    If no workable issues are found after filtering, report why and suggest `/design:plan` (no issues at all) or `/design:enrich` (issues exist but lack branch sections).
 
@@ -87,6 +121,14 @@ You are picking up tracker issues and implementing them in parallel using git wo
 
    No changes were made.
    ```
+
+5a. **Apply `queued` labels** (Governing: SPEC-0015 REQ "Issue Lifecycle Labels"): For all workable issues that passed filtering, apply the `queued` label to indicate they are in the work queue. This provides visibility into the batch before agents start.
+
+   **For GitHub:**
+   ```bash
+   gh issue edit {issue-number} --add-label "queued"
+   ```
+   **For Gitea:** Use `ToolSearch` to discover label MCP tools and apply the label via API.
 
 6. **Verify git state**:
    - Run `git status` to check for uncommitted changes. If there are uncommitted changes, use `AskUserQuestion` to ask:
@@ -136,9 +178,22 @@ You are picking up tracker issues and implementing them in parallel using git wo
    ```
    Use the base directory from CLAUDE.md `Worktrees > Base Dir` if set, otherwise `.claude/worktrees/`.
 
-   **9.2: Create a task** using `TaskCreate` for each issue, with the issue details, branch name, and worktree path.
+   **9.2: Transition to `in-progress`** (Governing: SPEC-0015 REQ "Issue Lifecycle Labels"): When assigning an issue to a worker, update its lifecycle state:
 
-   **9.3: Assign to a worker** using `TaskUpdate` with the worker's name as `owner`. Send the worker a message via `SendMessage` with all context needed to implement the issue.
+   1. **Set assignee**: Assign the current user (or a worker identifier) to the issue.
+      ```bash
+      gh issue edit {issue-number} --add-assignee "@me"
+      ```
+      For Gitea, use `ToolSearch` to discover issue MCP tools and set the assignee via API.
+
+   2. **Remove `queued`, apply `in-progress`**: Each transition MUST remove the previous label before applying the new one.
+      ```bash
+      gh issue edit {issue-number} --remove-label "queued" --add-label "in-progress"
+      ```
+
+   **9.3: Create a task** using `TaskCreate` for each issue, with the issue details, branch name, and worktree path.
+
+   **9.4: Assign to a worker** using `TaskUpdate` with the worker's name as `owner`. Send the worker a message via `SendMessage` with all context needed to implement the issue.
 
 10. **Worker implementation protocol**: Each worker receives and follows this protocol:
 
@@ -201,16 +256,27 @@ You are picking up tracker issues and implementing them in parallel using git wo
         - Title: the issue title (or a combined title if issues were bundled)
         - Body: Include close keywords for all bundled issues, reference the epic, reference the spec
         - Regular (non-draft) by default, draft if `--draft` was set
-    11. Report outcome to lead via `SendMessage`: success (with PR URL and list of bundled issues) or failure (with details).
+    11. **Transition to `in-review`** (Governing: SPEC-0015 REQ "Issue Lifecycle Labels"): After the PR is created, update lifecycle labels:
+        ```bash
+        gh issue edit {issue-number} --remove-label "in-progress" --add-label "in-review"
+        ```
+        If multiple issues were bundled into one PR, transition ALL bundled issues to `in-review`.
+    12. Report outcome to lead via `SendMessage`: success (with PR URL and list of bundled issues) or failure (with details).
 
-11. **Monitor and queue**: The lead tracks worker progress (Governing: SPEC-0015 REQ "Parallelism Limits"):
+11. **Monitor, queue, and lifecycle transitions**: The lead tracks worker progress (Governing: SPEC-0015 REQ "Parallelism Limits", SPEC-0015 REQ "Issue Lifecycle Labels"):
     - **Enforce parallelism cap**: Never exceed the resolved `max-parallel-agents` limit from step 7a. Track the count of active agents at all times.
+    - **Transition to `merged` on PR merge**: When a worker reports success and the PR is subsequently merged (either via `/design:review` or manually), transition the issue:
+      ```bash
+      gh issue edit {issue-number} --remove-label "in-review" --add-label "merged"
+      ```
+      If the work session itself does not merge PRs, the `merged` transition will be handled by `/design:review` or the next `/design:work` invocation that detects merged PRs.
+    - **Unblock deferred issues**: After any issue transitions to `merged`, re-check the deferred queue from step 4. For each deferred issue, re-query its dependencies. If ALL dependencies now have the `merged` label, move the issue to the ready queue and start it if an agent slot is available.
     - When a worker finishes, check if there are queued issues waiting.
     - If queued issues have dependency requirements, check if dependencies are now satisfied.
     - Assign the next available issue to the freed worker, maintaining up to `max-parallel-agents` active agents.
-    - If a worker reports failure, note it and continue with other issues. The freed slot is available for queued work.
+    - If a worker reports failure, note it and continue with other issues. The freed slot is available for queued work. The issue retains its `in-progress` label (do NOT transition failed issues to `merged`).
     - **Handle bundle requests**: When a worker sends a `BUNDLE_REQUEST`, check the issue queue for additional issues that could be bundled into the same branch. If available (and not blocked by dependencies), assign them to the same worker with instructions to implement in the same worktree before creating a PR. If the queue is exhausted or all remaining issues are blocked, tell the worker to proceed with the small PR as-is.
-    - **Queue status reporting**: After each agent completion or queue change, log the current state: "Active: {N}/{limit}, Queued: {Q}, Completed: {C}, Failed: {F}"
+    - **Queue status reporting**: After each agent completion or queue change, log the current state: "Active: {N}/{limit}, Queued: {Q}, Completed: {C}, Failed: {F}, Blocked: {B}"
 
 12. **Cleanup and report**: After all issues are processed:
 
@@ -232,12 +298,16 @@ You are picking up tracker issues and implementing them in parallel using git wo
 
     | Issue | Branch | PR | Status |
     |-------|--------|----|--------|
-    | #42 JWT Token Generation | feature/42-jwt-token-generation | #101 | Success |
-    | #43 Token Validation | feature/43-token-validation | #102 | Success |
-    | #44 Token Refresh | feature/44-token-refresh | — | Failed: tests failing |
+    | #42 JWT Token Generation | feature/42-jwt-token-generation | #101 | in-review |
+    | #43 Token Validation | feature/43-token-validation | #102 | in-review |
+    | #44 Token Refresh | feature/44-token-refresh | — | Failed (in-progress) |
+    | #45 Session Revocation | — | — | Blocked by #44 |
 
     ### Failed Issues
     - **#44 Token Refresh**: Tests failing after 2 fix attempts. Worktree preserved at `.claude/worktrees/feature/44-token-refresh` for manual pickup. Error: `TokenRefreshService.refresh() returns expired token in test_refresh_expired`.
+
+    ### Blocked Issues
+    - **#45 Session Revocation**: Blocked by #44 (currently: in-progress). Will be unblocked when #44 reaches `merged`.
 
     ### Worktrees
     - Cleaned up: 2
@@ -270,6 +340,11 @@ You are picking up tracker issues and implementing them in parallel using git wo
 | PR creation fails | Worker reports the error to lead; branch is still pushed, user can create PR manually |
 | Tracker not available | Suggest `/design:plan` to create issues first |
 | Issue has no acceptance criteria | Worker uses the issue title and body as guidance, warns in PR description |
+| Label creation fails (permissions) | Warn the user that lifecycle labels could not be created, continue without label management |
+| Label transition fails | Log the failure but do NOT block work — label management is best-effort, implementation is primary |
+| Dependency issue not found in tracker | Treat as unblocked (dependency may have been deleted or moved) with a warning |
+| All issues are blocked by dependencies | Report the dependency graph and suggest resolving blocking issues first |
+| Circular dependency detected | Report the cycle and refuse to start any issue in the cycle; suggest the user break the cycle manually |
 
 ## Rules
 
@@ -305,3 +380,17 @@ You are picking up tracker issues and implementing them in parallel using git wo
 - Workers MUST broadcast `TYPE_CREATED` via `SendMessage` after creating new types, structs, interfaces, or shared helpers
 - Workers receiving `TYPE_CREATED` MUST import the type rather than creating a duplicate
 - Workers receiving `FILE_CLAIM` for a file they also need MUST send `CONFLICT_ALERT` and wait for lead coordination
+- MUST ensure lifecycle labels (`queued`, `in-progress`, `in-review`, `merged`) exist before assigning work — use try-then-create (Governing: SPEC-0015 REQ "Issue Lifecycle Labels")
+- MUST apply `queued` label to all workable issues upon discovery
+- MUST transition `queued` -> `in-progress` when an agent picks up an issue, removing the previous label first
+- MUST transition `in-progress` -> `in-review` when a PR is created, removing the previous label first
+- MUST transition `in-review` -> `merged` when a PR is merged, removing the previous label first
+- Each label transition MUST remove the outgoing label before applying the incoming label — no issue should have two lifecycle labels simultaneously
+- Label management is best-effort — if label operations fail, log the failure but do NOT block implementation work
+- MUST set assignee on the issue when an agent picks it up (`gh issue edit --add-assignee "@me"` or equivalent)
+- MUST check dependency status before starting work on any issue — parse issue body for `Depends on #NNN`, `Blocked by #NNN`, and `blocks:` syntax
+- MUST refuse to start work on issues whose dependencies have not reached `merged` state
+- MUST report blocked issues with the specific blocking dependency and its current state (e.g., "Issue #274 is blocked by #273 (currently: in-progress)")
+- MUST place blocked issues in a deferred queue and re-check when dependencies transition to `merged`
+- MUST detect circular dependencies and refuse to start any issue in the cycle
+- Queue status reporting MUST include blocked count: "Active: {N}/{limit}, Queued: {Q}, Completed: {C}, Failed: {F}, Blocked: {B}"
