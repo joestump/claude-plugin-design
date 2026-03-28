@@ -96,7 +96,33 @@ Set up the project's `CLAUDE.md` with architecture context so Claude sessions ar
 
    e. **If declined**: Skip and note in the output that permissions were not configured.
 
-5. **Report what happened** using the appropriate output format below.
+5. **Project-type detection and quality suggestions**:
+
+   <!-- Governing: ADR-0020 (Governing Comment Reform), SPEC-0016 REQ "Go Code Quality Guidelines" -->
+
+   After writing the CLAUDE.md configuration, detect the project type by scanning for manifest files in the project root:
+
+   | Manifest | Project Type |
+   |----------|-------------|
+   | `go.mod` | Go |
+   | `package.json` | Node.js / JavaScript |
+   | `requirements.txt`, `pyproject.toml`, `setup.py` | Python |
+   | `Cargo.toml` | Rust |
+   | `pom.xml`, `build.gradle`, `build.gradle.kts` | Java / JVM |
+   | `Gemfile` | Ruby |
+   | `mix.exs` | Elixir |
+   | `composer.json` | PHP |
+
+   If a backend project manifest is detected:
+
+   a. **Check for existing logging ADR**: Scan `{adr-dir}` (defaulting to `docs/adrs/`) for any ADR mentioning "logging", "log", or "structured logging" in its title.
+
+   b. **If no logging ADR exists**, suggest via the output (not `AskUserQuestion` — this is a non-blocking suggestion):
+      > "This project would benefit from a structured logging ADR. Structured logging improves observability and debugging. Run `/design:adr structured logging` to create one."
+
+   c. Report the detected project type in the output.
+
+6. **Report what happened** using the appropriate output format below.
 
 ## Content to Add
 
@@ -174,3 +200,6 @@ CLAUDE.md already contains architecture context references. No changes made.
 - When merging migrated config into an existing `### Design Plugin Configuration` section, CLAUDE.md values take precedence on conflicts
 - Migration MUST translate JSON key names to the canonical CLAUDE.md format defined in `references/shared-patterns.md` § "Config Resolution > CLAUDE.md Configuration Format"
 - MUST offer to configure `.claude/settings.json` with tracker-appropriate permission allowlists during init (Governing: ADR-0015, SPEC-0014)
+- MUST detect project type from manifest files and report it in the output (Governing: ADR-0020, SPEC-0016 REQ "Go Code Quality Guidelines")
+- SHOULD suggest a structured logging ADR for backend projects that lack one — suggestion MUST be language-agnostic (e.g., "structured logging" not "slog") (Governing: ADR-0020, SPEC-0016)
+- The logging ADR suggestion is non-blocking — display in output, do not use `AskUserQuestion`

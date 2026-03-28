@@ -110,6 +110,40 @@ Example endpoint table with auth-by-default:
 | GET | /login | Public | Login page — must be accessible to unauthenticated users |
 ```
 
+## Backend Quality Detection and Injection
+
+<!-- Governing: ADR-0020 (Governing Comment Reform), SPEC-0016 REQ "Go Code Quality Guidelines" -->
+
+Before writing the spec, determine whether the capability involves **backend logic**. A spec involves backend logic if ANY of the following are true:
+
+- It defines server-side processing, business logic, or data transformations
+- It involves background workers, scheduled tasks, or queue consumers
+- It defines database interactions, ORM models, or data access layers
+- It involves concurrency (parallel workers, async tasks, goroutines, threads, coroutines)
+- The project has a backend manifest (e.g., `go.mod`, `package.json` with server dependencies, `requirements.txt`, `Cargo.toml`, `pom.xml`, `build.gradle`, `Gemfile`, `mix.exs`)
+
+A spec does **NOT** involve backend logic if it exclusively involves: static sites, pure frontend SPAs with no server component, documentation, or design assets.
+
+### When the spec involves error handling
+
+If the spec includes requirements that create, propagate, or handle errors, you MUST inject error handling guidelines into the spec's `## Requirements` section or as a dedicated `## Error Handling Guidelines` subsection:
+
+- **Error wrapping**: Functions that propagate errors MUST wrap them in a way that preserves the original error for inspection by callers. The wrapping MUST include sufficient context to identify the call site (e.g., the function name or operation being attempted).
+- **Sentinel errors**: Domain concepts (not found, already exists, unauthorized, conflict) MUST define named sentinel errors rather than relying on string matching against error messages.
+- **No silent swallowing**: Functions MUST NOT return a success-equivalent (e.g., `nil`/`null`/`None` for both value and error, empty result with no error) for not-found conditions. They MUST use sentinel errors or a boolean/option return value to distinguish "not found" from "success with empty result."
+
+### When the spec involves concurrency or background work
+
+If the spec includes background workers, scheduled tasks, parallel processing, or any form of concurrent execution, you MUST inject concurrency requirements:
+
+- **Context propagation**: All operations MUST accept and propagate a context/cancellation token. Bare network calls, database queries, or external API requests without context propagation are prohibited.
+- **Worker lifecycle tracking**: All background workers and concurrent tasks MUST participate in a coordinated shutdown mechanism. Fire-and-forget patterns (launching a worker with no way to wait for its completion or signal its termination) are prohibited.
+- **Race safety**: Shared mutable state accessed by concurrent workers MUST be protected by appropriate synchronization primitives (mutexes, atomic operations, channels, or equivalent). Unprotected concurrent writes are prohibited.
+
+### When the spec does NOT involve backend logic
+
+Do NOT inject error handling or concurrency guidelines. Proceed with the standard spec template only.
+
 ## spec.md Template
 
 ```markdown
@@ -145,7 +179,7 @@ Example endpoint table with auth-by-default:
 - **THEN** {expected outcome}
 ```
 
-**Note:** For web-facing specs, append the Security Requirements section (from the template above) after the functional requirements.
+**Note:** For web-facing specs, append the Security Requirements section after the functional requirements. For backend specs involving error handling or concurrency, include the relevant guidelines in the requirements or as dedicated subsections.
 
 ## design.md Template
 
@@ -226,3 +260,7 @@ Example endpoint table with auth-by-default:
 - For web-facing specs: MUST inject the Security Requirements section covering authentication, rate limiting, security headers, body size limits, CSRF protection, and redirect validation (Governing: ADR-0018, SPEC-0016 REQ "Mandatory Security Section in Web Specs")
 - For web-facing specs: MUST apply auth-by-default — every endpoint defaults to "Auth: Required"; public endpoints need "Auth: Public" with explicit justification (Governing: ADR-0018, SPEC-0016 REQ "Auth-by-Default")
 - MUST NOT inject the Security Requirements section for non-web specs (CLI tools, libraries, batch jobs, data migrations, background workers)
+- For backend specs involving error handling: MUST inject error wrapping, sentinel error, and no-silent-swallowing guidelines — all language-agnostic (Governing: ADR-0020, SPEC-0016 REQ "Go Code Quality Guidelines")
+- For backend specs involving concurrency: MUST inject context propagation, worker lifecycle tracking, and race safety requirements — all language-agnostic (Governing: ADR-0020, SPEC-0016 REQ "Go Code Quality Guidelines")
+- MUST NOT use language-specific references in injected guidelines (e.g., use "error wrapping that preserves the original" not `%w`, use "project manifest" not `go.mod`, use "structured logging" not `slog`)
+- Governing comments in generated specs MUST use file-level blocks per `references/shared-patterns.md` § "Governing Comment Format" — no per-line annotations (Governing: ADR-0020, SPEC-0016 REQ "Governing Comment Format")

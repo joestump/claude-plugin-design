@@ -218,6 +218,29 @@ Ordered for implementation (dependencies respected):
 
    Do NOT add the security checklist to stories that do not involve HTTP endpoints.
 
+   **5.2.2: CI story creation for backend projects.**
+
+   <!-- Governing: ADR-0020 (Governing Comment Reform), SPEC-0016 REQ "Go Code Quality Guidelines" -->
+
+   After grouping requirements into stories, detect whether the project has a backend component by checking for manifest files in the project root (`go.mod`, `package.json`, `requirements.txt`, `pyproject.toml`, `Cargo.toml`, `pom.xml`, `build.gradle`, `Gemfile`, `mix.exs`, `composer.json`).
+
+   If a backend manifest is detected AND no existing CI story is present in the current plan (check whether any story in the current epic already has "CI" or "continuous integration" in the title), you SHOULD create a **CI story** covering:
+
+   - **Static analysis**: Language-appropriate linter and static analysis tooling
+   - **Test runner with race/concurrency detection**: Test execution with concurrency safety checks enabled
+   - **Code formatting**: Automated format checking in CI
+
+   **CI story format:**
+   - Title: "CI Pipeline: Lint, Test, and Static Analysis"
+   - Body MUST include:
+     - A description stating this story sets up continuous integration for the spec's implementation
+     - A `## Requirements` section with checklist items for each CI component
+     - Governing spec/ADR references
+   - Apply the `ci` label using the try-then-create pattern (see `references/shared-patterns.md`)
+   - The CI story SHOULD be a foundation story (labeled `foundation`) since other stories benefit from CI being in place first
+
+   Do NOT create a CI story for projects with no backend manifest or when a CI story already exists in the plan.
+
    **5.3: Write task checklists.** Each story issue body MUST include a `## Requirements` section with a task checklist. The format varies by tracker:
 
    **For GitHub, Gitea, GitLab, Jira, and Linear** — use markdown task checklists:
@@ -346,6 +369,7 @@ Ordered for implementation (dependencies respected):
    - **Foundation stories** created (if any), with the `foundation` label and their dependent feature stories
    - **Dependency graph** showing the ordering of foundation stories, serialized stories, and parallelizable stories (Governing: SPEC-0015 REQ "Foundation Story Detection")
    - **Hotspot analysis results**: list of detected hotspot files with percentages, and any serialization constraints applied (Governing: SPEC-0015 REQ "Hotspot Analysis")
+   - **CI story** created (if any), with the detected project type and CI components included (Governing: SPEC-0016 REQ "Go Code Quality Guidelines")
    - Number of project groupings created (or "skipped" if `--no-projects` was set)
    - Whether branch naming conventions were included in issue bodies (or "skipped" if `--no-branches`)
    - Whether PR conventions were included in issue bodies (or "skipped" if `--no-branches`)
@@ -405,6 +429,11 @@ Follow the standard protocol from the plugin's `references/shared-patterns.md` �
 - Stories that involve HTTP endpoints MUST include a `## Security Checklist` section with authentication, input validation, output encoding, rate limiting, and body size limit items (Governing: ADR-0018, SPEC-0016 REQ "Security Checklist in Issues")
 - The security checklist MUST NOT be added to stories that do not involve HTTP endpoints (DB migrations, background jobs, CLI commands, library refactoring, etc.) (Governing: SPEC-0016 REQ "Security Checklist in Issues")
 - The security checklist MUST be placed after `## Acceptance Criteria` and before `### Branch` / `### PR Convention` sections
+- For backend projects (detected via manifest files), SHOULD create a CI story covering static analysis, test runner with race detection, and formatting — all language-agnostic (Governing: ADR-0020, SPEC-0016 REQ "Go Code Quality Guidelines")
+- CI stories MUST NOT be created when a CI story already exists in the current plan
+- CI stories SHOULD be labeled `foundation` and `ci` so they are prioritized before feature stories
+- MUST NOT use language-specific tool names in CI stories (e.g., use "static analysis" not "go vet", use "test runner with race detection" not "go test -race")
+- MUST NOT create stories whose sole purpose is adding governing comments to existing files — governing comments are added in the same PR that implements the governed feature (Governing: ADR-0020, SPEC-0016 REQ "Governing Comment Format")
 - Engineer B MUST provide a substantive objection for any story that has a weak requirement, vague scope, or missing spec reference — generic approval without review is not acceptable (Governing: SPEC-0012 REQ "Scrum Team Composition")
 - The sprint report MUST be emitted at the end of every `--scrum` run, even if all stories were deferred (Governing: SPEC-0012 REQ "Sprint Report")
 - `--scrum` and `--review` are mutually exclusive; if both are provided, `--scrum` takes precedence and `--review` is silently ignored
