@@ -2,37 +2,37 @@
 
 ## Overview
 
-A skill that automates the PR review-and-merge cycle by organizing agents into reviewer-responder pairs. After `/design:work` produces draft PRs, `/design:review` discovers them, assigns each PR to a reviewer-responder pair, and runs exactly one review-response round. Approved PRs are merged; unresolved PRs are left with comments for human follow-up. See ADR-0010.
+A skill that automates the PR review-and-merge cycle by organizing agents into reviewer-responder pairs. After `/sdd:work` produces draft PRs, `/sdd:review` discovers them, assigns each PR to a reviewer-responder pair, and runs exactly one review-response round. Approved PRs are merged; unresolved PRs are left with comments for human follow-up. See ADR-0010.
 
 ## Requirements
 
 ### Requirement: PR Discovery
 
-The `/design:review` skill SHALL accept either a spec identifier or explicit PR numbers to determine which PRs to process. Discovery MUST use the same tracker detection flow as `/design:plan` (SPEC-0007).
+The `/sdd:review` skill SHALL accept either a spec identifier or explicit PR numbers to determine which PRs to process. Discovery MUST use the same tracker detection flow as `/sdd:plan` (SPEC-0007).
 
 #### Scenario: Discovery by spec number
 
-- **WHEN** a user runs `/design:review SPEC-0003`
+- **WHEN** a user runs `/sdd:review SPEC-0003`
 - **THEN** the skill SHALL search for open PRs whose branch names match the spec's issue branch patterns (e.g., `feature/{N}-{slug}`) or whose bodies reference the spec number, and SHALL include all matching PRs in the review queue
 
 #### Scenario: Discovery by PR numbers
 
-- **WHEN** a user runs `/design:review 101 102 105`
+- **WHEN** a user runs `/sdd:review 101 102 105`
 - **THEN** the skill SHALL fetch exactly those PRs from the tracker and include them in the review queue
 
 #### Scenario: No argument provided
 
-- **WHEN** a user runs `/design:review` with no arguments (ignoring flags)
+- **WHEN** a user runs `/sdd:review` with no arguments (ignoring flags)
 - **THEN** the skill SHALL list available specs by globbing `docs/openspec/specs/*/spec.md`, reading each title, and using `AskUserQuestion` to let the user choose
 
 #### Scenario: No open PRs found
 
 - **WHEN** no open PRs match the target
-- **THEN** the skill SHALL inform the user and suggest running `/design:work` to create PRs from planned issues
+- **THEN** the skill SHALL inform the user and suggest running `/sdd:work` to create PRs from planned issues
 
 ### Requirement: Tracker Detection
 
-The skill SHALL detect the user's tracker using the same detection flow as `/design:plan` (SPEC-0007, Requirement: Tracker Detection). The skill MUST check `.claude-plugin-design.json` for a saved tracker preference before running detection.
+The skill SHALL detect the user's tracker using the same detection flow as `/sdd:plan` (SPEC-0007, Requirement: Tracker Detection). The skill MUST check `.claude-plugin-design.json` for a saved tracker preference before running detection.
 
 #### Scenario: Saved preference available
 
@@ -64,12 +64,12 @@ The skill SHALL create a team of reviewer and responder agents organized into pa
 
 #### Scenario: Default team formation
 
-- **WHEN** a user runs `/design:review SPEC-0003` without `--pairs`
+- **WHEN** a user runs `/sdd:review SPEC-0003` without `--pairs`
 - **THEN** the skill SHALL create 2 reviewer agents and 2 responder agents, forming 2 pairs
 
 #### Scenario: Custom pair count
 
-- **WHEN** a user runs `/design:review SPEC-0003 --pairs 1`
+- **WHEN** a user runs `/sdd:review SPEC-0003 --pairs 1`
 - **THEN** the skill SHALL create 1 reviewer and 1 responder, forming 1 pair
 
 #### Scenario: Adaptive pair count
@@ -131,7 +131,7 @@ Each responder agent SHALL address the reviewer's feedback by checking out the P
 
 #### Scenario: Worktree reuse
 
-- **WHEN** a worktree from `/design:work` still exists for the PR's branch
+- **WHEN** a worktree from `/sdd:work` still exists for the PR's branch
 - **THEN** the responder SHALL reuse that worktree instead of creating a new one
 
 #### Scenario: New worktree creation
@@ -218,7 +218,7 @@ The skill SHALL support a `--dry-run` flag that previews which PRs would be revi
 
 #### Scenario: Dry run output
 
-- **WHEN** a user runs `/design:review SPEC-0003 --dry-run`
+- **WHEN** a user runs `/sdd:review SPEC-0003 --dry-run`
 - **THEN** the skill SHALL list all matching PRs with their numbers, titles, branch names, and pair assignments, without creating a team, submitting reviews, or merging anything
 
 ### Requirement: Configuration Persistence

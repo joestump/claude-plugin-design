@@ -1,8 +1,8 @@
-# Design Plugin v3.0 Plan
+# SDD Plugin v4.0 Plan
 
 ## Table of Contents
 
-1. [Kill `.claude-plugin-design.json`](#key-insight-kill-claude-plugin-designjson)
+1. [Kill `.claude-plugin-design.json`](#key-insight-kill-claude-plugin-sddjson)
 2. [Workspace Mode for Multi-Module Projects](#workspace-mode)
 3. [Init Permission Setup](#init-permission-setup)
 4. [PR Stacking and Parallel Agent Coordination](#pr-stacking-and-parallel-agent-coordination)
@@ -54,7 +54,7 @@ JSON config is a traditional-tooling reflex. Claude reads markdown natively, and
 Example of what replaces `.claude-plugin-design.json`:
 
 ```markdown
-### Design Plugin Configuration
+### SDD Configuration
 
 #### Tracker
 - **Type**: gitea
@@ -114,11 +114,11 @@ Leverage CLAUDE.md's recursive loading. Each submodule's CLAUDE.md declares its 
 
 ### Problem
 
-Running `/design:work` with parallel agents means dozens of `git push`, `gh pr create`, and MCP tool calls — each requiring manual approval.
+Running `/sdd:work` with parallel agents means dozens of `git push`, `gh pr create`, and MCP tool calls — each requiring manual approval.
 
 ### Solution
 
-`/design:init` offers to configure `.claude/settings.json` with permission allowlists based on detected tracker.
+`/sdd:init` offers to configure `.claude/settings.json` with permission allowlists based on detected tracker.
 
 ### Recommended Allowlist
 
@@ -188,7 +188,7 @@ This is the highest-impact area for improvement, based on evidence from all thre
 
 ### Solution: Five-Layer Coordination System
 
-#### Layer 1: Dependency-Aware Planning (`/design:plan`)
+#### Layer 1: Dependency-Aware Planning (`/sdd:plan`)
 
 During issue decomposition, identify **foundation stories** before feature stories:
 
@@ -198,7 +198,7 @@ During issue decomposition, identify **foundation stories** before feature stori
 - **Config consolidation**: When multiple features add config fields and server wiring, create a single "wiring story" that stubs all config fields. Feature stories then fill in implementations.
 - **Maximum parallelism**: Cap concurrent agents at 3-4 per sprint. Empirically, 8+ concurrent PRs caused failures in all repos.
 
-#### Layer 2: Issue Lifecycle Signals (`/design:work`)
+#### Layer 2: Issue Lifecycle Signals (`/sdd:work`)
 
 Structured status tracking so agents know what's in flight:
 
@@ -207,7 +207,7 @@ Structured status tracking so agents know what's in flight:
 - **Machine-readable dependencies**: Use task list syntax in epic bodies: `- [ ] #272 (blocks: #273, #274)` instead of free-text "Depends on #141"
 - **Dependency enforcement**: Refuse to start an issue if its dependencies are not in `merged` state
 
-#### Layer 3: Pre-Flight PR Awareness (`/design:work`)
+#### Layer 3: Pre-Flight PR Awareness (`/sdd:work`)
 
 Before an agent starts coding, inject context about sibling work:
 
@@ -229,7 +229,7 @@ Shared types available (from foundation PR #281):
 
 **File-level conflict prediction**: Query all `in-progress` issues and their planned file changes. If overlap exceeds 2 files, serialize instead of parallelize.
 
-#### Layer 4: Topological Merge Ordering (`/design:work`, `/design:review`)
+#### Layer 4: Topological Merge Ordering (`/sdd:work`, `/sdd:review`)
 
 Compute optimal merge order by analyzing file overlap:
 
@@ -269,7 +269,7 @@ Spotter's security is strongest — but only because it was retrofitted via dedi
 
 ### Solution
 
-1. **Security spec template**: `/design:spec` injects a mandatory "Security Requirements" section into every web-facing spec:
+1. **Security spec template**: `/sdd:spec` injects a mandatory "Security Requirements" section into every web-facing spec:
    - Authentication requirement (explicitly justify any public endpoints)
    - Rate limiting strategy
    - Security headers (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
@@ -277,9 +277,9 @@ Spotter's security is strongest — but only because it was retrofitted via dedi
    - CSRF protection strategy
    - Open redirect prevention for any redirect parameter
 
-2. **Security checklist in issues**: When `/design:plan` creates issues involving HTTP endpoints, include a security checklist in the issue body: authentication, input validation, output encoding, rate limiting, body size limits.
+2. **Security checklist in issues**: When `/sdd:plan` creates issues involving HTTP endpoints, include a security checklist in the issue body: authentication, input validation, output encoding, rate limiting, body size limits.
 
-3. **Security lint in `/design:check`**: Flag known dangerous patterns:
+3. **Security lint in `/sdd:check`**: Flag known dangerous patterns:
    - `io.ReadAll(r.Body)` without `MaxBytesReader`
    - `template.HTML` with unsanitized content
    - `http.Redirect` with user-controlled URLs
@@ -307,9 +307,9 @@ Spotter's security is strongest — but only because it was retrofitted via dedi
 
 ### Solution
 
-1. **Logging ADR on init**: When `/design:init` detects a Go project (via `go.mod`), suggest creating an ADR mandating structured logging (`slog`). Two of three repos fell back to `log.Printf`.
+1. **Logging ADR on init**: When `/sdd:init` detects a Go project (via `go.mod`), suggest creating an ADR mandating structured logging (`slog`). Two of three repos fell back to `log.Printf`.
 
-2. **Error handling guidelines**: `/design:spec` for Go projects includes:
+2. **Error handling guidelines**: `/sdd:spec` for Go projects includes:
    - Always `%w` in `fmt.Errorf`, never `%v`
    - Sentinel errors for domain concepts (`ErrNotFound`, `ErrSlugTaken`)
    - Never return `nil, nil` for not-found — use sentinel errors
@@ -323,7 +323,7 @@ Spotter's security is strongest — but only because it was retrofitted via dedi
 
 5. **Go version awareness**: Read `go.mod` to determine Go version. Use `any` instead of `interface{}`, explore generics for common patterns.
 
-6. **CI requirements**: `/design:plan` for Go projects should create a CI story including `go vet`, `go test -race`, and `golangci-lint`.
+6. **CI requirements**: `/sdd:plan` for Go projects should create a CI story including `go vet`, `go test -race`, and `golangci-lint`.
 
 ---
 
@@ -344,12 +344,12 @@ Spotter's security is strongest — but only because it was retrofitted via dedi
 
 ### Solution
 
-1. **Frontend test scaffolding**: When `/design:plan` creates stories touching UI (templates, JS, CSS), automatically create companion test stories:
+1. **Frontend test scaffolding**: When `/sdd:plan` creates stories touching UI (templates, JS, CSS), automatically create companion test stories:
    - Template render tests (correct HTML structure for given data)
    - JavaScript unit tests for inline/external JS functions
    - HTMX swap integration tests
 
-2. **Accessibility requirements**: `/design:spec` injects a mandatory "Accessibility Requirements" section into every UI spec:
+2. **Accessibility requirements**: `/sdd:spec` injects a mandatory "Accessibility Requirements" section into every UI spec:
    - WCAG 2.1 AA compliance
    - Required ARIA landmarks
    - `aria-label` on icon-only controls
@@ -357,13 +357,13 @@ Spotter's security is strongest — but only because it was retrofitted via dedi
    - Keyboard navigation
    - Focus management for modals
 
-3. **Template duplication detection**: `/design:check` flags:
+3. **Template duplication detection**: `/sdd:check` flags:
    - Duplicate inline `<script>` blocks
    - Same form structure appearing in multiple templates
    - Navigation/sidebar rendered more than once
    - Identical JS functions defined twice in same file
 
-4. **CDN audit**: `/design:check` flags:
+4. **CDN audit**: `/sdd:check` flags:
    - CDN `<script>`/`<link>` without `integrity` attributes
    - `cdn.tailwindcss.com` (dev-only)
    - More than 1 JS interaction framework per project

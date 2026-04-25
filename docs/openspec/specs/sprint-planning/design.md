@@ -2,7 +2,7 @@
 
 ## Context
 
-Sprint planning was previously embedded as step 8 of the `/design:spec` skill, which limited it to planning only during spec creation and supported only three trackers (Beads, GitHub, Gitea). Users with existing specs had no way to generate work items, and users with GitLab, Jira, or Linear were excluded. ADR-0008 decided to extract sprint planning into a standalone `/design:plan` skill with broader tracker support, preference persistence, and a clean separation from spec authoring. See ADR-0008 and SPEC-0007.
+Sprint planning was previously embedded as step 8 of the `/sdd:spec` skill, which limited it to planning only during spec creation and supported only three trackers (Beads, GitHub, Gitea). Users with existing specs had no way to generate work items, and users with GitLab, Jira, or Linear were excluded. ADR-0008 decided to extract sprint planning into a standalone `/sdd:plan` skill with broader tracker support, preference persistence, and a clean separation from spec authoring. See ADR-0008 and SPEC-0007.
 
 ## Goals / Non-Goals
 
@@ -18,22 +18,22 @@ Sprint planning was previously embedded as step 8 of the `/design:spec` skill, w
 - Include tracker-specific PR close keywords in issue bodies for auto-resolution on merge
 
 ### Non-Goals
-- Replacing or modifying the spec authoring workflow (`/design:spec`)
+- Replacing or modifying the spec authoring workflow (`/sdd:spec`)
 - Syncing issues back to spec artifacts when tracker state changes
 - Supporting tracker-specific features beyond issue creation (boards, sprints, labels)
 - Implementing `--gaps` or `--analyze` modes (documented as future considerations)
 - Tracking issue completion status from within the plugin
-- Retroactive issue organization and enrichment (separate `/design:organize` and `/design:enrich` skills per ADR-0009)
+- Retroactive issue organization and enrichment (separate `/sdd:organize` and `/sdd:enrich` skills per ADR-0009)
 
 ## Decisions
 
 ### Standalone skill over spec extension
 
-**Choice**: Create `/design:plan` as its own skill rather than extending `/design:spec` with a `--plan` flag.
+**Choice**: Create `/sdd:plan` as its own skill rather than extending `/sdd:spec` with a `--plan` flag.
 **Rationale**: Spec authoring and sprint planning are fundamentally different activities: one produces requirements and design documents, the other produces trackable work items. Coupling them forces users to invoke the spec workflow just to re-plan, and it bloats the spec skill's allowed-tools list with tracker-related tools. A standalone skill has a focused responsibility and can evolve independently.
 **Alternatives considered**:
-- Extend `/design:spec` with `--plan` flag: Overloads the spec skill; confusing argument semantics
-- Generic `/design:execute` skill: Too broad; bundles unrelated modes under a vague name
+- Extend `/sdd:spec` with `--plan` flag: Overloads the spec skill; confusing argument semantics
+- Generic `/sdd:execute` skill: Too broad; bundles unrelated modes under a vague name
 
 ### Runtime tracker detection via ToolSearch
 
@@ -76,7 +76,7 @@ Sprint planning was previously embedded as step 8 of the `/design:spec` skill, w
 **Alternatives considered**:
 - Always create a project: Too rigid; fails for trackers without project support
 - Never create a project: Misses a key organizational benefit that trackers provide
-- Single project per `/design:plan` run: Confusing when planning multiple specs; per-epic is more natural
+- Single project per `/sdd:plan` run: Confusing when planning multiple specs; per-epic is more natural
 
 ### Branch naming convention
 
@@ -98,17 +98,17 @@ Sprint planning was previously embedded as step 8 of the `/design:spec` skill, w
 
 ### Retroactive skills as separate commands
 
-**Choice**: Create `/design:organize` and `/design:enrich` as separate skills rather than adding retroactive modes to `/design:plan`.
-**Rationale**: Retroactive operations (grouping existing issues into projects, adding branch/PR metadata to existing issue bodies) operate on previously created issues, not on spec requirements. They require different user interactions (selecting which issues to update, handling conflicts with manually edited issue bodies) and different tool permissions. Combining them with `/design:plan` would violate the plugin's single-purpose skill convention and bloat the planning flow with conditional logic for forward vs. retroactive paths.
+**Choice**: Create `/sdd:organize` and `/sdd:enrich` as separate skills rather than adding retroactive modes to `/sdd:plan`.
+**Rationale**: Retroactive operations (grouping existing issues into projects, adding branch/PR metadata to existing issue bodies) operate on previously created issues, not on spec requirements. They require different user interactions (selecting which issues to update, handling conflicts with manually edited issue bodies) and different tool permissions. Combining them with `/sdd:plan` would violate the plugin's single-purpose skill convention and bloat the planning flow with conditional logic for forward vs. retroactive paths.
 **Alternatives considered**:
-- Add `--organize` and `--enrich` flags to `/design:plan`: Overloads the planning skill; confusing when combined with `--review`
-- Single `/design:workflow` skill: Too broad; bundles unrelated operations under a vague name (see ADR-0009 Option 3)
+- Add `--organize` and `--enrich` flags to `/sdd:plan`: Overloads the planning skill; confusing when combined with `--review`
+- Single `/sdd:workflow` skill: Too broad; bundles unrelated operations under a vague name (see ADR-0009 Option 3)
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    A["/design:plan\n[spec] [flags]"] --> B{"Arguments\nprovided?"}
+    A["/sdd:plan\n[spec] [flags]"] --> B{"Arguments\nprovided?"}
 
     B -->|"SPEC-XXXX or name"| C["Resolve spec directory"]
     B -->|"No spec arg"| D["List specs via glob\nAskUserQuestion to choose"]
@@ -175,7 +175,7 @@ flowchart LR
         design["design.md\n(architecture)"]
     end
 
-    subgraph "/design:plan (Transform)"
+    subgraph "/sdd:plan (Transform)"
         read["Read & analyze"]
         decompose["Decompose into\nepic/task/sub-task"]
     end
@@ -209,11 +209,11 @@ flowchart LR
 ```mermaid
 flowchart TD
     subgraph ".claude-plugin-design.json Lifecycle"
-        first["/design:plan\n(first run)"]
+        first["/sdd:plan\n(first run)"]
         detect["Detect tracker"]
         ask["Ask to save\npreference"]
         write["Write .claude-plugin-design.json"]
-        second["/design:plan\n(subsequent run)"]
+        second["/sdd:plan\n(subsequent run)"]
         read_pref["Read .claude-plugin-design.json"]
         check["Verify tracker\nstill available"]
         use["Use saved\ntracker + config"]
@@ -254,13 +254,13 @@ flowchart TD
 
 ## Migration Plan
 
-1. The `/design:spec` SKILL.md's step 8 (sprint planning) should be replaced with a note directing users to `/design:plan` for sprint planning after spec creation.
-2. No data migration is needed -- existing specs are fully compatible since `/design:plan` reads the same `spec.md` and `design.md` format.
+1. The `/sdd:spec` SKILL.md's step 8 (sprint planning) should be replaced with a note directing users to `/sdd:plan` for sprint planning after spec creation.
+2. No data migration is needed -- existing specs are fully compatible since `/sdd:plan` reads the same `spec.md` and `design.md` format.
 3. The `tasks.md` fallback behavior is unchanged from SPEC-0006; it now lives in the plan skill instead of the spec skill.
 
 ## Open Questions
 
-- Should `/design:plan` detect and skip requirements that already have corresponding issues in the tracker (idempotent re-planning)?
+- Should `/sdd:plan` detect and skip requirements that already have corresponding issues in the tracker (idempotent re-planning)?
 - Should the skill support partial planning (e.g., plan only requirements that match a filter or tag)?
 - When `--gaps` mode is implemented, should it compare against tracker issues, `tasks.md`, or both?
 - Should the planning report include estimated effort or complexity scores derived from the spec's scenario count?

@@ -8,7 +8,7 @@ decision-makers: joestump
 
 ## Context and Problem Statement
 
-Review of three production projects built entirely with the design plugin (spotter, joe-links, claude-ops) revealed systemic coordination failures when multiple agents work in parallel. Across these repos, there were 11+ merge conflict commits, 6 PRs closed and recreated due to rebase failures, conflict markers merged directly into main, duplicate structs and helper functions implemented independently in concurrent PRs, zero assignees or in-progress labels on any issue in any repo, no pre-flight conflict detection, and `.claude-plugin-design.json` modified by every PR causing guaranteed conflicts. How should the plugin coordinate parallel agent work to eliminate duplicate code, merge conflicts, and wasted effort?
+Review of three production projects built entirely with the SDD plugin (spotter, joe-links, claude-ops) revealed systemic coordination failures when multiple agents work in parallel. Across these repos, there were 11+ merge conflict commits, 6 PRs closed and recreated due to rebase failures, conflict markers merged directly into main, duplicate structs and helper functions implemented independently in concurrent PRs, zero assignees or in-progress labels on any issue in any repo, no pre-flight conflict detection, and `.claude-plugin-design.json` modified by every PR causing guaranteed conflicts. How should the plugin coordinate parallel agent work to eliminate duplicate code, merge conflicts, and wasted effort?
 
 ## Decision Drivers
 
@@ -32,7 +32,7 @@ Chosen option: "Option 4 -- Five-layer coordination system", because the evidenc
 
 ### The Five Layers
 
-#### Layer 1: Dependency-Aware Planning (`/design:plan`)
+#### Layer 1: Dependency-Aware Planning (`/sdd:plan`)
 
 During issue decomposition, identify **foundation stories** before feature stories:
 
@@ -41,7 +41,7 @@ During issue decomposition, identify **foundation stories** before feature stori
 - **Config consolidation**: When multiple features add config fields and server wiring, create a single "wiring story" that stubs all config fields and route registrations. Feature stories then fill in implementations.
 - **Parallelism cap**: Maximum 3-4 concurrent agents per sprint. Empirically, 8+ concurrent PRs caused failures in all three repos; claude-ops launched 78 concurrent PRs in one sprint.
 
-#### Layer 2: Issue Lifecycle Signals (`/design:work`)
+#### Layer 2: Issue Lifecycle Signals (`/sdd:work`)
 
 Structured status tracking so agents know what is in flight:
 
@@ -50,7 +50,7 @@ Structured status tracking so agents know what is in flight:
 - **Machine-readable dependencies**: Use task list syntax in epic bodies: `- [ ] #272 (blocks: #273, #274)` instead of free-text "Depends on #141"
 - **Dependency enforcement**: Refuse to start an issue if its blocking dependencies are not in `merged` state
 
-#### Layer 3: Pre-Flight PR Awareness (`/design:work`)
+#### Layer 3: Pre-Flight PR Awareness (`/sdd:work`)
 
 Before an agent starts coding, inject context about sibling work:
 
@@ -58,7 +58,7 @@ Before an agent starts coding, inject context about sibling work:
 - **File-level conflict prediction**: If a new issue's planned file changes overlap with >2 files already being modified by in-progress PRs, serialize instead of parallelize
 - **Shared type registry**: List types and functions already created by foundation PRs or in-progress sibling PRs, so agents import them instead of recreating them
 
-#### Layer 4: Topological Merge Ordering (`/design:work`, `/design:review`)
+#### Layer 4: Topological Merge Ordering (`/sdd:work`, `/sdd:review`)
 
 Compute optimal merge order by analyzing file overlap and dependency relationships:
 
@@ -114,15 +114,15 @@ Stop every PR from modifying shared spec, ADR, and config files:
 
 Implementation will be confirmed by:
 
-1. `/design:plan` identifies foundation stories and applies the `foundation` label; dependent stories have machine-readable `blocks:` references
-2. `/design:plan` performs hotspot analysis and serializes stories that touch files modified by >50% of recent PRs
-3. `/design:plan` enforces a maximum parallelism cap of 3-4 concurrent agents per sprint batch
-4. `/design:work` applies lifecycle labels (`queued` -> `in-progress` -> `in-review` -> `merged`) and sets assignees on pickup
-5. `/design:work` refuses to start an issue whose blocking dependencies are not in `merged` state
-6. `/design:work` injects a sibling PR manifest as context before an agent begins coding, including files being modified and shared types available
-7. `/design:work` detects file-level overlap with in-progress PRs and serializes when overlap exceeds 2 files
-8. `/design:review` computes topological merge order and merges PRs with zero overlapping files first
-9. `/design:review` offers PR stacking for dependent chains where each PR branches from its dependency
+1. `/sdd:plan` identifies foundation stories and applies the `foundation` label; dependent stories have machine-readable `blocks:` references
+2. `/sdd:plan` performs hotspot analysis and serializes stories that touch files modified by >50% of recent PRs
+3. `/sdd:plan` enforces a maximum parallelism cap of 3-4 concurrent agents per sprint batch
+4. `/sdd:work` applies lifecycle labels (`queued` -> `in-progress` -> `in-review` -> `merged`) and sets assignees on pickup
+5. `/sdd:work` refuses to start an issue whose blocking dependencies are not in `merged` state
+6. `/sdd:work` injects a sibling PR manifest as context before an agent begins coding, including files being modified and shared types available
+7. `/sdd:work` detects file-level overlap with in-progress PRs and serializes when overlap exceeds 2 files
+8. `/sdd:review` computes topological merge order and merges PRs with zero overlapping files first
+9. `/sdd:review` offers PR stacking for dependent chains where each PR branches from its dependency
 10. No agent modifies spec files, ADR files, or design config files in feature PRs -- design doc updates are batched post-merge
 11. Running a full sprint on a test project produces zero merge conflict commits, zero duplicate type implementations, and zero PRs closed/recreated due to conflicts
 
@@ -176,7 +176,7 @@ Layered approach addressing each root cause: dependency-aware planning, lifecycl
 * Good, because topological merge ordering and optional PR stacking eliminate rebase churn
 * Good, because design document isolation removes guaranteed conflicts on shared files
 * Neutral, because the five layers add complexity to the planning and work skills, but this complexity maps directly to observed failure modes
-* Bad, because the full system is expensive to implement -- it touches `/design:plan`, `/design:work`, `/design:review`, and `shared-patterns.md`
+* Bad, because the full system is expensive to implement -- it touches `/sdd:plan`, `/sdd:work`, `/sdd:review`, and `shared-patterns.md`
 * Bad, because dependency enforcement introduces wait times that reduce realized parallelism below the theoretical cap
 
 ## Architecture Diagram
@@ -184,7 +184,7 @@ Layered approach addressing each root cause: dependency-aware planning, lifecycl
 ```mermaid
 flowchart TD
     subgraph "Layer 1: Dependency-Aware Planning"
-        A["/design:plan"] --> B["Analyze spec requirements"]
+        A["/sdd:plan"] --> B["Analyze spec requirements"]
         B --> C["Detect shared types & helpers\nneeded by 2+ stories"]
         C --> D["Create foundation stories\n(label: foundation)"]
         B --> E["Hotspot analysis\n(files in >50% recent PRs)"]
@@ -196,7 +196,7 @@ flowchart TD
     end
 
     subgraph "Layer 2: Issue Lifecycle Signals"
-        H --> I["/design:work picks up issue"]
+        H --> I["/sdd:work picks up issue"]
         I --> J["Set assignee + label: in-progress"]
         J --> K{"Blocking deps\nin merged state?"}
         K -->|No| L["Wait / pick different issue"]

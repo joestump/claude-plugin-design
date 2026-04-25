@@ -2,7 +2,7 @@
 
 ## Context
 
-The design plugin's `/design:work` skill spawns multiple agents to implement sprint stories in parallel using git worktrees. A review of three production projects (spotter, joe-links, claude-ops) revealed that uncoordinated parallel execution causes systemic failures: duplicate code, rebase churn, wasted PRs, and — in the worst case — conflict markers merged into main.
+The SDD plugin's `/sdd:work` skill spawns multiple agents to implement sprint stories in parallel using git worktrees. A review of three production projects (spotter, joe-links, claude-ops) revealed that uncoordinated parallel execution causes systemic failures: duplicate code, rebase churn, wasted PRs, and — in the worst case — conflict markers merged into main.
 
 The evidence is consistent across all three repos:
 
@@ -38,7 +38,7 @@ Governing: SPEC-0015, ADR-0017, ADR-0020.
 
 ### Foundation Detection via Static Requirement Analysis
 
-**Choice**: `/design:plan` performs static analysis of spec requirements to identify shared types and packages before decomposing into stories.
+**Choice**: `/sdd:plan` performs static analysis of spec requirements to identify shared types and packages before decomposing into stories.
 
 **Rationale**: The duplicate-code failures (spotter's `nopHandler`, joe-links' `PublicLink`) all share one root cause: multiple stories independently created the same abstraction because no story was responsible for creating it first. Foundation detection front-loads shared dependency creation into explicit, labeled stories that merge before feature work begins. This is cheaper than detecting duplicates during review (where one PR must be rewritten) or after merge (where cleanup PRs add noise).
 
@@ -120,7 +120,7 @@ Governing: SPEC-0015, ADR-0017, ADR-0020.
 ```mermaid
 flowchart TD
     subgraph "Layer 1: Dependency-Aware Planning"
-        PLAN["/design:plan"] --> FD["Foundation Detection"]
+        PLAN["/sdd:plan"] --> FD["Foundation Detection"]
         PLAN --> HA["Hotspot Analysis"]
         PLAN --> PL["Parallelism Limit"]
         FD --> DEP["Dependency Graph"]
@@ -129,7 +129,7 @@ flowchart TD
     end
 
     subgraph "Layer 2: Issue Lifecycle Signals"
-        WORK["/design:work"] --> LABELS["Label Management"]
+        WORK["/sdd:work"] --> LABELS["Label Management"]
         LABELS --> Q["queued"]
         LABELS --> IP["in-progress"]
         LABELS --> IR["in-review"]
@@ -160,7 +160,7 @@ flowchart TD
     end
 
     DEP --> WORK
-    WORK --> REVIEW["/design:review"]
+    WORK --> REVIEW["/sdd:review"]
     REVIEW --> CONFLICT["Conflict-Marker CI Gate"]
 ```
 
@@ -168,7 +168,7 @@ flowchart TD
 
 ```mermaid
 sequenceDiagram
-    participant P as /design:plan
+    participant P as /sdd:plan
     participant S as Spec Requirements
     participant G as Git History
     participant D as Dependency Graph
@@ -278,7 +278,7 @@ The algorithm:
 
 ### Conflict-Marker Gate
 
-The conflict-marker CI gate in `/design:review` is a pre-review check that runs before any code quality or spec compliance analysis:
+The conflict-marker CI gate in `/sdd:review` is a pre-review check that runs before any code quality or spec compliance analysis:
 
 1. Retrieve the full PR diff.
 2. Scan every file in the diff for the patterns: `<<<<<<<`, `=======` (7 consecutive equals signs at line start), `>>>>>>>`.
@@ -298,16 +298,16 @@ This is deliberately a hard gate with no override. Evidence: in claude-ops, conf
 
 ## Migration Plan
 
-1. **Phase 1 -- Plan skill update**: Add foundation detection, hotspot analysis, and parallelism cap to `/design:plan`. Existing sprint plans are unaffected; the new features only activate on subsequent `/design:plan` runs.
-2. **Phase 2 -- Work skill update**: Add lifecycle labels, pre-flight manifest injection, dependency enforcement, topological merge ordering, auto-rebase, design document isolation, and queue management to `/design:work`. Existing worktrees are unaffected; new work sessions use the updated coordination.
-3. **Phase 3 -- Review skill update**: Add conflict-marker CI gate to `/design:review`. This is additive and does not change existing review behavior for clean PRs.
+1. **Phase 1 -- Plan skill update**: Add foundation detection, hotspot analysis, and parallelism cap to `/sdd:plan`. Existing sprint plans are unaffected; the new features only activate on subsequent `/sdd:plan` runs.
+2. **Phase 2 -- Work skill update**: Add lifecycle labels, pre-flight manifest injection, dependency enforcement, topological merge ordering, auto-rebase, design document isolation, and queue management to `/sdd:work`. Existing worktrees are unaffected; new work sessions use the updated coordination.
+3. **Phase 3 -- Review skill update**: Add conflict-marker CI gate to `/sdd:review`. This is additive and does not change existing review behavior for clean PRs.
 4. **Phase 4 -- Shared patterns**: Add "Foundation Story Detection", "Pre-Flight PR Awareness", and "Topological Merge Ordering" patterns to `references/shared-patterns.md` for use by other skills.
 
-No data migration is required. Existing projects gain coordination features on the next `/design:plan` or `/design:work` invocation.
+No data migration is required. Existing projects gain coordination features on the next `/sdd:plan` or `/sdd:work` invocation.
 
 ## Open Questions
 
 - Should the pre-flight manifest be refreshed mid-implementation if a sibling PR merges, or is a one-time snapshot sufficient for v1?
 - Should hotspot analysis weight recent PRs more heavily than older ones (e.g., exponential decay), or is a flat window sufficient?
 - Should the topological sort incorporate PR review complexity (lines changed, number of files) as a secondary sort key, or is file-overlap sufficient?
-- Should `/design:work` emit a post-sprint coordination report summarizing: total rebases triggered, PRs queued due to dependencies, foundation stories created, and hotspot serialization events?
+- Should `/sdd:work` emit a post-sprint coordination report summarizing: total rebases triggered, PRs queued due to dependencies, foundation stories created, and hotspot serialization events?
