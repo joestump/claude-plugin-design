@@ -75,6 +75,16 @@ SPEC_STATUSES = frozenset({"draft", "review", "approved", "implemented", "deprec
 
 _FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*(?:\n|\Z)", re.DOTALL)
 
+# Detects an unquoted cross-module reference inside an outer bracket-list:
+# `[[<module>]/<ID>` is the YAML nested-list form that strict parsers reject.
+# The quoted form `["[<module>]/<ID>"` does not match because the `[` after
+# the outer `[` is preceded by a quote character.
+_UNQUOTED_CROSS_MODULE_RE = re.compile(r"\[\s*\[[\w.-]+\]/")
+
+# Sentinel key used by parse_frontmatter to surface YAML-syntax issues that
+# fall outside its narrow grammar but should be reported as hard errors.
+_YAML_ERRORS_KEY = "__yaml_errors__"
+
 
 def parse_frontmatter(text: str) -> dict[str, object]:
     """Extract YAML-ish frontmatter from `text`.
@@ -101,6 +111,7 @@ def parse_frontmatter(text: str) -> dict[str, object]:
         return {}
     body = m.group(1)
     result: dict[str, object] = {}
+    yaml_errors: list[str] = []
     for raw_line in body.splitlines():
         line = raw_line.rstrip()
         stripped = line.lstrip()
@@ -114,10 +125,23 @@ def parse_frontmatter(text: str) -> dict[str, object]:
         # Strip inline comments only when outside quotes.
         value = _strip_inline_comment(value)
         if value.startswith("[") and value.endswith("]"):
+            # Per SPEC-0018 § Workspace Mode Aggregation Scenario
+            # "Cross-module edge with unquoted YAML rejected": detect
+            # the unquoted nested-bracket form and surface it as a hard
+            # error. The quoted form does not match the regex.
+            if _UNQUOTED_CROSS_MODULE_RE.search(value):
+                yaml_errors.append(
+                    f"`{key}: {value}` contains an unquoted cross-module "
+                    f"reference (YAML nested-list form). Module-prefixed IDs "
+                    f"MUST be quoted as scalars: "
+                    f"`{key}: [\"[<module>]/<ID>\"]`"
+                )
             inner = value[1:-1].strip()
             result[key] = [_unquote(item.strip()) for item in _split_csv(inner) if item.strip()]
         else:
             result[key] = _unquote(value)
+    if yaml_errors:
+        result[_YAML_ERRORS_KEY] = yaml_errors
     return result
 
 
@@ -532,6 +556,7 @@ def build_graph(
 
     # 1. ADR nodes + forward edges.
     for adr_id, path, fm in discover_adrs(adr_dir):
+        _emit_yaml_errors(g, full_id=prefix + adr_id, fm=fm)
         full_id = prefix + adr_id
         if full_id in g.nodes:
             g.add_diagnostic(
@@ -554,6 +579,7 @@ def build_graph(
 
     # 2. Spec nodes + forward edges.
     for spec_id, path, fm in discover_specs(spec_dir):
+        _emit_yaml_errors(g, full_id=prefix + spec_id, fm=fm)
         full_id = prefix + spec_id
         if full_id in g.nodes:
             g.add_diagnostic(
@@ -602,6 +628,20 @@ def build_graph(
 _PREFIXED_ID_RE = re.compile(r"^\[([^\]]+)\]/(.+)$")
 
 
+def _emit_yaml_errors(g: Graph, full_id: str, fm: dict) -> None:
+    """Surface frontmatter YAML-syntax errors as hard graph errors."""
+    errors = fm.pop(_YAML_ERRORS_KEY, None)
+    if not errors:
+        return
+    for msg in errors:
+        g.add_diagnostic(
+            severity="error",
+            code="malformed-yaml",
+            message=f"{full_id}: {msg}",
+            source_id=full_id,
+        )
+
+
 def _maybe_prefix_target(target: str, prefix: str) -> str:
     """Auto-prefix bare same-module IDs; pass through already-prefixed forms.
 
@@ -616,19 +656,31 @@ def _maybe_prefix_target(target: str, prefix: str) -> str:
 
 
 def build_aggregate_graph(project_root: Path, modules: list[Module]) -> Graph:
-    """Build per-module graphs and merge them with `[module]/ID` prefixes."""
+    """Build per-module graphs and merge them with `[module]/ID` prefixes.
+
+    Per-module non-resolution-dependent diagnostics (duplicate IDs,
+    malformed edges, schema misuse, authored-derived fields, YAML
+    syntax issues) are CARRIED OVER to the aggregate so they are not
+    silently lost. Resolution-dependent diagnostics (unresolved IDs,
+    cycles, status consistency) are DROPPED from per-module sets and
+    re-evaluated at the aggregate level so cross-module references
+    resolve correctly.
+    """
     agg = Graph()
+    # Diagnostics that must be re-checked at aggregate scope (because
+    # cross-module references may resolve there).
+    redo_codes = frozenset(
+        {"unresolved-id", "cycle", "status-inconsistent"}
+    )
     for mod in modules:
         sub = build_graph(mod.root, mod.adr_dir, mod.spec_dir, module_name=mod.name)
-        # Strip any per-module derived edges; we re-derive after merging so
-        # cross-module inverses are correct.
         sub_authored_edges = [e for e in sub.edges if not e.derived]
         for nid, node in sub.nodes.items():
             agg.nodes[nid] = node
         agg.edges.extend(sub_authored_edges)
-        # Per-module diagnostics carry over, but we'll re-validate at the
-        # aggregate level so cross-module ID resolution and cycles are
-        # checked correctly. Drop the per-module ones.
+        for d in sub.diagnostics:
+            if d.code not in redo_codes:
+                agg.diagnostics.append(d)
     _validate(agg)
     _derive_inverses(agg)
     return agg
@@ -1533,17 +1585,26 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.module:
         # --module scopes to a single module with unprefixed IDs.
-        chosen = next((m for m in modules if m.name == args.module), None)
-        if chosen is None:
-            available = ", ".join(m.name for m in modules) or "<none — not a workspace>"
-            print(
-                f"error: unknown module `{args.module}`. Available: {available}",
-                file=sys.stderr,
-            )
-            return 2
-        adr_dir = Path(args.adr_dir).resolve() if args.adr_dir else chosen.adr_dir
-        spec_dir = Path(args.spec_dir).resolve() if args.spec_dir else chosen.spec_dir
-        g = build_graph(chosen.root, adr_dir, spec_dir)
+        # Per SPEC-0018 § Workspace Mode Aggregation Scenario "Single-module
+        # project": on non-workspace projects, --module SHALL be silently
+        # ignored. On workspace projects, an unknown module name is an error.
+        if not modules:
+            # Silently fall through to single-module mode.
+            adr_dir = Path(args.adr_dir).resolve() if args.adr_dir else root / "docs" / "adrs"
+            spec_dir = Path(args.spec_dir).resolve() if args.spec_dir else root / "docs" / "openspec" / "specs"
+            g = build_graph(root, adr_dir, spec_dir)
+        else:
+            chosen = next((m for m in modules if m.name == args.module), None)
+            if chosen is None:
+                available = ", ".join(m.name for m in modules)
+                print(
+                    f"error: unknown module `{args.module}`. Available: {available}",
+                    file=sys.stderr,
+                )
+                return 2
+            adr_dir = Path(args.adr_dir).resolve() if args.adr_dir else chosen.adr_dir
+            spec_dir = Path(args.spec_dir).resolve() if args.spec_dir else chosen.spec_dir
+            g = build_graph(chosen.root, adr_dir, spec_dir)
     elif modules and not explicit_paths:
         # Aggregate mode: build per-module and merge with [module]/ID prefixes.
         g = build_aggregate_graph(root, modules)
