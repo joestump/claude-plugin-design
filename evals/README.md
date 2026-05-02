@@ -45,16 +45,16 @@ The `skill-evals.yml` workflow triggers automatically on PRs that modify:
 
 - **Quick mode** (default): Runs Tier 3 evals + evals for changed skills
 - **Full mode**: Runs all 39 evals across all tiers
-- **Pipeline mode**: Runs cross-skill end-to-end scenarios from `pipeline/` against a disposable test repo
+- **Pipeline mode**: Runs the cross-skill end-to-end scenarios from `pipeline/` _in addition to_ the Tier 3 baseline (so a manual pipeline run still gets baseline regression signal)
 
 Full mode activates when:
 - PR has the `full-eval` label
 - Manual workflow dispatch with `mode: full`
 - PR targets a `release/*` branch
 
-Pipeline mode activates when:
-- Manual workflow dispatch with `mode: pipeline`
-- PR targets a `release/*` branch (alongside full mode)
+Pipeline-mode scenarios run when:
+- Manual workflow dispatch with `mode: pipeline` (Tier 3 + pipeline)
+- PR targets a `release/*` branch (full mode + pipeline together)
 
 ### Manual Trigger
 

@@ -8,7 +8,9 @@ Governing: [ADR-0021](../../docs/adrs/ADR-0021-skill-evaluation-and-ci-testing.m
 
 The standard evals in `evals/evals.json` test each skill in isolation: one prompt, one skill, one set of assertions. That doesn't catch regressions in the *handoff* between skills — a `/sdd:plan` issue body that `/sdd:work` can't parse, a worktree branch that `/sdd:review` can't open a PR against, a spec format that `/sdd:plan` reads differently than `/sdd:spec` writes.
 
-Pipeline scenarios run a sequence (spec → plan → work → review) on a disposable repo and verify that the artifacts each skill produces are consumable by the next.
+Pipeline scenarios run a sequence (spec → plan → work, with review coverage planned) on a disposable repo and verify that the artifacts each skill produces are consumable by the next.
+
+> **Coverage note:** SPEC-0017 REQ "Cross-Skill Pipeline Testing" Scenario "Full pipeline test" specifies the full chain through `/sdd:review`. The current scaffold covers spec → plan → work only. `/sdd:review` operates against real GitHub/Gitea PRs, which is incompatible with the `local-tmp-init` repo strategy this scaffold uses. Review coverage will land in a follow-up scenario that adopts the `gh-template` strategy (real disposable repo, real PR), tracked separately.
 
 ## When these run
 
@@ -86,4 +88,4 @@ The CI runner (`eval-pipeline` job in `skill-evals.yml`) automates all of the ab
 
 | ID | Description |
 |----|-------------|
-| [`core-workflow`](core-workflow.json) | Spec → plan → work → review on a fresh local-tmp repo, verifying artifact flow at each handoff |
+| [`core-workflow`](core-workflow.json) | Spec → plan → work on a fresh local-tmp repo, verifying artifact flow at each handoff. Review coverage deferred (see "Coverage note" above) |

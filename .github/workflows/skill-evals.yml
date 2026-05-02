@@ -237,10 +237,11 @@ jobs:
 
   eval-pipeline:
     # Cross-skill pipeline scenarios (per SPEC-0017 REQ "Cross-Skill Pipeline
-    # Testing"). Expensive -- each scenario invokes 4+ skills end-to-end on
-    # a disposable repo. Runs ONLY on release-targeting PRs or manual
-    # workflow_dispatch with mode=pipeline. Not part of per-PR quick mode.
-    needs: determine-mode
+    # Testing"). Expensive -- each scenario invokes multiple skills
+    # end-to-end on a disposable repo. Runs ONLY on release-targeting PRs
+    # or manual workflow_dispatch with mode=pipeline. Not part of per-PR
+    # quick mode. Independent of determine-mode (no needs:) since the if:
+    # is purely event-driven.
     if: |
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'pipeline') ||
       (github.event_name == 'pull_request' && startsWith(github.base_ref, 'release/'))
@@ -349,21 +350,48 @@ jobs:
           prompt: |
             Aggregate eval results from eval-results/*.json and post a summary PR comment.
 
-            1. Read all JSON files in eval-results/
-            2. Build a benchmark summary table with columns: Skill | Tier | Evals | Passed | Rate
-            3. Calculate overall pass rate and per-tier pass rates
+            Two result shapes exist in eval-results/:
+
+            (A) Per-skill eval files (tier3.json, changed.json, full.json) -
+                each contains `results[]` where each entry has
+                {eval_id, skill, passed, assertions[]}. Aggregate these
+                into the per-skill summary table.
+
+            (B) Pipeline file (pipeline.json) - contains `scenarios[]`
+                where each entry has {id, passed, steps[],
+                final_assertion_results[]}. This is a fundamentally
+                different shape (scenarios, not evals; steps, not
+                skills). Render it as a SEPARATE section, not in the
+                per-skill table.
+
+            1. Read all JSON files in eval-results/. Classify each by
+               shape (A or B).
+            2. For shape (A): build a benchmark summary table with
+               columns: Skill | Tier | Evals | Passed | Rate.
+               Calculate overall pass rate and per-tier pass rates.
+            3. For shape (B): build a pipeline section listing each
+               scenario with its id, pass/fail, the per-step verify
+               summary, and the final_assertion_results. Include in the
+               PR comment ONLY if pipeline.json is present (most PRs
+               don't run pipeline mode).
             4. Format as a GitHub PR comment with:
                - Header: "## Skill Eval Results"
-               - Mode badge: quick or full
-               - Summary table
-               - Per-tier breakdown
+               - Mode badge: quick / full / pipeline (whichever ran)
+               - Summary table (shape A)
+               - Per-tier breakdown (shape A)
+               - Pipeline section (shape B, if present)
                - Threshold check: Tier 1 must be >80% pass rate
                - If Tier 1 < 80%, add a prominent warning
             5. Post the comment on PR #${{ github.event.pull_request.number }} using:
                gh pr comment ${{ github.event.pull_request.number }} --body "<comment>"
-            6. Write the aggregated results to eval-results/summary.json
+            6. Write the aggregated results to eval-results/summary.json,
+               including a top-level `pipeline` key when shape (B) data
+               exists: {"pipeline": {"scenarios": <n>, "passed": <n>}}.
 
-            If Tier 1 pass rate is below 80%, exit with code 1 to fail the check.
+            If Tier 1 pass rate is below 80%, exit with code 1 to fail
+            the check. Pipeline scenario failures do NOT fail the
+            workflow at this layer -- they're advisory until the
+            scenarios stabilize.
 
       - name: Upload summary
         if: always()
