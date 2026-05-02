@@ -40,11 +40,15 @@ function generate() {
 
   const stripIdPrefix = (title, id) =>
     (title || '').replace(new RegExp(`^${id}:\\s*`), '');
-  const orphanAdrRows = orphanAdrs.length
-    ? orphanAdrs.map((id) => `| ${id} | ${stripIdPrefix(nodes[id] && nodes[id].title, id)} |`).join('\n')
+  const orphanAdrSection = orphanAdrs.length
+    ? `| ADR | Title |\n|-----|-------|\n${orphanAdrs
+        .map((id) => `| ${id} | ${stripIdPrefix(nodes[id] && nodes[id].title, id)} |`)
+        .join('\n')}`
     : '_No orphan ADRs — every ADR has at least one implementing spec._';
-  const orphanSpecRows = orphanSpecs.length
-    ? orphanSpecs.map((id) => `| ${id} | ${stripIdPrefix(nodes[id] && nodes[id].title, id)} |`).join('\n')
+  const orphanSpecSection = orphanSpecs.length
+    ? `| Spec | Title |\n|------|-------|\n${orphanSpecs
+        .map((id) => `| ${id} | ${stripIdPrefix(nodes[id] && nodes[id].title, id)} |`)
+        .join('\n')}`
     : '_No orphan specs — every spec is governed by at least one ADR._';
 
   const content = `---
@@ -78,17 +82,13 @@ ${mermaid}
 
 ADRs that no spec declares \`implements:\` against. Add an \`implements: [ADR-XXXX]\` line to a spec's frontmatter (or run \`/sdd:graph backfill\`) to remove an ADR from this list.
 
-| ADR | Title |
-|-----|-------|
-${orphanAdrRows}
+${orphanAdrSection}
 
 ## Orphan specs
 
 Specs that no ADR declares \`governs:\` against. (For specs whose source-code coverage is the relevant orphan signal, use \`/sdd:graph orphans\` directly — that walks source files for governing comments and is not reflected in this static page.)
 
-| Spec | Title |
-|------|-------|
-${orphanSpecRows}
+${orphanSpecSection}
 
 ## Querying the graph
 

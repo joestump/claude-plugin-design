@@ -11,8 +11,6 @@
  * @param {string} config.adrsSource - Absolute path to the ADR source directory
  * @param {string} config.specsSource - Absolute path to the specs source directory
  * @param {string} config.outputDir - Absolute path to the output directory
- * @param {string} [config.adrPathPrefix] - URL prefix for ADR cross-links (default `/decisions`)
- * @param {string} [config.specPathPrefix] - URL prefix for spec cross-links (default `/specs`)
  */
 
 const fs = require('fs');
@@ -20,13 +18,7 @@ const path = require('path');
 const { buildGraph, renderFullMermaid } = require('./graph-data');
 
 function generateGraph(config) {
-  const {
-    adrsSource,
-    specsSource,
-    outputDir,
-    adrPathPrefix = '/decisions',
-    specPathPrefix = '/specs',
-  } = config;
+  const { adrsSource, specsSource, outputDir } = config;
 
   const graph = buildGraph({ adrsSource, specsSource });
   const { nodes, edges, orphanAdrs, orphanSpecs } = graph;
@@ -45,11 +37,15 @@ function generateGraph(config) {
 
   const stripIdPrefix = (title, id) =>
     (title || '').replace(new RegExp(`^${id}:\\s*`), '');
-  const orphanAdrRows = orphanAdrs.length
-    ? orphanAdrs.map((id) => `| ${id} | ${stripIdPrefix(nodes[id] && nodes[id].title, id)} |`).join('\n')
+  const orphanAdrSection = orphanAdrs.length
+    ? `| ADR | Title |\n|-----|-------|\n${orphanAdrs
+        .map((id) => `| ${id} | ${stripIdPrefix(nodes[id] && nodes[id].title, id)} |`)
+        .join('\n')}`
     : '_No orphan ADRs — every ADR has at least one implementing spec._';
-  const orphanSpecRows = orphanSpecs.length
-    ? orphanSpecs.map((id) => `| ${id} | ${stripIdPrefix(nodes[id] && nodes[id].title, id)} |`).join('\n')
+  const orphanSpecSection = orphanSpecs.length
+    ? `| Spec | Title |\n|------|-------|\n${orphanSpecs
+        .map((id) => `| ${id} | ${stripIdPrefix(nodes[id] && nodes[id].title, id)} |`)
+        .join('\n')}`
     : '_No orphan specs — every spec is governed by at least one ADR._';
 
   const content = `---
@@ -83,17 +79,13 @@ ${mermaid}
 
 ADRs that no spec declares \`implements:\` against. Add an \`implements: [ADR-XXXX]\` line to a spec's frontmatter (or run \`/sdd:graph backfill\`) to remove an ADR from this list.
 
-| ADR | Title |
-|-----|-------|
-${orphanAdrRows}
+${orphanAdrSection}
 
 ## Orphan specs
 
 Specs that no ADR declares \`governs:\` against.
 
-| Spec | Title |
-|------|-------|
-${orphanSpecRows}
+${orphanSpecSection}
 
 ## Querying the graph
 

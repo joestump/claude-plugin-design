@@ -151,7 +151,9 @@ function buildGraph({ adrsSource, specsSource }) {
       const specPath = path.join(specsSource, dir, 'spec.md');
       if (!fs.existsSync(specPath)) continue;
       const text = fs.readFileSync(specPath, 'utf-8');
-      const titleMatch = text.match(/^#\s+(SPEC-\d{4}):/m);
+      // Match `# SPEC-XXXX:` or `# SPEC-XXXX Title` (no colon) for parity
+      // with the Python helper's word-boundary regex.
+      const titleMatch = text.match(/^#\s+(SPEC-\d{4})\b/m);
       if (!titleMatch) continue;
       const id = titleMatch[1];
       const fm = parseFrontmatter(text);
