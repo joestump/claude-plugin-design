@@ -697,7 +697,6 @@ _DEFAULT_LABEL_RULES: dict[tuple[str, str], str] = {
 }
 
 _TITLE_TRUNCATE = 60
-_INDENT = "  "
 
 
 def _title_for(node: Node) -> str:
@@ -806,13 +805,6 @@ def _closest_matches(graph: Graph, query: str, n: int = 3) -> list[str]:
     return [c for _, _, c in scored[:n]]
 
 
-def _shared_prefix(a: str, b: str) -> int:
-    n = 0
-    for x, y in zip(a, b):
-        if x != y:
-            break
-        n += 1
-    return n
 
 
 # --- Connector glyphs (U+2500–U+257F block, per SPEC-0018) ---
