@@ -18,7 +18,7 @@ const {
   transformAdrReferences,
   fixMarkdownLinks,
 } = require('./transform-utils');
-const { buildGraph, renderNeighborMermaid } = require('./graph-data');
+const { buildGraph, buildMiniDagSection } = require('./graph-data');
 
 const SPECS_SOURCE = path.join(__dirname, '../../docs/openspec/specs');
 const SPECS_DEST = path.join(__dirname, '../../docs-generated/specs');
@@ -167,31 +167,6 @@ function transformRequirementTables(content) {
   });
 }
 
-/**
- * Render a "Related Artifacts" section with a Mermaid mini-DAG of the
- * artifact's direct neighbors. Returns the empty string when the
- * artifact has no neighborhood (e.g., a brand-new spec with no edges
- * authored or derived). MUST be appended AFTER `escapeMdxUnsafe` so the
- * Mermaid fence stays raw.
- */
-function buildMiniDagSection(artifactId) {
-  if (!artifactId) return '';
-  const mermaid = renderNeighborMermaid(artifactId, ARTIFACT_GRAPH);
-  if (!mermaid) return '';
-  return [
-    '',
-    '',
-    '## Related Artifacts',
-    '',
-    `Direct relationships declared in YAML frontmatter (per [ADR-0023](/decisions/ADR-0023-frontmatter-dag-and-graph-skill) / [SPEC-0018](/specs/artifact-graph/spec)). Run \`/sdd:graph chain ${artifactId}\` for the transitive view.`,
-    '',
-    '```mermaid',
-    mermaid,
-    '```',
-    '',
-  ].join('\n');
-}
-
 function transformSpec(srcPath, destPath, domain, fileType, domainConfig, flat) {
   let content = fs.readFileSync(srcPath, 'utf-8');
   const config = domainConfig[domain] || { order: 99, label: domain };
@@ -242,8 +217,8 @@ ${metadataHeader}
   // get the same neighbor graph; the mini-DAG renders identically on
   // each, which matches user expectation that "this artifact's
   // relationships" is an attribute of the artifact, not the page.
-  const artifactId = SPEC_DOMAIN_TO_ID[domain] || null;
-  const miniDag = buildMiniDagSection(artifactId);
+  const artifactId = SPEC_DOMAIN_TO_ID[domain];
+  const miniDag = buildMiniDagSection(artifactId, ARTIFACT_GRAPH);
 
   fs.mkdirSync(path.dirname(destPath), { recursive: true });
   fs.writeFileSync(destPath, frontmatter + escapeMdxUnsafe(content) + miniDag);
