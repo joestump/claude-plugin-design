@@ -136,6 +136,8 @@ Every JSON response includes a top-level `schema_version` field. The current ver
 
 **Traversal verbs** (`impact`, `ancestors`, `chain`):
 
+Each result entry's `edges[]` describes the relationship FROM the result TO the traversal subgraph (the queried artifact and any other visited node) — not the reverse. A result with both an authored `implements` edge and a derived `governed-by` edge to the queried artifact would emit both edges; a result with only one direction emits only that one.
+
 ```json
 {
   "schema_version": "1",
@@ -147,12 +149,28 @@ Every JSON response includes a top-level `schema_version` field. The current ver
       "module": null,
       "title": "SPEC-0018: Artifact Graph",
       "edges": [
-        {"type": "implemented-by", "target": "SPEC-0018", "derived": true}
+        {"type": "implements", "target": "ADR-0023", "derived": false}
       ]
     }
   ]
 }
 ```
+
+**Error envelope** (any JSON-mode failure):
+
+```json
+{
+  "schema_version": "1",
+  "query": {"verb": "impact", "id": "ADR-9999"},
+  "error": {
+    "code": "unknown-artifact",
+    "message": "unknown artifact `ADR-9999`",
+    "suggestions": ["ADR-0023", "ADR-0022", "ADR-0021"]
+  }
+}
+```
+
+Distinguishable from success responses by the presence of a top-level `error` field instead of `results`. Other error codes: `graph-has-errors` (validation failed; see `validate --json` for details).
 
 **Diagnostic verb `orphans`**:
 

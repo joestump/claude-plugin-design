@@ -1339,10 +1339,20 @@ def cmd_traversal(
 
     `fmt` is one of: "ascii" (default DAG render), "table" (markdown
     table), "mermaid" (Mermaid flowchart), "json" (versioned schema).
-    Returns (output, exit_code).
+    Returns (output, exit_code). Errors in JSON mode are surfaced as a
+    JSON error envelope (per SPEC-0018 § Output Formats — the contract
+    must remain machine-parseable on every code path).
     """
     if target_id not in graph.nodes:
         suggestions = _closest_matches(graph, target_id)
+        if fmt == "json":
+            return _error_envelope_json(
+                verb=verb,
+                code="unknown-artifact",
+                message=f"unknown artifact `{target_id}`",
+                query_id=target_id,
+                suggestions=suggestions,
+            ), 1
         msg = f"error: unknown artifact `{target_id}`."
         if suggestions:
             msg += f" Closest matches: {', '.join(suggestions)}."
@@ -1373,42 +1383,75 @@ def cmd_traversal(
 JSON_SCHEMA_VERSION = "1"
 
 
+def _error_envelope_json(
+    verb: str,
+    code: str,
+    message: str,
+    query_id: str | None = None,
+    suggestions: list[str] | None = None,
+) -> str:
+    """Stable JSON error envelope. Every JSON error path uses this shape so
+    machine consumers can parse failure responses without falling back to
+    text scraping. Distinguishable from success responses by the presence
+    of a top-level `error` field instead of `results`.
+    """
+    query: dict[str, object] = {"verb": verb}
+    if query_id is not None:
+        query["id"] = query_id
+    err: dict[str, object] = {"code": code, "message": message}
+    if suggestions:
+        err["suggestions"] = suggestions
+    payload = {
+        "schema_version": JSON_SCHEMA_VERSION,
+        "query": query,
+        "error": err,
+    }
+    return _stable_json(payload)
+
+
 def _traversal_visit(
     graph: Graph, verb: str, target_id: str
 ) -> list[tuple[str, list[Edge]]]:
     """Compute the result set for a traversal verb.
 
-    Returns [(node_id, edges_to_target_subgraph), ...] in deterministic
-    order. Edges describe the relationship between the visited node and
-    its parent in the traversal — for `impact`, derived edges from
-    parents; for `ancestors`, authored edges from descendants; for
-    `chain`, both directions are walked but only the immediate edges
-    are reported per visited node.
+    For each visited node, return the outgoing edges (authored AND
+    derived) that target either the queried artifact or another visited
+    node. Per SPEC-0018 § Output Formats schema, each result entry's
+    `edges[]` describes how the result relates back into the subgraph —
+    NOT how the queried artifact reaches it.
+
+    Returns `[(node_id, edges), ...]` in artifact-ID-ascending order;
+    edges are sorted by (target, type, derived) for byte-identical
+    reproducibility.
     """
-    visited: dict[str, list[Edge]] = {}
+    visited: set[str] = set()
 
     def walk(node_id: str, derived: bool) -> None:
         if derived:
             children = _outgoing_derived(graph, node_id)
         else:
             children = _outgoing_authored(graph, node_id)
-        for child_id, edge_type in children:
-            if child_id in visited:
+        for child_id, _edge_type in children:
+            if child_id == target_id or child_id in visited:
                 continue
-            visited[child_id] = [
-                Edge(source=node_id, target=child_id, type=edge_type, derived=derived)
-            ]
+            visited.add(child_id)
             walk(child_id, derived)
 
-    if verb == "impact":
+    if verb in ("impact", "chain"):
         walk(target_id, derived=True)
-    elif verb == "ancestors":
-        walk(target_id, derived=False)
-    elif verb == "chain":
-        walk(target_id, derived=True)
+    if verb in ("ancestors", "chain"):
         walk(target_id, derived=False)
 
-    return [(nid, visited[nid]) for nid in sorted(visited)]
+    in_subgraph = visited | {target_id}
+    out: list[tuple[str, list[Edge]]] = []
+    for node_id in sorted(visited):
+        edges = [
+            e for e in graph.edges
+            if e.source == node_id and e.target in in_subgraph
+        ]
+        edges.sort(key=lambda e: (e.target, e.type, e.derived))
+        out.append((node_id, edges))
+    return out
 
 
 def _traversal_json(graph: Graph, verb: str, target_id: str) -> str:
@@ -1468,11 +1511,16 @@ def _stable_json(obj: object) -> str:
 def _traversal_mermaid(graph: Graph, verb: str, target_id: str) -> str:
     """Emit a Mermaid flowchart block for the traversal subgraph.
 
-    Authored edges use `-->`; derived edges use `-.->`. Edge labels
-    follow the same default-suppression rule as the ASCII renderer.
+    Direction matches the ASCII layout per SPEC-0018: `ancestors`
+    flows BT (bottom-to-top — queried at bottom), `impact` flows TB
+    (top-to-bottom — queried at top), `chain` is TB with the queried
+    node naturally in the middle of the rendered diagram.
+
+    Authored edges use `-->`; derived edges use `-.->`.
     """
+    direction = "BT" if verb == "ancestors" else "TB"
     visits = _traversal_visit(graph, verb, target_id)
-    out: list[str] = ["```mermaid", "flowchart TB"]
+    out: list[str] = ["```mermaid", f"flowchart {direction}"]
 
     # The queried target is always a node.
     target = graph.nodes.get(target_id)
@@ -1521,25 +1569,33 @@ def _mermaid_label(node: Node | None) -> str:
 def _traversal_table(graph: Graph, verb: str, target_id: str) -> str:
     """Force a markdown table for a hierarchical traversal verb.
 
-    Per SPEC-0018 § Output Formats: `--table` is the explicit override
-    when a user prefers tabular output even though the result has
-    hierarchical structure. Columns: ID, Type, Edge to queried, Authored.
+    Per SPEC-0018 § Output Formats Scenario "--table override": columns
+    are ID, Type, edge type to the queried artifact, and authored/derived
+    indicator. Each row is one (result, edge-back-to-subgraph) pair —
+    a result with multiple edges back into the subgraph contributes
+    multiple rows.
     """
     target = graph.nodes.get(target_id)
     visits = _traversal_visit(graph, verb, target_id)
     out = [f"# /sdd:graph {verb} {target_id} (table)", ""]
     if not visits:
-        out.append(f"{_title_for(target) if target else target_id} has no traversal results for `{verb}`.")
+        out.append(
+            f"{_title_for(target) if target else target_id} "
+            f"has no traversal results for `{verb}`."
+        )
         out.append("")
         return "\n".join(out)
-    out.append("| ID | Type | Edge | Authored |")
-    out.append("|----|------|------|----------|")
+    out.append("| ID | Type | Edge to | Edge type | Authored |")
+    out.append("|----|------|---------|-----------|----------|")
     for node_id, edges in visits:
         node = graph.nodes.get(node_id)
         type_ = node.kind if node else "unknown"
         for e in edges:
             authored = "derived" if e.derived else "authored"
-            out.append(f"| {_md_escape(node_id)} | {type_} | {_md_escape(e.type)} | {authored} |")
+            out.append(
+                f"| {_md_escape(node_id)} | {type_} "
+                f"| {_md_escape(e.target)} | {_md_escape(e.type)} | {authored} |"
+            )
     out.append("")
     return "\n".join(out)
 
@@ -1898,8 +1954,22 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if g.has_errors() else 0
 
     if g.has_errors():
-        print("error: graph has hard errors — refusing to answer query verbs.", file=sys.stderr)
-        print("run `python3 graph.py validate` to see the errors.", file=sys.stderr)
+        if fmt == "json":
+            print(
+                _error_envelope_json(
+                    verb=args.verb,
+                    code="graph-has-errors",
+                    message=(
+                        "graph has hard errors; query verbs refuse to answer "
+                        "until validation is clean. Run `validate` for details."
+                    ),
+                    query_id=args.id,
+                ),
+                end="",
+            )
+        else:
+            print("error: graph has hard errors — refusing to answer query verbs.", file=sys.stderr)
+            print("run `python3 graph.py validate` to see the errors.", file=sys.stderr)
         return 1
 
     if args.verb in _TRAVERSAL_VERBS:
