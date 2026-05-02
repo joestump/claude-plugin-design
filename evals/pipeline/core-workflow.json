@@ -1,0 +1,50 @@
+{
+  "id": "core-workflow",
+  "description": "spec -> plan -> work on a disposable local-tmp repo. Verifies that each skill consumes the prior skill's artifacts cleanly: the spec is parseable by /sdd:plan and the issue bodies are parseable by /sdd:work. Review coverage is deferred -- /sdd:review operates against real PRs and the offline-review path it would need for a local-tmp scenario does not exist yet (tracked separately).",
+  "setup": {
+    "repo_strategy": "local-tmp-init",
+    "seed": {
+      "claude_md": "# Pipeline Eval Test Repo\n\nDisposable repo seeded by the SDD plugin's pipeline eval suite. Do not push to a remote; do not open issues against any real tracker. The absence of a tracker section below is intentional -- it forces the `tasks.md` fallback per SPEC \"tasks-md-fallback\".\n\n## SDD Configuration\n\n### Branch Conventions\n- **Prefix**: feature/\n- **Slug length**: 40\n\n### PR Conventions\n- **Close keyword**: Closes\n- **Spec reference**: Include SPEC-XXXX in PR body\n",
+      "files": []
+    }
+  },
+  "steps": [
+    {
+      "skill": "spec",
+      "prompt": "Create a spec for a small webhook-delivery service: it accepts JSON payloads at POST /webhook, validates an HMAC-SHA256 signature header, and forwards verified payloads to a configurable downstream URL with at-most-once-per-request retry semantics.",
+      "verify": [
+        "A directory under docs/openspec/specs/ was created and contains a spec.md file",
+        "spec.md has a top-level heading matching '# SPEC-XXXX: <title>'",
+        "spec.md uses RFC 2119 keywords (MUST, SHOULD, MAY) at least three times",
+        "spec.md contains at least one '#### Scenario:' subsection per requirement"
+      ]
+    },
+    {
+      "skill": "plan",
+      "prompt": "Plan the spec we just created into trackable issues using the tasks.md fallback (no tracker is configured in CLAUDE.md, so the fallback should engage automatically).",
+      "verify": [
+        "tasks.md exists at the repo root",
+        "tasks.md contains at least one epic entry and at least three story entries",
+        "Each story entry includes a Branch line matching the feature/{N}-{slug} convention from CLAUDE.md",
+        "Each story entry includes a PR Convention section with a 'Closes #N' close keyword",
+        "Each story entry references the spec by its SPEC-XXXX id"
+      ]
+    },
+    {
+      "skill": "work",
+      "prompt": "Pick the foundation story (or the first story if no foundation was detected) from tasks.md and implement it via a git worktree. Stop after the implementation is committed locally; do not push or open a PR.",
+      "verify": [
+        "`git worktree list` reports at least one worktree besides the main one",
+        "A new git branch matching feature/{N}-{slug} exists locally",
+        "At least one commit was made on that branch with files implementing the chosen story",
+        "The commit message references the story id from tasks.md"
+      ]
+    }
+  ],
+  "final_assertions": [
+    "Step 2's plan references the SPEC-XXXX id created in step 1 (verifies spec -> plan handoff)",
+    "Step 3's branch name matches a Branch line from a story entry in tasks.md (verifies plan -> work handoff)",
+    "No outbound network calls were made to api.github.com, gitea.*, or gitlab.* (the scenario must not pollute real trackers)",
+    "The temp repo was cleaned up after the run (the runner removes the working tree on completion)"
+  ]
+}

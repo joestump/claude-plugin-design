@@ -16,6 +16,7 @@ Automated evaluation framework for the 15 SDD plugin skills.
 - `tier1.json` - Tier 1 evals only (15 prompts)
 - `tier2.json` - Tier 2 evals only (10 prompts)
 - `tier3.json` - Tier 3 evals only (14 prompts)
+- `pipeline/` - Cross-skill end-to-end scenarios (release-only, see [`pipeline/README.md`](pipeline/README.md))
 - `benchmarks/` - Persisted benchmark results on merge
 
 ## Running Evals Locally
@@ -44,15 +45,20 @@ The `skill-evals.yml` workflow triggers automatically on PRs that modify:
 
 - **Quick mode** (default): Runs Tier 3 evals + evals for changed skills
 - **Full mode**: Runs all 39 evals across all tiers
+- **Pipeline mode**: Runs the cross-skill end-to-end scenarios from `pipeline/` _in addition to_ the Tier 3 baseline (so a manual pipeline run still gets baseline regression signal)
 
 Full mode activates when:
 - PR has the `full-eval` label
 - Manual workflow dispatch with `mode: full`
 - PR targets a `release/*` branch
 
+Pipeline-mode scenarios run when:
+- Manual workflow dispatch with `mode: pipeline` (Tier 3 + pipeline)
+- PR targets a `release/*` branch (full mode + pipeline together)
+
 ### Manual Trigger
 
-Go to Actions > Skill Evaluations > Run workflow, and select `quick` or `full`.
+Go to Actions > Skill Evaluations > Run workflow, and select `quick`, `full`, or `pipeline`.
 
 ## Adding Evals for a New Skill
 
