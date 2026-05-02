@@ -75,13 +75,13 @@ Renders a top-down ASCII DAG: queried artifact at the top, dependents flowing be
 
 ### `ancestors <id>`
 
-Renders ancestor chains with the queried artifact at the **bottom** of each chain (per SPEC-0018 § Layout rules). Each leaf-to-target path is shown as its own vertical chain — the queried artifact name appears at the bottom of each. The vertical connector uses a dashed glyph `┆` since the visual flow is the inverse of the authored relationship; edge labels reflect the derived inverse type with the `(derived)` annotation.
+Renders ancestor paths in a single contiguous diagram with the queried artifact at the bottom (per SPEC-0018 § Layout rules). Each enumerated leaf-to-target path is rendered as a top-down chain (most-distant ancestor first, edge labels and `┆` continuation glyphs flowing down), separated by a blank line from the next path, with the queried artifact appearing exactly once at the bottom. The vertical connector uses the dashed glyph `┆` because the visual flow is the inverse of the authored relationship; edge labels reflect the derived inverse type with the `(derived)` annotation.
 
-This rendering is intentionally redundant for shared targets — splitting paths into independent chains keeps the ASCII byte-identical and avoids the merging-diagram complexity that an indented tree cannot represent cleanly.
+The vertical-stack approximation of multi-parent fan-in (vs. a side-by-side merging Y) is a tractable ASCII-only rendering — multi-parent inputs read as a sequence of independent ancestor paths feeding into the shared queried node.
 
 ### `chain <id>`
 
-Bidirectional view: ancestors above (rendered as vertical chains with the target's name suppressed at the bottom of each chain — the trailing `▼` flows into the middle section), the queried artifact in the middle (rendered as a `## Heading` with the artifact's title), and impact below (rendered as a top-down tree).
+Single contiguous bidirectional diagram: ancestors above (rendered as top-down chains with the target's title suppressed at the bottom of each), the queried artifact in the middle (rendered once as `<title> (queried)`), and impact below (rendered as a top-down indented tree). The two regions are visually joined by a single `│` continuation through the queried node — no markdown subheadings, no `▼` glyphs.
 
 ### Diagnostic verbs (Story 4 — not yet implemented)
 

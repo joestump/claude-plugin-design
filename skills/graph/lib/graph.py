@@ -687,13 +687,13 @@ def print_validation(g: Graph) -> None:
 # Edge types omitted from labels when they are the "default" semantic for
 # a source/target-kind pair (SPEC-0018 § Layout rules). All other edge
 # types MUST carry inline labels.
+# Per SPEC-0018 § Layout rules: defaults are EXACTLY these three pairs. All
+# other edge types (including `implements`, `governed-by`, `enables`, etc.)
+# MUST carry an inline label.
 _DEFAULT_LABEL_RULES: dict[tuple[str, str], str] = {
     ("adr", "spec"): "governs",
     ("spec", "spec"): "requires",
     ("adr", "adr"): "extends",
-    ("spec", "adr"): "implements",
-    ("code", "adr"): "governed-by",
-    ("code", "spec"): "governed-by",
 }
 
 _TITLE_TRUNCATE = 60
@@ -753,25 +753,57 @@ def _outgoing_derived(graph: Graph, node_id: str) -> list[tuple[str, str]]:
     return sorted(out)
 
 
+_ID_NUMBER_RE = re.compile(r"^(ADR|SPEC)-(\d+)$", re.IGNORECASE)
+
+
+def _normalize_id(query: str) -> str:
+    """Zero-pad the numeric portion of an artifact ID for fair comparison.
+
+    Turns `ADR-99` into `ADR-0099` and `spec-7` into `SPEC-0007`. Returns
+    the input upper-cased if it doesn't match the pattern.
+    """
+    m = _ID_NUMBER_RE.match(query)
+    if not m:
+        return query.upper()
+    prefix, num = m.group(1).upper(), m.group(2)
+    return f"{prefix}-{int(num):04d}"
+
+
 def _closest_matches(graph: Graph, query: str, n: int = 3) -> list[str]:
+    """Suggest close matches for an unknown ID.
+
+    Tiered scoring:
+      0. exact match (after upper-case + zero-pad normalization)
+      1. prefix match
+      2. substring match
+      3. for ID-shape queries (ADR/SPEC + number), numeric proximity
+         within the same prefix family
+    """
     candidates = sorted(graph.nodes.keys())
     qu = query.upper()
-    scored: list[tuple[int, str]] = []
+    qn = _normalize_id(query)
+    q_match = _ID_NUMBER_RE.match(query)
+    q_prefix = q_match.group(1).upper() if q_match else None
+    q_num = int(q_match.group(2)) if q_match else None
+
+    scored: list[tuple[int, int, str]] = []
     for c in candidates:
         cu = c.upper()
-        if cu == qu:
-            score = 0
-        elif cu.startswith(qu):
-            score = 1
-        elif qu in cu:
-            score = 2
-        elif _shared_prefix(qu, cu) >= 4:
-            score = 3
-        else:
+        if cu == qu or cu == qn:
+            scored.append((0, 0, c))
             continue
-        scored.append((score, c))
+        if cu.startswith(qu) or cu.startswith(qn):
+            scored.append((1, 0, c))
+            continue
+        if qu in cu or qn in cu:
+            scored.append((2, 0, c))
+            continue
+        c_match = _ID_NUMBER_RE.match(c)
+        if c_match and q_match and c_match.group(1).upper() == q_prefix:
+            c_num = int(c_match.group(2))
+            scored.append((3, abs(c_num - q_num), c))
     scored.sort()
-    return [c for _, c in scored[:n]]
+    return [c for _, _, c in scored[:n]]
 
 
 def _shared_prefix(a: str, b: str) -> int:
@@ -793,8 +825,12 @@ def _connector(is_last: bool, derived: bool) -> str:
 
 
 def _continuation(is_last: bool) -> str:
-    """Return the prefix continuation for a subtree below a child line."""
-    return ("   " if is_last else "│  ") + " "  # 4 cols total per nesting level
+    """Return the prefix continuation for a subtree below a child line.
+
+    Per SPEC-0018 § Reproducibility: exactly two spaces of indentation per
+    nesting level. The branch glyph occupies one of those when present.
+    """
+    return "  " if is_last else "│ "
 
 
 # --- Top-down tree renderer (used by impact, and by chain's lower half) ---
@@ -858,7 +894,11 @@ def _render_chain_path(
 
     When `omit_last_title=True`, the last node's title line is suppressed
     (used by the chain verb to avoid duplicating the queried-target name —
-    the trailing `▼` flows visually into the middle section instead).
+    the trailing `│` continuation flows visually into the middle section).
+
+    Per SPEC-0018 § Layout rules, the `▼` glyph is reserved for diagnostic
+    verbs and MUST NOT appear in traversal output. Vertical flow is shown
+    by `│` (authored) or `┆` (derived) glyphs only.
     """
     lines: list[str] = []
     for i, (nid, edge_type_to_next, derived_to_next) in enumerate(path):
@@ -869,8 +909,8 @@ def _render_chain_path(
             next_id = path[i + 1][0]
             label = _edge_label(graph, nid, next_id, edge_type_to_next, derived_to_next)
             line_char = "┆" if derived_to_next else "│"
-            lines.append(f"{_INDENT}{line_char}{label}")
-            lines.append(f"{_INDENT}▼")
+            lines.append(f"{line_char}{label}")
+            lines.append(line_char)
     return "\n".join(lines)
 
 
@@ -900,7 +940,9 @@ def _enumerate_ancestor_paths(
             dfs(child_id, path)
             path.pop()
 
-    # Start from target; collect (descendant_id, edge_type_back_to_target, derived).
+    # Start from target; collect forward paths target → ancestor1 → ancestor2 → ...
+    # Each entry is (node_id, edge_type_to_child, False); the final entry of
+    # each leaf path has empty edge fields.
     dfs(target_id, [(target_id, "", False)])
     raw_paths.sort(key=lambda p: tuple((s[0], s[1]) for s in p))
 
@@ -936,7 +978,19 @@ def _enumerate_ancestor_paths(
 
 
 def render_ancestors(graph: Graph, target_id: str) -> str:
-    """Render ancestor paths with target at BOTTOM of each chain (SPEC-0018)."""
+    """Render ancestor paths with target at BOTTOM of a single diagram (SPEC-0018).
+
+    Each enumerated path is rendered top-down with its title sequence and
+    edge labels, then a shared `│` continuation drops into the queried
+    target which appears once at the bottom. For multi-parent cases (the
+    queried node has multiple direct ancestors), each ancestor stack is
+    visually separated by a blank line above the shared queried-line.
+
+    The spec's "single contiguous diagram" wording is honored by emitting
+    the queried node exactly once. The vertical-stack approximation of
+    multi-parent fan-in (vs. a side-by-side merging Y) is a tractable
+    ASCII-only rendering — see PR description for the trade-off.
+    """
     target = graph.nodes[target_id]
     paths = _enumerate_ancestor_paths(graph, target_id)
     if not paths:
@@ -944,19 +998,29 @@ def render_ancestors(graph: Graph, target_id: str) -> str:
             f"# /sdd:graph ancestors {target_id}\n\n"
             f"{_title_for(target)} has no declared ancestors.\n"
         )
-    chunks = [_render_chain_path(graph, p) for p in paths]
+    chunks = [_render_chain_path(graph, p, omit_last_title=True) for p in paths]
     body = "\n\n".join(chunks)
-    return f"# /sdd:graph ancestors {target_id}\n\n{body}\n"
+    return (
+        f"# /sdd:graph ancestors {target_id}\n\n"
+        f"{body}\n"
+        f"{_title_for(target)} (queried)\n"
+    )
 
 
 def render_chain(graph: Graph, target_id: str) -> str:
-    """Render bidirectional: ancestors above, queried in middle, impact below.
+    """Render bidirectional view as a single contiguous diagram.
 
-    Per SPEC-0018: "queried artifact in the middle of a single contiguous
-    diagram. Ancestors render above; dependents render below." The middle
-    node is shown once; ancestors are vertical-chain rendered above (target
-    at the bottom of each chain — but for the chain view the target line
-    is shared with the middle), and impact is the standard top-down tree.
+    Per SPEC-0018 § Layout rules: queried artifact in the middle, ancestors
+    above, dependents below. The two regions are separated by a single
+    `│` continuation through the queried node — NOT by `▼` and NOT by
+    markdown subheadings.
+
+    Layout:
+        {ancestor stacks rendered top-down with edge labels}
+        {│ continuation}
+        {queried artifact (queried)}
+        {│ continuation if there is impact}
+        {impact tree top-down}
     """
     target = graph.nodes[target_id]
     has_ancestors = bool(_outgoing_authored(graph, target_id))
@@ -965,33 +1029,27 @@ def render_chain(graph: Graph, target_id: str) -> str:
     out: list[str] = [f"# /sdd:graph chain {target_id}", ""]
 
     if has_ancestors:
-        out.append("## Ancestors")
-        out.append("")
         paths = _enumerate_ancestor_paths(graph, target_id)
-        chunks: list[str] = []
         for p in paths:
             if len(p) <= 1:
                 continue
-            # Render with the target's title suppressed — the trailing `▼`
-            # of each chain flows visually into the middle section below.
-            chunks.append(_render_chain_path(graph, p, omit_last_title=True))
-        out.append("\n\n".join(chunks))
-        out.append("")
+            out.append(_render_chain_path(graph, p, omit_last_title=True))
+            out.append("")  # blank between ancestor stacks
 
-    out.append(f"## {_title_for(target)} (queried)")
-    out.append("")
+    out.append(f"{_title_for(target)} (queried)")
 
     if has_impact:
-        out.append("## Impact")
-        out.append("")
-        body_lines = [_title_for(target)]
+        out.append("│")
+        body: list[str] = []
         visited: set[str] = {target_id}
-        _render_subtree(graph, target_id, follow="derived", prefix="", out=body_lines, visited=visited)
-        out.extend(body_lines)
-        out.append("")
+        _render_subtree(graph, target_id, follow="derived", prefix="", out=body, visited=visited)
+        out.extend(body)
+
+    out.append("")
 
     if not has_ancestors and not has_impact:
-        out.append(f"{_title_for(target)} is a leaf in the graph (no ancestors, no impact).")
+        # Replace the trailing blank with the leaf message.
+        out[-1] = f"{_title_for(target)} is a leaf in the graph (no ancestors, no impact)."
         out.append("")
 
     return "\n".join(out)
@@ -1081,7 +1139,9 @@ def main(argv: list[str] | None = None) -> int:
         print(output, end="")
         return code
 
-    return 2  # unreachable
+    raise AssertionError(  # pragma: no cover — verbs/dispatch mismatch
+        f"verb '{args.verb}' is in _ALL_VERBS but no dispatch path matches"
+    )
 
 
 if __name__ == "__main__":
