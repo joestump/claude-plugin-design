@@ -48,6 +48,29 @@ You are performing a deep, comprehensive audit of design artifact alignment acro
 
    **With `--scrum`**: Scrum triage mode — see the **Scrum Triage Ceremony** section below. When `--scrum` is set, complete the standard audit analysis (steps 4–6) first, then enter the ceremony. Do NOT run `--review` mode when `--scrum` is set.
 
+3a. **Tier 3 staleness check** (v5.0.0+):
+
+   <!-- Governing: ADR-0026 (Tiered Index Freshness), SPEC-0019 REQ "Tier 3 Staleness Threshold for Consumer Skills" -->
+
+   On entry, check the qmd index's last-modified timestamp for this repo's collections (use the exact-prefix match algorithm from `references/qmd-helpers.md` § "This-Repo Collection Identification"). If older than the configured staleness threshold (default 120m, configurable in CLAUDE.md `### SDD Configuration` `#### Index Freshness` `**Staleness Threshold**` per the **Config Resolution** pattern), trigger a silent `qmd update` first. Emit a one-line note in the report header: `Index was {age} stale — refreshed before running.` On fresh, proceed silently. On qmd update failure, surface the error per `qmd-helpers.md` § "Error Handling" and continue best-effort.
+
+3b. **qmd-aware artifact retrieval per target file** (v5.0.0+):
+
+   <!-- Governing: ADR-0024 (qmd as hard dependency), SPEC-0019 REQ "qmd-Smart Drift Skills" -->
+
+   Audit operates at scale across many target files. For each target file in scope, use qmd hybrid retrieval (per `references/qmd-helpers.md` § "Hybrid Retrieval") to identify the top-K candidate ADRs and specs governing that specific file, then deep-read only those candidates. The pre-v5 "read all ADRs and specs once, then semantically match against every target" path is removed in v5 — per-target qmd retrieval is the canonical mechanism.
+
+   Per-file query construction follows the same pattern as `/sdd:check`:
+   - `lex`: file path basename + exported symbols + governing comment block content
+   - `vec`: one-sentence summary of what the file does
+   - `intent: "/sdd:audit {scope} — find ADRs and specs governing {file}"`
+   - `collections: ["{repo}-adrs", "{repo}-specs"]` (or per-module variants)
+   - `limit: 8`, `minScore: 0.3`
+
+   Per-target retrieval is more expensive than the pre-v5 single-pass scan, but produces dramatically tighter, file-relevant context for the drift analysis in Step 5. On large audit scopes (entire repo), this is what `/sdd:audit` was designed to scale to — the per-target retrieval is small per-call and runs in qmd's sub-second hybrid path.
+
+   On qmd unreachable / timeout per `qmd-helpers.md` § "Error Handling", surface the error and stop. Per ADR-0024 / SPEC-0019 REQ "qmd Assumption in Consumer Skills", fallback paths were eliminated in v5; the failure mode is "fix qmd, retry."
+
 4. **Validate spec artifact pairing**: For each spec directory found under `{spec-dir}`, check that both `spec.md` and `design.md` exist. If a `spec.md` exists without a corresponding `design.md` (or vice versa), report as `[WARNING]` under "Stale Artifacts" with finding: "Unpaired spec artifact: {path} exists but {missing-file} is missing. Per ADR-0003, spec.md and design.md are a paired unit." (Governing: ADR-0003, SPEC-0003)
 
 5. **Analyze across all six categories**:
@@ -236,6 +259,9 @@ See the plugin's `references/shared-patterns.md` § "Severity Assignment Rules" 
 - `--scrum` and `--review` are mutually exclusive; `--scrum` takes precedence if both are provided
 - ADRs (`accepted`) and specs (`approved`/`implemented`) are the source of truth — code deviation is presumed wrong unless the Architect explicitly reclassifies a finding as an artifact update (Governing: SPEC-0013 REQ "Source of Truth Principle")
 - In workspace aggregate mode, MUST label every finding with its source module and include a Cross-Module Summary section (Governing: ADR-0016, SPEC-0014 REQ "Cross-Module Aggregation")
+- **v5.0.0+**: MUST run Tier 3 staleness check on entry per Step 3a — if the index is older than the configured threshold (default 120m), trigger silent `qmd update` and emit a one-line note (Governing: ADR-0026, SPEC-0019 REQ "Tier 3 Staleness Threshold for Consumer Skills")
+- **v5.0.0+**: MUST use qmd hybrid retrieval per-target file per Step 3b to identify the top-K candidate ADRs/specs governing each file. The pre-v5 read-everything-then-match path is removed (Governing: ADR-0024, SPEC-0019 REQ "qmd-Smart Drift Skills")
+- **v5.0.0+**: On qmd unreachable / timeout, MUST surface the error and stop. NEVER fall back to corpus scan (per ADR-0024 / SPEC-0019 REQ "qmd Assumption in Consumer Skills")
 - In workspace aggregate mode, MUST check for cross-module inconsistencies (e.g., conflicting ADR decisions across modules)
 - Themes MUST be grouped by functional area, not by drift category (Governing: SPEC-0013 REQ "Functional Theme Grouping")
 - Engineer B MUST challenge findings with substantive arguments — "this looks intentional" is not acceptable justification; an architecturally-sound reason is required (Governing: SPEC-0013 REQ "Triage Team Composition")
