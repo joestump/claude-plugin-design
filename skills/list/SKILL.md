@@ -27,15 +27,17 @@ List all ADRs and specs in the project with their status, date, and title.
 
 2. **Scan for ADRs** (unless filter is `spec`):
    - Glob for `{adr-dir}/ADR-*.md` files (in aggregate mode, glob per-module and prefix results with module name)
-   - For each file, read the YAML frontmatter to extract `status` and `date`
+   - For each file, extract `status` and `date` per the **Status Field Extraction** algorithm in Step 3a (`/sdd:prime` defines this canonically; `/sdd:list` reuses it for the same legacy-format reasons)
    - Extract the title from the first `# ` heading
    - Sort by ADR number
 
 3. **Scan for specs** (unless filter is `adr`):
    - Glob for `{spec-dir}/*/spec.md` files (in aggregate mode, glob per-module and prefix results with module name)
-   - For each file, read the YAML frontmatter to extract `status` and `date`
+   - For each file, extract `status` and `date` per the **Status Field Extraction** algorithm referenced above
    - Extract the title from the first `# ` heading (e.g., `SPEC-0001: Web Dashboard`)
    - Sort by SPEC number
+
+3a. **Status Field Extraction**: same algorithm as `/sdd:prime` Step 3a. Briefly: try YAML frontmatter `status:` first; if absent, scan the first 30 lines for a `- **Status:** {value}` bullet (case-insensitive on "Status"); strip any parenthetical refinement notes (split on `(`, trim); if neither form yields a value, render as `—` when *some* artifacts have status, or drop the Status column entirely when *zero* do.
 
 4. **Present results** as a formatted table:
 
@@ -78,3 +80,9 @@ List all ADRs and specs in the project with their status, date, and title.
 5. **Handle empty results**: If no ADRs or specs exist, tell the user:
    - "No ADRs found. Create one with `/sdd:adr [description]`."
    - "No specs found. Create one with `/sdd:spec [capability]`."
+
+## Rules
+
+- MUST use the **Status Field Extraction** algorithm in Step 3a to support both YAML-frontmatter and inline-bullet formats — leaving Status blank for legacy repos that use `- **Status:** {value}` is misleading and was reported as a real-world bug
+- MUST drop the Status column entirely when zero artifacts in the corpus have a parseable status; render `—` for missing entries when the column is partially populated
+- MUST strip parenthetical refinement notes from extracted status values (preserved in source files; not rendered in tables)
