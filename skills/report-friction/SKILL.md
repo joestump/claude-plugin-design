@@ -2,7 +2,7 @@
 name: report-friction
 description: File a feedback issue against the SDD plugin (joestump/claude-plugin-sdd) when an agent encounters significant friction with one of its skills — instructions that contradicted observed behavior, repeated tool failures, undocumented edge cases that burned tokens, or SKILL.md ambiguity that caused misinterpretation. Always prompts the user with the full proposed issue body before submitting. Use when an agent has just completed a workflow that involved real churn caused by the SDD plugin itself, not by the user's task.
 allowed-tools: Bash, Read, Write, Edit, Grep, AskUserQuestion
-argument-hint: [skill-name] [--label bug|documentation|enhancement|usability]
+argument-hint: [skill-name] [--label bug|documentation|enhancement|usability] [--from-file <path>]
 ---
 
 <!-- Governing: ADR-0015 (Markdown-Native Configuration) -->
