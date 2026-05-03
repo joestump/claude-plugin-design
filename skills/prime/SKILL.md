@@ -28,19 +28,26 @@ Load existing ADRs and specs into the session so Claude can give architecture-aw
    Then stop. Do NOT proceed with scanning.
 
 2. **Scan for ADRs**: Glob for `{adr-dir}/ADR-*.md` files (in aggregate mode, glob per-module). For each file:
-   - Read the YAML frontmatter to extract `status` and `date`
+   - Extract `status` and `date` per the **Status Field Extraction** algorithm below
    - Extract the title from the first `# ` heading
    - Read the `## Context and Problem Statement` section
    - Read the `## Decision Outcome` section to extract the key decision
    - Sort by ADR number
 
 3. **Scan for specs**: Glob for `{spec-dir}/*/spec.md` files (in aggregate mode, glob per-module). Validate spec pairing per `references/shared-patterns.md` § "Spec Pairing Validation". For each file:
-   - Read the YAML frontmatter to extract `status`
+   - Extract `status` per the **Status Field Extraction** algorithm below
    - Extract the title from the first `# ` heading (e.g., `SPEC-0001: Web Dashboard`)
    - Read the `## Overview` section
    - Count the number of `### Requirement:` headings
    - Count the number of `#### Scenario:` headings
    - Sort by SPEC number
+
+3a. **Status Field Extraction algorithm** (used by both ADR and spec scans). Two formats are supported because legacy SDD-using repos predate YAML frontmatter:
+
+   1. **YAML frontmatter** (canonical, current SDD template): look for a `status:` key inside the `---` … `---` frontmatter block at the top of the file.
+   2. **Inline bullet** (legacy / hand-authored): if no YAML frontmatter exists OR YAML has no `status:` field, scan the first 30 lines for a line matching `- **Status:** {value}` (case-insensitive on "Status"; tolerate `*` or `+` as the bullet marker; tolerate `Status:` without the bold).
+   3. **Strip refinement notes**: the inline-bullet form sometimes carries a parenthetical refinement note: `- **Status:** accepted (refined by ADR-0010, 2026-05-03)`. Split on the first `(`, trim trailing whitespace, and use only the leading word ("accepted"). The parenthetical content is preserved in the source file but is not rendered in prime tables — it would blow out column width for a corner case better surfaced by `/sdd:graph` or by reading the artifact directly.
+   4. **No status found**: if neither form yields a value, record the artifact as having no parseable status. Render as `—` in the table when other artifacts in the same corpus have status; drop the Status column entirely when *zero* artifacts in the corpus have status (see Step 6 rendering rule).
 
 4. **Apply topic filter** (if `$ARGUMENTS` is not empty):
    - The topic argument is a free-text string for semantic matching
@@ -158,6 +165,9 @@ Primed session with {N} ADRs and {M} specs matching "{topic}".
 - If a section (ADRs or specs) is empty, omit that section's table rather than showing an empty table
 - Sort ADRs by number, sort specs by number
 - The "Key Decision" column should be a single sentence summarizing the decision outcome, not the full text
+- MUST use the **Status Field Extraction** algorithm in Step 3a to support both YAML-frontmatter and inline-bullet formats — silently leaving the Status column blank for legacy repos that use `- **Status:** {value}` is misleading and was reported as a real-world bug
+- MUST drop the Status column entirely when zero artifacts in the rendered corpus have a parseable status — a uniformly-blank column reads as "all unknown" and is worse than no column at all. When *some* artifacts have status and others do not, render missing as `—` so the asymmetry is visible. **Workspace aggregate mode**: the rendered corpus is the union across all modules — drop the column only when ZERO artifacts across ALL modules have status. If even one module has status, keep the column and render `—` for the modules that do not (the asymmetry is the signal). Single-module mode applies the rule to that module's corpus directly
+- MUST strip parenthetical refinement notes from extracted status values (e.g., `accepted (refined by ADR-0010, 2026-05-03)` → `accepted`) — the full text remains in the source file; prime tables show the lifecycle word only
 - In workspace aggregate mode, MUST prefix each artifact with its module name in square brackets (e.g., `[api] ADR-0001`)
 - In workspace aggregate mode, MUST include the Module column in output tables
 - In workspace aggregate mode, sort by module name first, then by artifact number within each module
