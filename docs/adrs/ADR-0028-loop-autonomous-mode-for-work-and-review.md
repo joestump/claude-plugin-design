@@ -24,7 +24,7 @@ The problem: define how `/sdd:work` and `/sdd:review` cooperate with `/loop` so 
 ## Decision Drivers
 
 * **Conservative defaults.** The user's stated preference is "skew conservative." Novel actions, ambiguous criteria, budget escalation, and post-feedback merges all MUST pause for `AskUserQuestion` rather than guess.
-* **Cost and budget visibility.** The user must always know how much has been spent, and the loop must stop before exceeding a declared ceiling — measured in iterations, PRs touched, and wall-clock minutes.
+* **Cost and budget visibility.** The user must always know how much has been spent, and the loop must stop before exceeding a declared ceiling — measured in iterations, PRs touched, wall-clock minutes, and **estimated dollars** (computed from cumulative token counts × per-model rates). Wall-clock alone is a poor spend proxy because a 4-agent iteration costs roughly 4× a single-agent iteration of the same duration; the dollar ceiling is the canonical spend signal.
 * **Concurrency safety.** A loop tick that fires while previous worktrees or responder agents from the same skill are still active MUST NOT race them. The behavior here must be explicit, not emergent.
 * **Observability between iterations.** Each loop tick should produce a one-screen status report — backlog size, PRs touched, budget remaining, stop conditions evaluated — so the user can sample and intervene.
 * **Interrupt and resume.** The user must be able to halt a running loop without leaving the system in an inconsistent state (orphan worktrees, half-merged PRs, dangling labels).
@@ -60,19 +60,23 @@ A loop iteration evaluates stop conditions on entry and on exit. Any one matchin
 | 6 | Same issue/PR fails twice with the same root cause | both | Stop, escalate via `AskUserQuestion` |
 | 7 | Dependency cycle detected in backlog | work | Stop, surface cycle, request manual resolution |
 | 8 | User interrupt (Ctrl-C, session close, explicit `/loop stop`) | both | Stop after current iteration drains, no half-states |
-| 9 | A previous iteration's worktree or agent is still active AND `--lock=skip` is not set | both | See concurrency model below |
+| 9 | A previous iteration's lockfile holds a live PID AND `--lock=skip` is not set | both | See concurrency model below |
 | 10 | `AskUserQuestion` returned "stop the loop" at any prior gate | both | Stop |
+| 11 | qmd unreachable on entry, persisting for **2 consecutive iterations** | both | Stop, surface "qmd unreachable — fix per ADR-0024 and resume" with the captured error |
+| 12 | Cost-budget reached (default: **\$25 USD**, computed from `tokens_in`/`tokens_out` × per-model rates) | both | Stop, report budget |
 
-Defaults are conservative by design. Users widen budgets explicitly: `--max-iterations 20`, `--max-prs 50`, `--max-minutes 240`. Budgets are inclusive across the entire `/loop` run, not per-iteration — a 20-PR ceiling means 20 across all iterations combined.
+Defaults are conservative by design. Users widen budgets explicitly: `--max-iterations 20`, `--max-prs 50`, `--max-minutes 240`, `--max-dollars 100`. Budgets are inclusive across the entire `/loop` run, not per-iteration — a 20-PR ceiling means 20 across all iterations combined.
+
+**qmd-unreachable detection (condition #11).** The wrapped skill (`/sdd:work` or `/sdd:review`) hard-fails on qmd outage per ADR-0024 sub-decision 2 ("the failure mode is fix qmd, retry") — workers exit non-zero and emit a sentinel stderr line containing the literal token `qmd-unreachable` (or, equivalently, a non-zero exit with exit code reserved for qmd-failures, e.g. `EX_QMD_UNREACHABLE=78`). The loop layer recognizes this signal and increments a per-run `qmd_failures_consecutive` counter in `budget.json`; on the second consecutive iteration carrying the signal, condition #11 trips and the loop halts with an explicit user-facing message naming ADR-0024. Any successful iteration resets the counter to zero. A single transient outage therefore costs at most one wasted tick before being followed by either a successful retry (counter reset) or a clean stop (counter trips).
 
 #### Concurrency model
 
 The default concurrency model is **lock-and-skip**:
 
 * On entry, the skill writes a lockfile at `.sdd/loop/{skill}.lock` with PID, iteration number, and timestamp.
-* If a lockfile already exists and the recorded PID is alive (or its worktrees/agents are still running), the new iteration **skips** silently and lets `/loop` reschedule. A one-line note lands in the iteration report: "Previous iteration N still active — skipping this tick."
-* If the lockfile is stale (PID dead, no worktrees, no team members), the new iteration claims the lock.
-* On graceful exit, the lockfile is removed. On crash, the lockfile is reaped on the next iteration's stale check.
+* If a lockfile already exists, the new iteration evaluates **PID liveness alone** as the staleness signal: if `kill -0 <pid>` succeeds (the process exists and the caller has permission to signal it), the lock is **held** and the new iteration **skips** silently — a one-line note lands in the iteration report: "Previous iteration N still active (pid {pid}) — skipping this tick." If `kill -0 <pid>` fails with `ESRCH` (process gone), the lock is **stale** and the new iteration reaps it and claims a fresh lock. PID liveness is the **sole authoritative** staleness signal — the presence or absence of worktrees and team members is **NOT** a staleness signal because (a) `skills/work/SKILL.md` Rules require worktrees for failed issues to be preserved indefinitely as the manual-pickup hand-off, so live worktrees can long outlive the iteration that created them; and (b) `TeamCreate` failures cause `/sdd:work` to fall back to single-agent mode where there are no team members to enumerate. Worktrees and team membership are orthogonal cleanup state, not lock state.
+* On graceful exit, the lockfile is removed. On crash, the lockfile is reaped on the next iteration's PID-liveness check.
+* On platforms where PID semantics differ (notably Windows, where `kill -0` is unavailable), the implementation MUST use the platform-equivalent liveness probe (e.g., `OpenProcess` + `GetExitCodeProcess`); ambiguous results MUST be treated as "alive" (skip the iteration) and a one-line warning surfaced.
 * `--lock=skip` (default): skip the iteration on contention.
 * `--lock=wait`: block this iteration until the previous one finishes (use only with `--max-minutes` to bound wait time).
 * `--lock=force` (DISCOURAGED): override the lock. Triggers `AskUserQuestion` confirmation each time — the user must reaffirm.
@@ -91,7 +95,7 @@ The default is to ask the user before doing anything novel. A novel action is on
 |------|---------|----------|
 | Backlog drift | Backlog has shifted (new high-priority issues, removed issues) since the last iteration started | "Backlog changed since last iteration. Re-propose the next batch?" |
 | Ambiguous acceptance criteria | Issue lacks a `### Acceptance Criteria` section, or has TBD/TODO markers | "Issue #N has ambiguous criteria. Skip, escalate, or proceed with my best interpretation?" |
-| Budget escalation | An iteration would push past 80% of any budget | "Approaching {budget} ceiling ({used}/{total}). Continue, raise ceiling, or stop?" |
+| Budget escalation | An iteration would push past 80% of any budget (iterations, PRs, minutes, **dollars**) | "Approaching {budget} ceiling ({used}/{total}). Continue, raise ceiling, or stop?" — combined into a single prompt across all simultaneously-tripped budgets per "Multi-budget gate batching" below. |
 | Post-feedback merge | `/sdd:review` would merge a PR after responder addressed human review comments | "Responder addressed human feedback on PR #N. Merge now or hold for human re-review?" |
 | Force-unlock | `--lock=force` requested | "Force-unlock previous iteration's lock? This may corrupt in-flight work." |
 | Repeated failure | Same issue/PR has failed in two consecutive iterations | "Issue/PR #N failed twice with: {root-cause}. Skip, retry once more, or stop the loop?" |
@@ -108,22 +112,49 @@ Budgets are declared at loop entry and persisted in `.sdd/loop/{skill}.budget.js
   "max_iterations": 5,
   "max_prs": 20,
   "max_minutes": 60,
+  "max_dollars": 25.00,
   "iterations_used": 2,
   "prs_touched": ["#141", "#142", "#143", "#145"],
-  "minutes_elapsed": 18
+  "comments_pushed": 7,
+  "merges_attempted": 1,
+  "minutes_elapsed": 18,
+  "tokens_in": 1843210,
+  "tokens_out": 412057,
+  "agents_dispatched": 6,
+  "dollars_estimate": 14.92,
+  "rate_table_source": "CLAUDE.md SDD config (or built-in default)"
 }
 ```
 
-On every tick, the skill reads the file, increments the relevant counters, evaluates stop conditions 3–5, writes the file back. The PR set is deduped — a PR re-reviewed across two iterations counts once toward `max_prs`.
+On every tick, the skill reads the file, increments the relevant counters, evaluates stop conditions 3–5 and 12 (cost), writes the file back. The PR set is deduped — a PR re-reviewed across two iterations counts once toward `max_prs`. The `tokens_in`/`tokens_out`/`agents_dispatched` counters are cumulative across the entire loop run; `dollars_estimate` is recomputed each tick as `Σ(tokens_in × rate_in + tokens_out × rate_out)` over each model used, where the per-model rate table is sourced (in priority order): (1) a `### Loop Cost Rates` block in CLAUDE.md's `### SDD Configuration`, (2) a built-in default table compiled into the plugin and surfaced via `/sdd:config show`. The chosen source is recorded in `rate_table_source` for auditability. `agents_dispatched` is the cumulative count of worker / reviewer / responder Task spawns across the run and is the rough fan-out proxy used in iteration-cost reporting.
+
+The two review-loop counters (`comments_pushed`, `merges_attempted`) are the meaningful budget surface for `/sdd:review --loop --pr <single>` (see "Single-PR review loop semantics" below); they are also tracked for `/sdd:work --loop` for symmetry but are typically dominated by `prs_touched` there.
 
 CLI overrides (all optional):
 
 * `--max-iterations N` (default 5)
 * `--max-prs N` (default 20)
 * `--max-minutes N` (default 60)
+* `--max-dollars N` (default 25 USD; set to 0 to disable the cost ceiling)
 * `--budget-file PATH` (default `.sdd/loop/{skill}.budget.json`)
 
 Budgets reset only when the user explicitly invokes a fresh loop run (no resume) or deletes the budget file.
+
+##### Single-PR review loop semantics
+
+`/sdd:review --loop --pr <N>` watches a single PR across iterations, so the `prs_touched` budget collapses (`prs_touched = 1` forever) and never trips condition #4. For this mode the meaningful budget counters are:
+
+* `iterations_used` (against `max_iterations`)
+* `minutes_elapsed` (against `max_minutes`)
+* `comments_pushed` (informational; uncapped by default but visible)
+* `merges_attempted` (informational; uncapped by default but visible)
+* `tokens_in` / `tokens_out` / `dollars_estimate` (against `max_dollars`)
+
+The 80% budget-escalation gate fires only on iterations, minutes, and dollars in single-PR review mode; the `prs_touched` and PR-touch dimensions are documented as inactive for that mode and are not surfaced in the gate question.
+
+##### Multi-budget gate batching
+
+When two or more budgets cross 80% in the same tick, the 80% budget-escalation gate fires **once** with a combined message listing every budget that tripped (e.g., "Approaching iterations (4/5), minutes (49/60), and dollars (\$21.00/\$25.00). Continue, raise ceiling(s), or stop?"). When any budget reaches 100% in the same tick that another crosses 80%, the 100%-stop wins (stop conditions 3, 4, 5, 12 take precedence over the gate) and the gate is suppressed.
 
 #### Telemetry and observability
 
@@ -146,7 +177,51 @@ Outcome: 3 PRs opened (#151, #152, #153). 1 issue (#149) escalated for ambiguous
 Next tick: scheduled by /loop
 ```
 
+The corresponding `.sdd/loop/{skill}.history.jsonl` line schema is:
+
+```json
+{
+  "iteration": 3,
+  "skill": "work",
+  "started_at": "2026-05-09T14:50:00Z",
+  "ended_at": "2026-05-09T14:58:00Z",
+  "outcome": "ok",
+  "prs_touched_this_iter": ["#151", "#152", "#153"],
+  "agents_dispatched_this_iter": 3,
+  "tokens_in_this_iter": 412300,
+  "tokens_out_this_iter": 98417,
+  "dollars_this_iter": 3.21,
+  "budget_snapshot": {
+    "iterations_used": 3,
+    "prs_touched_total": 7,
+    "minutes_elapsed": 24,
+    "tokens_in": 1843210,
+    "tokens_out": 412057,
+    "dollars_estimate": 14.92,
+    "qmd_failures_consecutive": 0
+  },
+  "gates": [
+    {"name": "ambiguous-criteria", "question": "Issue #149 has ambiguous criteria. Skip, escalate, or proceed?", "answer": "escalate", "at": "2026-05-09T14:54:13Z"},
+    {"name": "backlog-drift", "question": "Backlog changed since last iteration. Re-propose?", "answer": "continue", "at": "2026-05-09T14:50:42Z"}
+  ],
+  "stop_conditions_fired": []
+}
+```
+
+The `gates` field is the most important debug surface for "why did the loop stop?" — every `AskUserQuestion` invocation across the iteration is captured, including the verbatim question text, the user's answer (`continue`, `stop`, `skip`, `escalate`, `raise`, or free-text), and the timestamp.
+
+**Sensitive content note.** `gates[].question` may interpolate user-supplied content (issue bodies, PR titles, branch names) and `gates[].answer` may include free-text user input. The `history.jsonl` file MUST be treated as containing potentially-sensitive content: it is written to a project-local path (`.sdd/loop/`) covered by the project's standard ignore rules, MUST NOT be uploaded to telemetry without explicit user opt-in, and SHOULD be sanitized per a project convention if one is declared in CLAUDE.md (e.g., a `### Loop Logging` block enumerating redaction patterns). Where no convention is declared, the file is documented as treat-as-secret in the same class as `.env` and tracker tokens.
+
 The history JSONL is the source of truth for `--resume`. A new `/loop /sdd:work --loop --resume` reads the most recent history line and continues from the recorded budget state.
+
+##### Resume contract
+
+`--resume` is the recovery path after a session crash, host reboot, or explicit pause. The contract on entry is:
+
+* **Restored from the last `history.jsonl` entry (authoritative):** `iterations_used`, `prs_touched`, `minutes_elapsed`, `tokens_in`, `tokens_out`, `agents_dispatched`, `dollars_estimate`, `comments_pushed`, `merges_attempted`, `qmd_failures_consecutive`, the iteration counter, and the user's prior gate answers (consumed only as audit context — they are NOT replayed).
+* **Recomputed from scratch:** the next iteration's stop-condition evaluation, the next iteration's gate evaluation (so a stale "continue" answer cannot rubber-stamp the resumed run), the per-iteration timestamp and elapsed-since-last-tick wall-clock delta.
+* **Lockfile handling:** treated as stale per the PID-liveness rule from "Concurrency model" above. If the recorded PID is dead, the lockfile is reaped and a fresh lock is claimed for the resumed iteration. If the recorded PID is *alive* (extremely rare on resume — implies the prior process did not actually crash), the resume aborts with a one-line note directing the user to use `--lock=force` or wait for the live process to exit.
+* **In-flight worktrees and open PRs from the prior crashed iteration:** inspected exactly **once** at resume entry, before the first new iteration begins. For each open PR or active worktree referenced in the last `history.jsonl` entry, the loop compares the recorded branch HEAD SHA against the current remote HEAD: if they match, the artifact is **re-attached** silently and the resumed run proceeds; if they have diverged (someone pushed, force-pushed, or rebased), the loop pauses and surfaces the drift via `AskUserQuestion` ("PR #N has diverged since the prior iteration crashed — re-attach, skip, or stop the loop?"). Worktrees with no associated open PR are reported but not auto-cleaned, consistent with `skills/work/SKILL.md` Rules ("MUST preserve worktrees for failed issues — never auto-clean failures").
 
 ### Consequences
 
@@ -158,20 +233,23 @@ The history JSONL is the source of truth for `--resume`. A new `/loop /sdd:work 
 * Good, because telemetry between iterations gives the user a sampling point to intervene without halting the loop manually.
 * Bad, because six user-prompt gates can feel chatty on a long autonomous run. Mitigated by the explicit goal: chatty is the conservative default; users who want quieter autonomy can lower budgets so the loop ends sooner instead of relaxing gates.
 * Bad, because budget-file-on-disk adds a small failure surface (file corruption, race with another shell). Mitigated by atomic writes (write-temp + rename) and the lockfile.
-* Bad, because the lockfile-and-stale-PID dance is OS-dependent — on Windows, PID liveness checks differ. Mitigated by treating ambiguous lock state as "active" by default (skip the iteration) and surfacing a one-line warning.
+* Bad, because the lockfile-and-stale-PID dance is OS-dependent — on Windows, the `kill -0` liveness check is unavailable and the platform-equivalent probe must be used. Mitigated by treating ambiguous lock state as "active" by default (skip the iteration) and surfacing a one-line warning.
 * Neutral, because `--lock=force` exists as an escape hatch but requires an `AskUserQuestion` confirmation every use.
 
 ### Confirmation
 
 Compliance is confirmed by:
 
-1. `skills/work/SKILL.md` documents the `--loop` flag with all six default budgets and gates, governed by this ADR.
-2. `skills/review/SKILL.md` documents the `--loop` flag with the post-feedback-merge gate explicitly cross-referenced to ADR-0010's bounded-iteration rule.
-3. Both skills implement the `.sdd/loop/{skill}.lock`, `.budget.json`, and `.history.jsonl` files at the documented paths.
-4. An integration test runs `/loop /sdd:work --loop --max-iterations 2 --max-prs 0 --dry-run` and asserts (a) two iterations execute, (b) zero PRs are touched, (c) the budget file reflects both iterations.
-5. An integration test runs `/loop /sdd:review --loop --pr {N}` while a previous iteration's lockfile is fresh and asserts the new iteration skips with the expected one-line note.
-6. A sandbox test triggers each of the six user-prompt gates and asserts `AskUserQuestion` is called with the documented question text.
-7. A spec follows this ADR (named e.g. SPEC-00XX "Loop Autonomous Mode for Work and Review") translating these sub-decisions into RFC-2119 requirements.
+1. `skills/work/SKILL.md` documents the `--loop` flag with all default budgets (iterations, PRs, minutes, dollars) and gates, governed by this ADR.
+2. `skills/review/SKILL.md` documents the `--loop` flag with the post-feedback-merge gate explicitly cross-referenced to ADR-0010's bounded-iteration rule, and the single-PR review semantics from "Single-PR review loop semantics" above.
+3. Both skills implement the `.sdd/loop/{skill}.lock`, `.budget.json`, and `.history.jsonl` files at the documented paths, with `budget.json` carrying the documented cost fields (`tokens_in`, `tokens_out`, `agents_dispatched`, `dollars_estimate`, `comments_pushed`, `merges_attempted`) and `history.jsonl` lines carrying the documented `gates[]` field.
+4. An integration test runs `/loop /sdd:work --loop --max-iterations 5 --max-prs 1` against a fixture backlog with two ready stories and asserts the loop stops at iteration 2 with `prs_touched`-budget exhaustion as the recorded stop cause (replaces the prior `--max-prs 0 --dry-run` test, which conflated dry-run with budget enforcement).
+5. An integration test runs `/loop /sdd:review --loop --pr {N}` while a previous iteration's lockfile holds a **live** PID and asserts the new iteration skips with the expected "previous iter alive" note; a parallel test with a **dead** PID asserts the lock is reaped and the new iteration proceeds — confirming that PID liveness is the sole staleness signal (Concern 1).
+6. A sandbox test triggers each of the six user-prompt gates and asserts `AskUserQuestion` is called with the documented question text and that each invocation appears as a `gates[]` entry in the next `history.jsonl` line.
+7. An integration test simulates qmd unreachable for 2 consecutive iterations and asserts the loop halts with stop condition #11 (qmd-unreachable-after-N-attempts), surfacing the ADR-0024 remediation message; a parallel test with a single transient outage followed by recovery asserts the counter resets and the loop continues (Concern 3).
+8. An integration test exhausts the cost budget by setting `--max-dollars 0.01` against a non-zero workload and asserts stop condition #12 fires, with `dollars_estimate >= max_dollars` recorded in the final `history.jsonl` line (Concern 2).
+9. An integration test resumes a loop after killing the prior iteration mid-flight: the test asserts (a) the lockfile is treated as stale per PID-liveness, (b) any open PR from the prior iteration is inspected once and either re-attached on matching HEAD or surfaced via `AskUserQuestion` on drift, (c) budget counters resume from the last `history.jsonl` line (Concern 4).
+10. A spec follows this ADR (named e.g. SPEC-00XX "Loop Autonomous Mode for Work and Review") translating these sub-decisions into RFC-2119 requirements.
 
 ## Pros and Cons of the Options
 
@@ -219,37 +297,78 @@ Skills stay loop-naive. The runtime handles iteration. Whatever safety the runti
 
 ## Architecture Diagram
 
+The first diagram shows the high-level loop control flow with the stale-lock-reap path explicit. The second diagram zooms on the six `AskUserQuestion` gates so all of them are visible — this is the contract surface the user actually interacts with.
+
 ```mermaid
 flowchart TD
   Start([User: /loop /sdd:work --loop]) --> RuntimeLoop[/loop runtime: schedule next tick/]
   RuntimeLoop --> Tick{New tick fires}
-  Tick --> LockCheck{Lockfile fresh?}
-  LockCheck -->|yes, --lock=skip| SkipNote[One-line skip note] --> RuntimeLoop
+  Tick --> LockCheck{Lockfile present?}
   LockCheck -->|no| AcquireLock[Acquire .sdd/loop/work.lock]
+  LockCheck -->|yes| PidCheck{kill -0 pid<br/>succeeds?}
+  PidCheck -->|yes, --lock=skip| SkipNote[One-line skip note:<br/>'previous iter alive'] --> RuntimeLoop
+  PidCheck -->|no| ReapLock[Reap stale lock<br/>'pid dead'] --> AcquireLock
 
   AcquireLock --> ReadBudget[Read budget.json]
-  ReadBudget --> StopEval{Stop conditions<br/>1-7, 10 met?}
+  ReadBudget --> StopEval{Stop conditions<br/>1-7, 10-12 met?}
   StopEval -->|yes| FinalReport[Emit final report] --> ReleaseLock[Release lock] --> Done([Loop ends])
-  StopEval -->|no| Drift{Backlog drifted?}
-  Drift -->|yes| AskDrift[AskUserQuestion: re-propose?] --> Drift2{User: stop?}
-  Drift2 -->|stop| FinalReport
-  Drift2 -->|continue| RunBody
-  Drift -->|no| RunBody
+  StopEval -->|no| GateBlock[See gate-flow diagram below]
 
-  RunBody[Run skill body:<br/>discover, dispatch workers,<br/>open PRs] --> AmbCheck{Ambiguous<br/>criteria?}
-  AmbCheck -->|yes| AskAmb[AskUserQuestion:<br/>skip/escalate/proceed] --> RunBody
-  AmbCheck -->|no| BudgetCheck{Budget &gt; 80%?}
-  BudgetCheck -->|yes| AskBudget[AskUserQuestion:<br/>continue/raise/stop] --> RunBody
-  BudgetCheck -->|no| Telemetry[Append history.jsonl<br/>+ emit status block]
-
-  Telemetry --> UpdateBudget[Increment budget.json] --> ReleaseLock2[Release lock] --> RuntimeLoop
+  GateBlock --> RunBody[Run skill body:<br/>discover, dispatch workers,<br/>open PRs]
+  RunBody --> Telemetry[Append history.jsonl<br/>incl. gates fired<br/>+ emit status block]
+  Telemetry --> UpdateBudget[Increment budget.json<br/>tokens, dollars, agents,<br/>PRs, comments, merges] --> ReleaseLock2[Release lock] --> RuntimeLoop
 
   classDef gate fill:#fce8b2,stroke:#b58900
   classDef stop fill:#fbb,stroke:#900
   classDef cheap fill:#bfb,stroke:#090
-  class AskDrift,AskAmb,AskBudget gate
+  class GateBlock gate
   class FinalReport,Done stop
-  class AcquireLock,ReleaseLock,ReleaseLock2,Telemetry,UpdateBudget cheap
+  class AcquireLock,ReapLock,ReleaseLock,ReleaseLock2,Telemetry,UpdateBudget cheap
+```
+
+```mermaid
+flowchart TD
+  Enter([Stop conditions did NOT trigger<br/>— enter gate block]) --> Drift{Gate 1: Backlog<br/>drifted?}
+  Drift -->|yes| AskDrift[AskUserQuestion:<br/>re-propose batch?]
+  AskDrift --> DriftAns{User: stop?}
+  DriftAns -->|stop| Halt([Halt loop])
+  DriftAns -->|continue/re-propose| Amb
+  Drift -->|no| Amb
+
+  Amb{Gate 2: Ambiguous<br/>acceptance criteria?} -->|yes| AskAmb[AskUserQuestion:<br/>skip / escalate / proceed]
+  AskAmb --> AmbAns{User: stop?}
+  AmbAns -->|stop| Halt
+  AmbAns -->|skip/escalate/proceed| Budget
+  Amb -->|no| Budget
+
+  Budget{Gate 3: Any budget<br/>at &ge; 80%?} -->|yes| AskBudget[AskUserQuestion:<br/>continue / raise ceiling /<br/>stop — combined message<br/>across tripped budgets]
+  AskBudget --> BudgetAns{User: stop?}
+  BudgetAns -->|stop| Halt
+  BudgetAns -->|continue/raise| PostMerge
+  Budget -->|no| PostMerge
+
+  PostMerge{Gate 4: Review-loop<br/>post-feedback merge?} -->|yes| AskMerge[AskUserQuestion:<br/>merge now /<br/>hold for human re-review]
+  AskMerge --> MergeAns{User: stop?}
+  MergeAns -->|stop| Halt
+  MergeAns -->|merge/hold| ForceUnlock
+  PostMerge -->|no| ForceUnlock
+
+  ForceUnlock{Gate 5: --lock=force<br/>requested?} -->|yes| AskForce[AskUserQuestion:<br/>force-unlock previous<br/>iteration's lock?]
+  AskForce --> ForceAns{User: confirm?}
+  ForceAns -->|no/stop| Halt
+  ForceAns -->|yes| Repeat
+  ForceUnlock -->|no| Repeat
+
+  Repeat{Gate 6: Same issue/PR<br/>failed twice with<br/>same root cause?} -->|yes| AskRepeat[AskUserQuestion:<br/>skip / retry once /<br/>stop the loop]
+  AskRepeat --> RepeatAns{User: stop?}
+  RepeatAns -->|stop| Halt
+  RepeatAns -->|skip/retry| RunBody
+  Repeat -->|no| RunBody([Run skill body])
+
+  classDef gate fill:#fce8b2,stroke:#b58900
+  classDef stop fill:#fbb,stroke:#900
+  class AskDrift,AskAmb,AskBudget,AskMerge,AskForce,AskRepeat gate
+  class Halt stop
 ```
 
 ## More Information
