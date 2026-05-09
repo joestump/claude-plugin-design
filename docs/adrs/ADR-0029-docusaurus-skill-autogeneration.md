@@ -57,15 +57,38 @@ Chosen option: **"Option 4 — Hybrid auto-generation with optional per-skill ov
 | `evals/triggers/{name}.json` (where `should_trigger: true`) | "Example Invocations" section, up to 5 representative queries |
 | `references/*.md` (sibling files in skill dir, if any) | "Reference" appendix, one collapsible section per file |
 
-Sections are emitted in this fixed order: Title → Subtitle → Usage → Overview → Example Invocations → Process → Rules → Reference → Governing Artifacts. The body of `SKILL.md` after the frontmatter is otherwise transformed verbatim through the same MDX-escape utility used by ADR/spec transforms.
+**Section ordering and non-canonical H2 sections.** The generator emits sections in this fixed order:
+
+1. Title (H1, from frontmatter `name`)
+2. Subtitle (from frontmatter `description`)
+3. Usage (from frontmatter `argument-hint`)
+4. Overview (intro paragraph after the H1, before the first H2)
+5. Process (from `## Process`)
+6. Rules (from `## Rules`)
+7. **Extra H2 sections** — any H2 sections in the source `SKILL.md` other than `## Process` and `## Rules` are appended here, **verbatim** through `mdx-escape.js`, in **source order**. This applies to sections like `## MADR Template`, `## Verbs`, `## Architecture`, `## Error Handling`, `## Graph Edge Frontmatter`, `## Why git worktree add Instead of EnterWorktree`, etc., that real `SKILL.md` files use.
+8. Reference (from `references/*.md`, if any)
+9. Example Invocations (from `evals/triggers/{name}.json`, if any) — see Edge Cases
+10. Governing Artifacts (from aggregated `<!-- Governing: ... -->` comments) — see Edge Cases
+
+This order replaces the earlier draft of this ADR which listed only `Title → Subtitle → Usage → Overview → Example Invocations → Process → Rules → Reference → Governing Artifacts` and described the body as "transformed verbatim." Those two statements were inconsistent: a closed canonical list cannot also be a verbatim passthrough. The rule above resolves that inconsistency: **canonical sections (Title through Rules) appear in fixed positions; non-canonical H2 sections from the source SKILL.md are appended in source order between Rules and Reference; the auto-generated Reference, Example Invocations, and Governing Artifacts sections are appended last.** This preserves the "95% pure auto-generation" property even for skills like `adr`, `graph`, `index`, and `work` that carry substantial extra H2 content today.
 
 **2. Hero-tile index (`/skills/`).** The transform also generates `docs-generated/skills/index.mdx`, a landing page rendering one `<SkillTile>` per skill. Each tile carries: skill name, `description` (truncated to ~140 chars), and `argument-hint`, linking to `/skills/{name}`. Tiles are grouped by the workflow stage that already exists in `commands.mdx` (Creating Artifacts, Sprint Planning, Implementation, Drift Detection, Discovery, Documentation, Session Management, Lifecycle Management) — the grouping is encoded in a small `skills/_index.json` manifest committed alongside the skills, not via per-skill frontmatter (which would couple the source of truth to a UI concern).
 
-**3. Governing-comment cross-linking.** Each `<!-- Governing: ADR-XXXX (note), SPEC-YYYY REQ "name" -->` comment becomes a "Governing Artifacts" pill list at the top of the page. ADR-XXXX renders as `[ADR-XXXX](/decisions/ADR-XXXX-slug)`, SPEC-YYYY renders as `[SPEC-YYYY](/specs/{slug}/spec#req-anchor)`. The generator reuses `transform-utils.js` `transformAdrReferences` and `transformSpecReferences` to keep link resolution consistent with the rest of the pipeline.
+**3. Governing-comment cross-linking.** Each `<!-- Governing: ADR-XXXX (note), SPEC-YYYY REQ "name" -->` comment becomes part of a single "Governing Artifacts" pill list rendered at the top of the page (before the Overview). ADR-XXXX renders as `[ADR-XXXX](/decisions/ADR-XXXX-slug)`, SPEC-YYYY renders as `[SPEC-YYYY](/specs/{slug}/spec#req-anchor)`. The generator reuses `transform-utils.js` `transformAdrReferences` and `transformSpecReferences` to keep link resolution consistent with the rest of the pipeline.
+
+Real `SKILL.md` files contain multiple governing comments — `skills/work/SKILL.md` has five, `skills/adr/SKILL.md` has four, both at file scope and inline within `## Process`. The generator aggregates them as follows: scan the entire file (frontmatter excluded), collect every `<!-- Governing: ... -->` comment, parse each into ADR and SPEC references, **deduplicate by reference** (e.g., two comments mentioning `ADR-0023` collapse to one pill), and **sort the deduped set by artifact kind then number** (ADRs ascending, then SPECs ascending). The result is a single pill list. `<!-- Implements: ... -->` comments (per ADR-0020) are treated as a synonym of `<!-- Governing: -->` for this aggregation — both are surfaced in the same pill list because both express artifact lineage; the distinction is meaningful at runtime/lint time, not in user-facing docs.
 
 **4. Example invocations from `evals/triggers/{name}.json`.** Eval triggers (per ADR-0021) already curate realistic user phrasings. The generator picks the first 5 entries with `should_trigger: true` (or all of them if fewer than 5) and renders them as a code block. This gives every skill a "what does someone say to invoke this?" surface without authoring duplicate examples.
 
-**5. Override hatch.** If `skills/{name}/page.override.mdx` exists, the transform skips generation for that skill and copies the override into `docs-generated/skills/{name}.mdx` directly. This is the override file's full content — it does not merge with the generated content. The ADR explicitly recommends *against* using overrides as a default; they exist for the prose-heavy edge cases.
+**5. Override hatch with build-time staleness check.** If `skills/{name}/page.override.mdx` exists, the transform skips generation for that skill and copies the override into `docs-generated/skills/{name}.mdx` directly. This is the override file's full content — it does not merge with the generated content. The ADR explicitly recommends *against* using overrides as a default; they exist for the prose-heavy edge cases.
+
+To prevent the override from drifting silently when the underlying `SKILL.md` is updated, the override file MUST carry a header comment of the form:
+
+```mdx
+{/* Governing-SKILL: skills/{name}/SKILL.md@<sha256-of-SKILL.md-bytes> */}
+```
+
+`transform-skills.js` computes the SHA-256 of the current `skills/{name}/SKILL.md` byte content during the build and compares it against the pinned hash in the override. If they disagree, the build **fails** with an error naming the override file, the expected hash, and the current hash, and instructs the author to either (a) re-review the override against the new SKILL.md and update the pin, or (b) delete the override to fall back to auto-generation. Authors update the pin by running `npm run docs:refresh-overrides` (a small helper script added alongside `transform-skills.js`) which rewrites the pin in place after the author has confirmed the override is still accurate. This replaces the earlier hand-waved "reviewer norms + `/sdd:check`" mitigation, which is unworkable because `/sdd:check` does not currently understand override files and extending it is out of scope for this ADR.
 
 **6. Pipeline integration.** A new script `docs-site/scripts/transform-skills.js` is added and wired into `docs-site/scripts/build-docs.js` after `transform-openspecs` (so spec mappings are available for governing-comment cross-links) and before `generate-graph` (so generated skill pages can participate in the artifact graph if we ever extend the graph to skills). No new external dependencies. No changes to `.github/workflows/deploy-docs.yml` — the workflow already runs `npm run build` on every push to main, which will pick up the new transform automatically.
 
@@ -76,11 +99,29 @@ Sections are emitted in this fixed order: Title → Subtitle → Usage → Overv
 
 **8. Migration plan for `commands.mdx`.** The current `docs-site/content/guides/commands.mdx` is **not deleted in this ADR's implementation PR**. Instead:
 
-* Step 1 (the implementing PR for this ADR): generate `/skills/*` alongside the existing `commands.mdx`. Both routes resolve.
-* Step 2 (a follow-up PR): replace the body of `commands.mdx` with a single redirect-style page ("This page has moved to [/skills/](/skills/). Per-skill pages are at [/skills/{name}](/skills/adr).") and update the navbar/footer links.
-* Step 3 (a later PR, after one release cycle): delete `commands.mdx` entirely. Inbound links are then handled by Docusaurus's built-in 404 fallback or, optionally, a `client-redirects` plugin entry.
+* **Step 1** (the implementing PR for this ADR): generate `/skills/*` alongside the existing `commands.mdx`. Both routes resolve. The implementing PR MUST also install `@docusaurus/plugin-client-redirects` and wire it into `docusaurus.config.ts`. This is **not optional** — Step 3 depends on it.
+* **Step 2** (a follow-up PR): replace the body of `commands.mdx` with a single redirect-style page ("This page has moved to [/skills/](/skills/). Per-skill pages are at [/skills/{name}](/skills/adr).") and **audit and update all inbound references**, not just navbar/footer. The known inbound surfaces that MUST be checked and rewritten: `docusaurus.config.ts` navbar/footer entries, the project root `README.md`, the project root `CLAUDE.md`, the marketplace listing in `.claude-plugin/plugin.json` (and any external marketplace metadata), prior blog posts in `docs-site/blog/`, and any inbound deep links from sibling docs pages discovered by `npm run build`'s broken-link checker.
+* **Step 3** (a later PR, after one release cycle): delete `commands.mdx` entirely. Inbound links are then handled by `@docusaurus/plugin-client-redirects` (installed in Step 1), which MUST contain explicit per-anchor redirect entries for every fragment anchor present in the deleted `commands.mdx`. The current set of fragment anchors in `commands.mdx` corresponds to one per skill (`#prime`, `#work`, `#adr`, `#spec`, `#plan`, `#review`, `#audit`, `#check`, `#discover`, `#docs`, `#init`, `#list`, `#status`, `#organize`, `#enrich`, `#graph`, `#index`, `#report-friction`); the implementing PR for Step 3 MUST enumerate the actual anchor set from HEAD of `commands.mdx` at the time of removal and add a redirect entry for each, mapping `/guides/commands#{anchor}` → `/skills/{anchor}`. Docusaurus's built-in 404 fallback is **not** a sufficient substitute, because external inbound links (PR descriptions, blog posts, GitHub issues) would otherwise silently break.
 
 This staged migration keeps the v5 PR #131 work shippable without blocking on the autogen rollout.
+
+### Edge Cases
+
+The reviewer correctly flagged that the original draft validated only the happy path. The transform's specified behavior for edge inputs is:
+
+| Edge case | Specified behavior |
+|-----------|--------------------|
+| `evals/triggers/{name}.json` is missing or has zero entries with `should_trigger: true` | Omit the "Example Invocations" section entirely. No placeholder, no warning. New skills without curated triggers are common; this is not an error. |
+| Skill has zero `<!-- Governing: -->` and `<!-- Implements: -->` comments | Omit the "Governing Artifacts" pill list entirely. Some leaf skills genuinely have no governing artifacts; this is not an error. |
+| Skill directory exists in `skills/` but the skill is not listed in `skills/_index.json` | **Fail the build** with an error naming the unregistered skill (e.g., `skills/foo: not registered in skills/_index.json — add it to a group or remove the directory`). The manifest is authoritative for tile grouping and order; silent fallback to a default group would let registration drift go unnoticed. |
+| `skills/_index.json` references a skill name that has no corresponding `skills/{name}/SKILL.md` | **Fail the build** with an error naming the stale entry (e.g., `skills/_index.json references "foo" but skills/foo/SKILL.md does not exist`). Silent drop would let renames or deletions leave dangling tile references. |
+| Skill has multiple `<!-- Governing: -->` comments referencing overlapping ADRs/SPECs | Aggregate, dedupe by reference, sort ADRs ascending then SPECs ascending, render as a single pill list (see Sub-decision 3). Note from inline-vs-file-scope: comments inside the body of `## Process` (or any other section) are still scanned and aggregated; their pills surface at the top of the page, not inline next to the comment site. |
+| Override file (`page.override.mdx`) exists but the pinned `Governing-SKILL: ...@<sha>` does not match the current SKILL.md hash | **Fail the build** (see Sub-decision 5). |
+| Override file exists but has no `Governing-SKILL: ...` pin header | **Fail the build** with an error explaining the requirement and pointing to `npm run docs:refresh-overrides`. |
+| Override file exists but the corresponding `skills/{name}/SKILL.md` does not exist | **Fail the build** with an error naming the orphan override. |
+| `## Process` or `## Rules` H2 is missing from the source SKILL.md | Omit the corresponding section. The non-canonical-section append rule (Sub-decision 1) means the page still renders the rest of the body; this is not an error. |
+
+The schema-validation strategy for `skills/_index.json` is a JSON Schema file at `docs-site/scripts/schemas/skills-index.schema.json`, validated by `transform-skills.js` at the start of the build. A schema violation fails the build with the specific Ajv error message.
 
 ### Consequences
 
@@ -94,20 +135,34 @@ This staged migration keeps the v5 PR #131 work shippable without blocking on th
 * Good, because no new CI workflow is required — the existing `.github/workflows/deploy-docs.yml` runs `npm run build` on every push to `main`, which now includes the skill transform
 * Bad, because the `transform-skills.js` script must handle MDX-unsafe content in `SKILL.md` body (curly braces in `${}` examples, angle brackets in `<tool>` tags) — mitigated by reusing `mdx-escape.js`
 * Bad, because a new `skills/_index.json` manifest is introduced for hero-tile grouping; this is an additional source-of-truth file (mitigated by keeping it small and lint-checkable in CI)
-* Bad, because the override hatch creates a temptation to forgo SKILL.md updates and just edit the override — mitigated by the ADR explicitly framing overrides as edge-case-only
+* Bad, because the override hatch creates a temptation to forgo SKILL.md updates and just edit the override — mitigated by the build-time `Governing-SKILL: ...@<sha>` pin check in Sub-decision 5, which fails the build whenever an override drifts from the SKILL.md it was authored against, plus the ADR explicitly framing overrides as edge-case-only
 * Neutral, because `commands.mdx` lives on temporarily during the staged migration; not deleted in this ADR's implementing PR
 
 ### Confirmation
 
 Implementation will be confirmed by:
 
+**Happy path**
+
 1. `npm run build` (in `docs-site/`) emits one `.mdx` file per skill in `docs-generated/skills/` plus an `index.mdx` hero-tile landing page.
 2. The route `/skills/{name}` resolves for every skill present in `skills/`.
 3. The `/skills/` index page renders one tile per skill with the correct `description` and `argument-hint`.
-4. Removing `docs-site/content/guides/commands.mdx` does not break the deployed site — all inbound nav/footer links resolve to `/skills/` or a per-skill page.
+4. Removing `docs-site/content/guides/commands.mdx` does not break the deployed site — all inbound nav/footer links and audited inbound references (README, CLAUDE.md, marketplace metadata, blog posts) resolve to `/skills/` or a per-skill page, with `@docusaurus/plugin-client-redirects` providing per-anchor redirects from `/guides/commands#{name}` → `/skills/{name}`.
 5. A `<!-- Governing: ADR-0023, SPEC-0018 REQ "..." -->` comment in any `SKILL.md` renders on the corresponding skill page as cross-links to the ADR and spec pages.
 6. Editing `skills/work/SKILL.md` and re-running the build updates `/skills/work` and only `/skills/work`.
-7. Creating `skills/example/page.override.mdx` causes the generator to use the override verbatim, ignoring the auto-generated scaffold for that skill.
+7. Creating `skills/example/page.override.mdx` (with a valid `Governing-SKILL` pin) causes the generator to use the override verbatim, ignoring the auto-generated scaffold for that skill.
+8. A skill with non-canonical H2 sections (e.g., `skills/adr/SKILL.md` with `## MADR Template`, `## Architecture Diagram`, `## Graph Edge Frontmatter`) renders all of those sections on its generated page, in source order, between Rules and Reference.
+
+**Edge cases (per the Edge Cases table above)**
+
+9. A skill with no `evals/triggers/{name}.json` builds successfully and renders its page without an "Example Invocations" section.
+10. A skill with no `<!-- Governing: -->` or `<!-- Implements: -->` comments builds successfully and renders its page without a "Governing Artifacts" pill list.
+11. Adding a new directory `skills/foo/` with a SKILL.md but **without** registering `foo` in `skills/_index.json` fails the build with a clear, named error.
+12. Editing `skills/_index.json` to reference a non-existent skill `bar` fails the build with a clear, named error.
+13. A SKILL.md with multiple governing comments referencing the same ADR (e.g., two `<!-- Governing: ADR-0023 -->` lines) renders a single deduped pill, sorted with other ADRs in ascending order.
+14. Editing the body of `skills/{name}/SKILL.md` while leaving an existing `page.override.mdx` with a stale `Governing-SKILL` SHA pin fails the build with an error naming the override and the expected vs. current hashes.
+15. An override file lacking a `Governing-SKILL` pin header fails the build.
+16. A `skills/_index.json` that violates the JSON schema fails the build with the specific Ajv error.
 
 ## Pros and Cons of the Options
 
@@ -142,7 +197,7 @@ Implementation will be confirmed by:
 * Good, because per-skill deep links and hero-tile index without coupling editorial concerns to runtime context
 * Good, because the override hatch is opt-in per skill — the default path stays simple
 * Bad, because two paths (auto-generated and override) increase mental overhead — mitigated by ADR-level guidance that overrides are edge-case-only
-* Bad, because the override hatch could be abused to skip SKILL.md updates — mitigated by reviewer norms and `/sdd:check` drift detection on overrides
+* Bad, because the override hatch could be abused to skip SKILL.md updates — mitigated by a build-time `Governing-SKILL: ...@<sha>` pin check (Sub-decision 5) that fails the build whenever an override is stale relative to its SKILL.md, rather than relying on reviewer norms or out-of-scope `/sdd:check` extensions
 
 ## Architecture Diagram
 
