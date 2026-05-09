@@ -37,10 +37,34 @@ You are performing a fast, focused drift check on a specific target. This skill 
    - If neither ADRs nor specs exist, report: "No design artifacts found. Create an ADR with `/sdd:adr` or a spec with `/sdd:spec` first."
    - It is valid for only ADRs or only specs to exist -- proceed with whatever is available.
 
+3a. **Tier 3 staleness check** (v5.0.0+):
+
+   <!-- Governing: ADR-0026 (Tiered Index Freshness), SPEC-0019 REQ "Tier 3 Staleness Threshold for Consumer Skills" -->
+
+   On entry, check the qmd index's last-modified timestamp for this repo's collections (use the exact-prefix match algorithm from `references/qmd-helpers.md` § "This-Repo Collection Identification" to identify them, then take the maximum `lastUpdated` across them). If that timestamp is older than the configured staleness threshold, run a silent `qmd update` first.
+
+   The threshold default is **120 minutes** and is configurable in CLAUDE.md `### SDD Configuration` `#### Index Freshness` `**Staleness Threshold**` (e.g., `30m`, `4h`). Read it via the **Config Resolution** pattern in `references/shared-patterns.md`.
+
+   On stale → update path, emit a one-line note in the report header: `Index was {age} stale — refreshed before running.` On fresh, proceed silently. On qmd update failure, surface the error per `references/qmd-helpers.md` § "Error Handling" and continue (best-effort; the check still runs against the existing index).
+
 4. **Determine relevant artifacts**:
-   - If the target is a file or directory: read the target code, then read all ADRs and specs to find which ones govern the target area (by semantic relevance -- the ADR/spec mentions the same domain, technology, or component).
-   - If the target is an ADR: read the ADR, find related specs and code files that should implement the decision.
-   - If the target is a SPEC: read the spec, find related ADRs and code files that should implement the requirements.
+
+   <!-- Governing: ADR-0024 (qmd as hard dependency), SPEC-0019 REQ "qmd-Smart Drift Skills" -->
+
+   Use qmd hybrid retrieval to identify the top-K candidate ADRs and specs governing the target before reading any artifact in full. The pre-v5 "read all ADRs and specs to find which ones govern the target" path is removed in v5.0.0 — qmd retrieval is the canonical mechanism.
+
+   - **If the target is a file or directory**: construct a hybrid query per `references/qmd-helpers.md` § "Hybrid Retrieval" derived from the target's content. The query SHOULD include:
+     - `lex`: the file path basename, exported symbol names from a quick scan, and any `Governing:` comment block content (if present)
+     - `vec`: a one-sentence summary of what the target file/dir does (e.g., for `src/auth/login.go` → "user authentication via JWT-based session login flow")
+     - `intent: "/sdd:check {target} — find ADRs and specs governing this code"`
+
+     Filter to `collections: ["{repo}-adrs", "{repo}-specs"]` (or per-module variants in workspace mode). Set `limit: 8` and `minScore: 0.3`. Read the top-K candidates in full before evaluating drift.
+
+   - **If the target is an ADR (`ADR-XXXX`)**: read the ADR directly. Then qmd-search `{repo}-specs` for related specs (those that implement or reference the ADR) and `{repo}-code` for code that should implement the decision. Same query structure as the file/dir case, with the ADR's title and decision as the `vec` query.
+
+   - **If the target is a SPEC (`SPEC-XXXX`)**: read the spec directly. Then qmd-search `{repo}-adrs` for governing ADRs and `{repo}-code` for implementing files. Same pattern.
+
+   On qmd unreachable / timeout per `qmd-helpers.md` § "Error Handling", surface the error and stop. Per ADR-0024 and SPEC-0019 REQ "qmd Assumption in Consumer Skills", fallback paths were eliminated in v5; the failure mode is "fix qmd, retry" not "scan the entire corpus."
 
 5. **Validate spec artifact pairing**: For each spec directory found under `{spec-dir}`, check that both `spec.md` and `design.md` exist. If a `spec.md` exists without a corresponding `design.md` (or vice versa), report as `[WARNING]` under "Code vs. Spec" with finding: "Unpaired spec artifact: {path} exists but {missing-file} is missing. Per ADR-0003, spec.md and design.md are a paired unit." (Governing: ADR-0003, SPEC-0003)
 
@@ -214,3 +238,6 @@ You are performing a fast, focused drift check on a specific target. This skill 
 - In workspace aggregate mode, MUST group findings by module under per-module subheadings (Governing: ADR-0016, SPEC-0014 REQ "Cross-Module Aggregation")
 - In workspace aggregate mode, MUST include a per-module summary table
 - When `--module` is provided, check only that module — do not scan other modules
+- **v5.0.0+**: MUST run Tier 3 staleness check on entry per Step 3a — if the index is older than the configured threshold (default 120m, set in CLAUDE.md `### SDD Configuration` `#### Index Freshness` `**Staleness Threshold**`), trigger silent `qmd update` and emit a one-line note. On fresh, proceed silently (Governing: ADR-0026, SPEC-0019 REQ "Tier 3 Staleness Threshold for Consumer Skills")
+- **v5.0.0+**: MUST use qmd hybrid retrieval per `references/qmd-helpers.md` to identify top-K candidate ADRs/specs; deep-read only those candidates. The pre-v5 read-everything-then-filter path is removed — qmd retrieval is the canonical mechanism (Governing: ADR-0024, SPEC-0019 REQ "qmd-Smart Drift Skills")
+- **v5.0.0+**: On qmd unreachable / timeout, MUST surface the error and stop. NEVER fall back to corpus scan (per ADR-0024 / SPEC-0019 REQ "qmd Assumption in Consumer Skills" — fallback paths were eliminated in v5)
