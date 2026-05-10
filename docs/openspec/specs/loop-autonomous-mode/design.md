@@ -152,7 +152,7 @@ The line schema is enumerated normatively in spec.md ("Telemetry Schema"). Beyon
 
 - `tracked_prs[]` — one entry per PR the iteration interacted with, capturing `number`, `branch`, `head_sha_at_iteration_start`, `head_sha_at_iteration_end`, and `state_at_end`. These fields exist precisely so the resume contract can reconcile open PRs by SHA equality without external probing, and so `/sdd:review --loop`'s "no new commits since prior iteration" check has typed inputs rather than out-of-band signals.
 - `active_worktrees[]` — one entry per worktree left on disk (successful or failed), capturing `path`, `branch`, and `head_sha`. Failed-issue worktrees are preserved per `skills/work/SKILL.md` Rules; recording them in history lets resume report them without scanning the filesystem.
-- `chain_invoked` (bool), `review_outcome` (one of `"approve"`, `"changes-requested"`, `"needs-human"`), and `autofix_pr_invoked` (bool) — typed inputs for the post-PR chain pattern (per spec.md "Chain Outcome Telemetry"). When `--no-chain` is set, only `chain_invoked: false` is recorded; the other two fields are omitted. These fields let post-mortems correlate cost spikes with chain invocations and confirm that ADR-0010's one-round invariant held across the chain.
+- `chain_invoked` (bool), `review_outcome` (one of `"approve"`, `"changes-requested"`, `"needs-human"`, `"errored"`), `autofix_pr_invoked` (bool), and `autofix_pr_invocation_status` (one of `"accepted"`, `"unavailable"`, `"errored"`) — typed inputs for the post-PR chain pattern (per spec.md "Chain Outcome Telemetry"). When `--no-chain` is set, only `chain_invoked: false` is recorded; the other three fields are omitted. These fields let post-mortems correlate cost spikes with chain invocations, distinguish a `/autofix-pr` invocation that the Claude Code build accepted from one that was unavailable or errored, and confirm that ADR-0010's one-round invariant held across the chain.
 
 `comments_pushed` counts BOTH top-level review comments AND reply-to-comment messages — both consume tracker API rate limits and represent loop-driven activity, so a single counter that conflates the two is the faithful spend proxy in single-PR review mode (where `prs_touched` is informational and `comments_pushed`/`merges_attempted` carry the meaningful signal).
 
@@ -174,6 +174,7 @@ A canonical example line:
   "chain_invoked": true,
   "review_outcome": "approve",
   "autofix_pr_invoked": true,
+  "autofix_pr_invocation_status": "accepted",
   "gates": [],
   "stop_conditions_fired": []
 }
