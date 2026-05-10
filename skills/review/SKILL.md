@@ -13,6 +13,10 @@ argument-hint: [SPEC-XXXX or PR numbers] [--pairs N] [--no-merge] [--dry-run] [-
 
 You are reviewing PRs produced by `/sdd:work` using reviewer-responder agent pairs. Each pair processes PRs through exactly one review-response round: the reviewer checks the diff against spec acceptance criteria, the responder addresses feedback, and the reviewer re-evaluates. Approved PRs are merged; unresolved PRs are left with comments for human follow-up. See ADR-0010 and SPEC-0009.
 
+<!-- Governing: ADR-0028 (/loop Autonomous Mode), SPEC-0020 REQ "Lockfile Schema and Acquisition", SPEC-0020 REQ "Budget Schema and Persistence" -->
+
+> **Loop Mode (V1, opt-in).** When invoked under `/loop` with the `--loop` flag (and optionally `--pr <N>` for single-PR watch mode), this skill enters autonomous-mode and uses the lockfile + budget primitives documented in `references/loop-primitives.md` (acquired on entry, released on exit). The full CLI surface, the active stop conditions (#2 / #3 / #5 / #6 / #8 / #9 / #10 / #11 / #12, with #4 inactive in single-PR mode), and the review-side gates (ambiguous-criteria, budget-escalation, post-feedback-merge, force-unlock, repeated-failure — note: ADR-0010's bounded one-round invariant is preserved per iteration) are wired in story #145 (SPEC-0020). Without `--loop`, behavior is unchanged from the rest of this document and no `.sdd/loop/` artifacts are created.
+
 ## Process
 
 <!-- Governing: ADR-0016 (Workspace Mode), SPEC-0014 REQ "Artifact Path Resolution" -->
