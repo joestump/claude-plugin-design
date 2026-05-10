@@ -48,6 +48,7 @@ The docs-site build pipeline MUST emit exactly one MDX file per directory under 
 - Body `## Process` section → "Process" section, with header levels demoted by one so the page has a single H1.
 - Body `## Rules` section → "Rules" section, header levels demoted by one.
 - Any other H2 section in the SKILL.md body → appended verbatim (modulo `mdx-escape.js`) in source order between Rules and Reference, header levels demoted by one.
+- The H2 extractor MUST be fence-aware: H2 lines (`## ...`) that appear inside a fenced code block (delimited by ` ``` ` or `~~~`) MUST NOT be hoisted as top-level skill sections, and MUST be preserved verbatim within their enclosing fence. Implementations MUST track fence state using the `isCodeFence` helper exported by `docs-site/scripts/transform-utils.js` (the same helper `transformSpecReferences` and `transformAdrReferences` already use).
 - Sibling `references/*.md` files in the skill directory → "Reference" appendix, one collapsible `<details>` per file.
 - `evals/triggers/{name}.json` entries with `should_trigger: true` → "Example Invocations" code block, capped at 5 entries (the first 5 in file order).
 - All `<!-- Governing: ... -->` and `<!-- Implements: ... -->` comments anywhere in the file (excluding YAML frontmatter) → "Governing Artifacts" pill list rendered above the Overview.
@@ -62,6 +63,13 @@ The docs-site build pipeline MUST emit exactly one MDX file per directory under 
 - **WHEN** `skills/{name}/SKILL.md` frontmatter contains `disable-model-invocation: true`
 - **THEN** the generated page MUST display a "Manual-Invocation Only" badge near the title
 - **AND** the absence of the field (or a falsey value) MUST omit the badge
+
+#### Scenario: H2 lines inside a fenced code block are not hoisted as sections
+
+- **WHEN** `skills/adr/SKILL.md` contains a `## MADR Template` H2 followed by a fenced ` ```markdown ` block whose body includes the inner H2 lines `## Context and Problem Statement`, `## Decision Drivers`, `## Considered Options`, `## Decision Outcome`, `## Pros and Cons of the Options`, `## Architecture Diagram`, and `## More Information`
+- **THEN** the generated `adr.mdx` MUST treat `## MADR Template` as a single non-canonical H2 section whose body contains the entire fenced block verbatim
+- **AND** the seven inner H2 lines MUST NOT produce additional top-level skill sections in the output
+- **AND** the seven inner H2 lines MUST appear inside the rendered code fence exactly as authored, with no header demotion or hoisting applied to lines inside the fence
 
 ### Requirement: Section Ordering
 
@@ -126,7 +134,7 @@ The set of skill names in `skills/_index.json` MUST equal the set of subdirector
 
 ### Requirement: Governing-Comment Aggregation and Cross-Linking
 
-`transform-skills.js` MUST scan the entire SKILL.md body (frontmatter excluded) for `<!-- Governing: ... -->` and `<!-- Implements: ... -->` comments, parse each into ADR-XXXX and SPEC-YYYY references, deduplicate by reference, and sort the deduped set with ADRs ascending followed by SPECs ascending. The result MUST render as a single "Governing Artifacts" pill list at the top of the page (above Overview, below Subtitle). ADR pills MUST link to `/decisions/{adr-slug}` via `transformAdrReferences` from `transform-utils.js`; SPEC pills MUST link to `/specs/{spec-slug}/spec#{req-anchor}` via `transformSpecReferences`. `<!-- Implements: ... -->` comments MUST be folded into the same pill list as `<!-- Governing: ... -->` comments — no separate section.
+`transform-skills.js` MUST scan the entire SKILL.md body (frontmatter excluded) for `<!-- Governing: ... -->` and `<!-- Implements: ... -->` comments, parse each into ADR-XXXX and SPEC-YYYY references, deduplicate by reference, and sort the deduped set with ADRs ascending followed by SPECs ascending. The result MUST render as a single "Governing Artifacts" pill list at the top of the page (above Overview, below Subtitle). ADR pills MUST link to `/decisions/{adr-slug}` via `transformAdrReferences` from `transform-utils.js`; SPEC pills MUST link to `/specs/{spec-slug}/spec#spec-NNNN` (the SPEC-ID anchor only) via `transformSpecReferences` from `transform-utils.js`. The `REQ "..."` clause that may follow a SPEC-ID inside a `<!-- Governing: -->` or `<!-- Implements: -->` comment MAY be retained as the pill's display text, but the URL fragment MUST remain the SPEC-ID anchor — REQ-level anchoring is not currently produced by `transformSpecReferences` and is deferred (see Open Questions in `design.md`). `<!-- Implements: ... -->` comments MUST be folded into the same pill list as `<!-- Governing: ... -->` comments — no separate section.
 
 #### Scenario: multiple comments collapse to a single pill list
 
@@ -134,7 +142,7 @@ The set of skill names in `skills/_index.json` MUST equal the set of subdirector
 - **THEN** the rendered page MUST display one "Governing Artifacts" section above Overview
 - **AND** the section MUST contain pills in this order: ADR-0015, ADR-0017, ADR-0020, SPEC-0014, SPEC-0015
 - **AND** each ADR pill MUST link to the ADR's `/decisions/...` page via `transformAdrReferences`
-- **AND** each SPEC pill MUST link to `/specs/{slug}/spec` via `transformSpecReferences`
+- **AND** each SPEC pill MUST link to `/specs/{slug}/spec#spec-NNNN` (lowercased SPEC-ID anchor) via `transformSpecReferences`, regardless of whether the source comment included a `REQ "..."` clause
 
 #### Scenario: `<!-- Implements: -->` comments fold into the same list
 
