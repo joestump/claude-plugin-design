@@ -708,9 +708,80 @@ The lockfile is released **after** the report is emitted so a stale-lock reaper 
 
 ### Post-PR Chain
 
-<!-- Governing: ADR-0030 (Post-PR Chain Pattern in /sdd:work), SPEC-0020 REQ "Post-PR Chain Invocation", SPEC-0020 REQ "Chain Outcome Telemetry" -->
+<!-- Governing: ADR-0030 (Post-PR Chain Pattern in /sdd:work), ADR-0010 (bounded one-round invariant), ADR-0024 (qmd as Hard Dependency), SPEC-0020 REQ "Post-PR Chain Invocation", SPEC-0020 REQ "Chain Outcome Telemetry" -->
 
-After each PR opened in an iteration, `/sdd:work` invokes the post-PR chain unless `--no-chain` or `--dry-run` is set. The chain is wired in story #148; this section is the contract surface — the implementation MUST follow ADR-0030 and `references/loop-telemetry.md` § Optional post-PR-chain fields.
+After each PR opened in an iteration, `/sdd:work` invokes the post-PR chain — a bounded architectural review pass (`/sdd:review`, exactly one round per ADR-0010) followed by an open-ended CI / conflict / comment maintenance pass (`/autofix-pr`, the Claude Code built-in). The chain is unconditional within an iteration unless `--no-chain` or `--dry-run` is set (per SPEC-0020 REQ "Post-PR Chain Invocation"). It also runs on single-shot `/sdd:work` invocations — not just under `--loop` — so single-PR sessions get the same autonomy benefit (per ADR-0030 sub-decision 1).
+
+**This contract applies to both `--loop` and non-loop invocations** of `/sdd:work`. In non-loop mode, the worker that opens a PR follows the same chain — and the per-PR `history.jsonl` line still records the chain outcome fields (per SPEC-0020 REQ "Chain Outcome Telemetry"; the file is single-line in non-loop mode rather than appended).
+
+#### Chain sequence (per PR)
+
+For each PR a worker opens in an iteration:
+
+1. **Check `--no-chain`**. If set: log "Chain skipped for PR #{N} (--no-chain)"; record `chain_invoked: false` in the iteration's `history.jsonl` line; **omit** `review_outcome`, `autofix_pr_invoked`, and `autofix_pr_invocation_status` (per SPEC-0020 REQ "Chain Outcome Telemetry"); proceed to next PR (or exit iteration body).
+2. **Check `--dry-run`**. If set: log "Would invoke /sdd:review on PR #{N}, then /autofix-pr"; record `chain_invoked: false`; omit the per-stage fields; proceed.
+3. **Invoke `/sdd:review`** on PR #{N}, scoped to exactly one architectural round (ADR-0010 invariant):
+   - Reviewer evaluates the PR diff against acceptance criteria
+   - If REQUEST_CHANGES: responder addresses, reviewer re-evaluates within the same round
+   - Round closes with one of four outcomes: `"approve"`, `"changes-requested"` (resolved in round), `"needs-human"`, or `"errored"` (qmd / infrastructure failure)
+4. **Branch on review outcome**:
+
+   | Outcome | Behavior |
+   |---------|----------|
+   | `"approve"` | Proceed to step 5 (`/autofix-pr` invocation) |
+   | `"changes-requested"` (resolved in round) | Proceed to step 5 |
+   | `"needs-human"` | Apply the `needs-human-follow-up` label to PR #{N}; proceed to step 5 (the maintenance loop may still resolve CI flakes / conflicts independently of the architectural concern) |
+   | `"errored"` | Apply the `chain-failed-pre-autofix` label to PR #{N}; **skip** step 5; record `autofix_pr_invoked: false`; **omit** `autofix_pr_invocation_status` (per SPEC-0020 REQ "Post-PR Chain Invocation"); proceed to next PR. The user can rerun `/sdd:review` after fixing the infrastructure issue (e.g., qmd unreachable per ADR-0024). |
+
+5. **Check `/autofix-pr` availability**. The command is a Claude Code built-in (not a plugin-provided skill). Probe by attempting to introspect the runtime's available commands.
+   - **Unavailable** (the build does not ship the command, or introspection returns "not found"): log a one-line warning ("`/autofix-pr` is not available in this Claude Code build — install or upgrade Claude Code to enable post-PR autofix chain"); open a tracker issue tagged `claude-code-version-required` (deduped per `/sdd:work` invocation — open at most one such issue per session); record `autofix_pr_invoked: false` and `autofix_pr_invocation_status: "unavailable"`; proceed to next PR. PR creation is NOT blocked.
+   - **Available**: continue to step 6.
+
+6. **Invoke `/autofix-pr`** on PR #{N} **fire-and-forget**: `/sdd:work` does NOT wait for `/autofix-pr` to terminate; the built-in runs in its own background lifecycle managed by Claude Code, watching CI failures, review comments, and merge conflicts, and pushing corrective commits until the PR merges or is closed. `/sdd:work` returns once the invocation is **accepted** (the command was parsed and the lifecycle started).
+   - On accepted invocation: record `autofix_pr_invoked: true`, `autofix_pr_invocation_status: "accepted"`.
+   - On invocation error (parse failure or other invocation-time error): record `autofix_pr_invoked: true`, `autofix_pr_invocation_status: "errored"`; emit a one-line warning. The PR is NOT blocked.
+
+7. **Telemetry**. The iteration's `history.jsonl` line records the four chain fields per the canonical schema in `references/loop-telemetry.md`:
+
+   ```json
+   {
+     "chain_invoked": true,
+     "review_outcome": "approve",
+     "autofix_pr_invoked": true,
+     "autofix_pr_invocation_status": "accepted"
+   }
+   ```
+
+   In non-loop mode, the same fields are still emitted (a non-loop `/sdd:work` writes a single-line `history.jsonl` for that invocation; this is the trade documented in ADR-0030 sub-decision 6 to keep telemetry shape uniform).
+
+#### Failure modes (summary)
+
+| Failure | Behavior |
+|---------|----------|
+| User passed `--no-chain` | Skip both invocations; record `chain_invoked: false` and omit per-stage fields. Legacy "open PR, stop" behavior. |
+| User passed `--dry-run` | Log "would invoke" for both; skip both invocations; record `chain_invoked: false`. |
+| `/sdd:review` returns `"approve"`, `"changes-requested"` (resolved in round), or `"needs-human"` | Proceed to `/autofix-pr` |
+| `/sdd:review` returns `"errored"` (qmd unreachable per ADR-0024 sub-decision 2, or other infrastructure failure) | Apply `chain-failed-pre-autofix` label; skip `/autofix-pr`; record `autofix_pr_invoked: false`; omit `autofix_pr_invocation_status` |
+| `/autofix-pr` unavailable in current Claude Code build | Log warning; open one tracker issue with `claude-code-version-required` label per `/sdd:work` session (deduped); exit cleanly. PR is NOT blocked. |
+| `/autofix-pr` invocation parse error | Record `autofix_pr_invocation_status: "errored"`; one-line warning; PR NOT blocked. |
+
+#### Concurrency under `--loop`
+
+Each loop iteration's per-PR chain is a self-contained unit (per ADR-0030 sub-decision 5). When a worker opens N PRs in parallel within a single iteration, the chain runs once per PR, in parallel across workers (one chain per PR). The chain invocations are NOT serialized across the workers in a single iteration.
+
+ADR-0028's gates (backlog drift, ambiguous criteria, budget escalation, force-unlock, repeated failure) fire **before** the chain — they decide whether to *start* the iteration. Once an iteration runs and a PR is opened, the chain is unconditional within that iteration unless `--no-chain` is set. There is no per-PR gate that interposes between PR creation and `/sdd:review`; the architectural review is the bounded round (ADR-0010), and the post-feedback-merge gate (`/sdd:review --loop` only) is the only human-mediated checkpoint that can pause the chain's eventual merge path.
+
+#### Cost accounting
+
+Each chain invocation is metered by its own tool's cost surface (per ADR-0030 sub-decision 6). `/sdd:work` does **not** double-count `/sdd:review`'s tokens or `/autofix-pr`'s tokens against its own budget; those costs accrue under the invoked command's accounting. What `/sdd:work` records in `history.jsonl` is the *event* of invocation (`chain_invoked`, `review_outcome`, `autofix_pr_invoked`) so users correlating cost spikes after the fact can map them back to the iteration that opened the PR. The chain is therefore visible in telemetry as an event but not as a token line item.
+
+#### Why this preserves ADR-0010
+
+`/sdd:review` is invoked **exactly once** by `/sdd:work` per PR (per chain invocation). The chain does NOT loop `/sdd:review`. A second architectural round on the same PR is forbidden by ADR-0010 and forbidden here. If the user wants another round, they invoke `/sdd:review` directly (or, under `--loop`, the next iteration's `/sdd:review --loop` invocation does its own one round on that PR).
+
+#### Bootstrap note (V1)
+
+This contract IS the implementation of the chain; before story #148 lands, `/sdd:work` opens a PR and stops (legacy behavior). Once #148 merges, the chain is the new default unless `--no-chain` is set.
 
 ### Resume
 
@@ -737,3 +808,10 @@ Every iteration appends a line to `.sdd/loop/work.history.jsonl` and emits the s
 - MUST signal qmd unreachability via stderr token `qmd-unreachable` OR exit code `EX_QMD_UNREACHABLE=78` (the wrapped skill emits; the loop layer detects)
 - MUST emit the final report **before** releasing the lockfile on any halt path
 - MUST invoke the post-PR chain (per "Post-PR Chain" above) for every PR opened in an iteration unless `--no-chain` or `--dry-run` is set
+- The post-PR chain MUST also run on **non-loop** `/sdd:work` invocations (single-shot mode); the chain is not gated by `--loop` (per ADR-0030 sub-decision 1)
+- The chain MUST invoke `/sdd:review` exactly once per PR per chain invocation (preserves ADR-0010's bounded one-round invariant)
+- WHEN `/sdd:review` exits with `review_outcome: "errored"` THEN MUST apply the `chain-failed-pre-autofix` label, MUST NOT invoke `/autofix-pr`, and MUST omit `autofix_pr_invocation_status` from the per-iteration telemetry
+- WHEN `/sdd:review` exits with `"needs-human"` THEN MUST apply the `needs-human-follow-up` label AND proceed to `/autofix-pr` (the maintenance loop may resolve CI / conflicts independently)
+- WHEN `/autofix-pr` is unavailable THEN MUST log a warning AND open a tracker issue with the `claude-code-version-required` label (deduped at one issue per session) AND exit cleanly (PR creation MUST NOT be blocked)
+- The `/autofix-pr` invocation MUST be fire-and-forget — `/sdd:work` MUST NOT wait for `/autofix-pr` to terminate
+- The chain MUST NOT be double-counted in `/sdd:work`'s budget — costs of `/sdd:review` and `/autofix-pr` accrue under their own tool accounting; `/sdd:work` records only the invocation events in `history.jsonl`
