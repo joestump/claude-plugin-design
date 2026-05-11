@@ -13,6 +13,10 @@ argument-hint: [SPEC-XXXX | issue numbers | (empty = propose from backlog)] [--m
 
 You are picking up tracker issues and implementing them in parallel using git worktrees. Each issue gets its own worktree and worker agent.
 
+<!-- Governing: ADR-0028 (/loop Autonomous Mode), SPEC-0020 REQ "Lockfile Schema and Acquisition", SPEC-0020 REQ "Budget Schema and Persistence" -->
+
+> **Loop Mode (V1, opt-in).** When invoked under `/loop` with the `--loop` flag, this skill enters autonomous-mode and uses the lockfile + budget primitives documented in `references/loop-primitives.md` (acquired on entry, released on exit). The full CLI surface, all 12 stop conditions, and all 6 AskUserQuestion gates are wired in story #144 (SPEC-0020). Without `--loop`, behavior is unchanged from the rest of this document and no `.sdd/loop/` artifacts are created.
+
 ## Process
 
 <!-- Governing: ADR-0016 (Workspace Mode), SPEC-0014 REQ "Artifact Path Resolution" -->
