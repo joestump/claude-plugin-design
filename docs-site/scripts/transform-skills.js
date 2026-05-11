@@ -181,7 +181,17 @@ function parseFrontmatter(content) {
     if (!m) continue;
     const [, key, rawValue] = m;
     let value = rawValue.trim();
-    if (value.startsWith('[') && value.endsWith(']')) {
+    // Inline YAML array: `[a, b, c]` — must have commas. A bare `[topic]` or
+    // `[a] [b]` is a string usage hint (e.g. `argument-hint: [topic] [--module]`),
+    // not an array. We treat as array only if there's at least one top-level comma
+    // and no unmatched bracket pairs after the first `[`.
+    const isFlowArray =
+      value.startsWith('[') &&
+      value.endsWith(']') &&
+      value.indexOf(',') !== -1 &&
+      // Reject if a `[` appears after position 0 (multi-bracket usage hints).
+      value.indexOf('[', 1) === -1;
+    if (isFlowArray) {
       value = value
         .slice(1, -1)
         .split(',')
@@ -333,8 +343,16 @@ function renderGoverningSection({ adrs, specs }) {
   ].join('\n');
 }
 
+function normalizeArgumentHint(argumentHint) {
+  if (argumentHint == null) return '';
+  if (Array.isArray(argumentHint)) {
+    return argumentHint.map((p) => String(p)).join(' ').trim();
+  }
+  return String(argumentHint).trim();
+}
+
 function renderUsageSection(name, argumentHint) {
-  const hint = (argumentHint || '').trim();
+  const hint = normalizeArgumentHint(argumentHint);
   const slashCommand = hint ? `/sdd:${name} ${hint}` : `/sdd:${name}`;
   return ['## Usage', '', '```', slashCommand, '```', ''].join('\n');
 }
@@ -387,12 +405,11 @@ function renderReferenceSection(skillDir) {
   const parts = ['## Reference', ''];
   for (const f of files) {
     const refContent = fs.readFileSync(path.join(refDir, f), 'utf-8');
-    parts.push('<details>');
-    parts.push(`<summary>${f}</summary>`);
+    // Drop the file's own H1 (if present) since we render the filename as our subheading.
+    const stripped = refContent.replace(/^#\s+[^\n]*\n+/, '');
+    parts.push(`### ${f}`);
     parts.push('');
-    parts.push(refContent);
-    parts.push('');
-    parts.push('</details>');
+    parts.push(stripped);
     parts.push('');
   }
   return parts.join('\n');
@@ -582,12 +599,16 @@ function generateIndexPage(manifest, skillsByName) {
       if (!skill) continue;
       const description = (skill.frontmatter.description || '').trim();
       const truncated = truncateDescription(description);
-      const argHint = (skill.frontmatter['argument-hint'] || '').trim();
-      const safeName = JSON.stringify(name);
-      const safeDesc = JSON.stringify(truncated);
-      const safeHint = JSON.stringify(argHint);
+      const argHint = normalizeArgumentHint(skill.frontmatter['argument-hint']);
+      // Use JSX expression form `{"..."}` for string attributes so embedded
+      // double quotes are JS-string-escaped (\\") rather than left as raw `\"`
+      // inside a JSX double-quoted attribute (which MDX rejects).
+      const safeName = `{${JSON.stringify(name)}}`;
+      const safeDesc = `{${JSON.stringify(truncated)}}`;
+      const safeHint = `{${JSON.stringify(argHint)}}`;
+      const safeHref = `{${JSON.stringify(`/skills/${name}`)}}`;
       parts.push(
-        `  <SkillTile name=${safeName} description=${safeDesc} argumentHint=${safeHint} href="/skills/${name}" />`,
+        `  <SkillTile name=${safeName} description=${safeDesc} argumentHint=${safeHint} href=${safeHref} />`,
       );
     }
     parts.push('</div>');
