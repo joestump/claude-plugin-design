@@ -1153,7 +1153,7 @@ module.exports = function(context, options) {
   const adrsDir = opts.adrsDir || '../docs/adrs';
   const specsDir = opts.specsDir || '../docs/openspec/specs';
   const outputDir = opts.outputDir || '../docs-generated';
-  const skillsDir = opts.skillsDir !== undefined ? opts.skillsDir : '../skills';
+  const skillsDir = opts.skillsDir ?? null;
 
   const adrsSource = path.resolve(siteDir, adrsDir);
   const specsSource = path.resolve(siteDir, specsDir);

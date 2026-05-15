@@ -17,7 +17,6 @@ const path = require('path');
 const REPO_ROOT = path.join(__dirname, '../..');
 const SKILLS_SOURCE = path.join(REPO_ROOT, 'skills');
 const MANIFEST_PATH = path.join(SKILLS_SOURCE, '_index.json');
-const COMMANDS_DEST = path.join(REPO_ROOT, 'docs-generated/guides/commands.mdx');
 
 /**
  * Parse YAML frontmatter into a flat object. Supports the limited YAML used
@@ -83,18 +82,16 @@ function normalizeArgumentHint(argumentHint) {
  */
 function loadManifest() {
   if (!fs.existsSync(MANIFEST_PATH)) {
-    throw new Error(`skills/_index.json: manifest not found at ${MANIFEST_PATH}`);
+    return null;
   }
 
   const raw = fs.readFileSync(MANIFEST_PATH, 'utf-8');
-  let manifest;
   try {
-    manifest = JSON.parse(raw);
+    return JSON.parse(raw);
   } catch (err) {
-    throw new Error(`skills/_index.json: invalid JSON — ${err.message}`);
+    console.warn(`  Warning: skills/_index.json invalid JSON — ${err.message}`);
+    return null;
   }
-
-  return manifest;
 }
 
 /**
@@ -198,18 +195,19 @@ function main() {
   console.log('Generating command tiles...');
 
   const manifest = loadManifest();
+  if (!manifest) {
+    console.log('  Skipped: skills/_index.json not found or invalid');
+    return;
+  }
+
   checkCommandTileComponent();
 
-  // Generate the intro page with tiles
   const tilesContent = generateCommandTilesIntro(manifest);
 
-  // Write to a new file (separate from the detailed commands reference)
-  // The detailed reference remains at commands.mdx but is shifted to sidebar_position: 2
-  const tilesDestPath = path.join(path.dirname(COMMANDS_DEST), 'commands-quick-reference.mdx');
+  const tilesDestPath = path.join(REPO_ROOT, 'docs-generated/guides/commands-quick-reference.mdx');
   fs.writeFileSync(tilesDestPath, tilesContent);
 
   console.log(`  Generated command tiles at ${path.relative(REPO_ROOT, tilesDestPath)}`);
-  console.log(`  Note: Update original commands.mdx sidebar_position to 2 for proper ordering`);
 }
 
 if (require.main === module) {
