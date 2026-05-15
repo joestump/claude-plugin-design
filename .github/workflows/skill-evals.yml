@@ -332,7 +332,7 @@ jobs:
           if-no-files-found: warn
 
   report:
-    needs: [eval-tier3, eval-changed, eval-full, eval-pipeline]
+    needs: [determine-mode, eval-tier3, eval-changed, eval-full, eval-pipeline]
     if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
@@ -355,6 +355,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          EVAL_MODE: ${{ needs.determine-mode.outputs.mode }}
         run: |
           python3 << 'EOF'
           import json, os, sys, subprocess
