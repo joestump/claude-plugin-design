@@ -1,0 +1,79 @@
+name: SDD Eval Janitor
+
+# Weekly sweep to delete orphaned sdd-eval-* repos left behind by failed pipeline eval runs.
+#
+# Required secret: GH_JANITOR_TOKEN
+#   A GitHub PAT with scopes: repo (full), delete_repo
+#   Set in: Settings → Secrets and variables → Actions → Repository secrets
+#
+# See also: evals/pipeline/README.md § "Setup"
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'  # Sundays at 03:00 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run — list orphans without deleting'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions: {}
+
+jobs:
+  janitor:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_JANITOR_TOKEN }}
+    steps:
+      - name: Find and delete orphaned sdd-eval-* repos
+        run: |
+          set -euo pipefail
+          DRY_RUN="${{ inputs.dry_run || 'false' }}"
+          NOW=$(date +%s)
+          CUTOFF=$((NOW - 86400))
+
+          echo "Janitor sweep — cutoff: $(date -d @$CUTOFF -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date -r $CUTOFF -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+          # List repos matching sdd-eval- prefix with creation timestamps
+          REPOS=$(gh repo list joestump --search "sdd-eval-" --json name,createdAt \
+            --jq '.[] | select(.name | startswith("sdd-eval-")) | "\(.name) \(.createdAt)"' \
+            2>/dev/null || echo "")
+
+          DELETED=0
+          ERRORS=0
+
+          while IFS=' ' read -r repo_name created_at; do
+            [[ -z "$repo_name" ]] && continue
+            # Parse creation timestamp (GNU date on Linux, BSD date on macOS)
+            CREATED_TS=$(date -d "$created_at" +%s 2>/dev/null \
+              || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$created_at" +%s 2>/dev/null \
+              || echo 0)
+            if [[ "$CREATED_TS" -lt "$CUTOFF" ]]; then
+              if [[ "$DRY_RUN" == "true" ]]; then
+                echo "  [dry-run] would delete: joestump/$repo_name (created $created_at)"
+                DELETED=$((DELETED + 1))
+              else
+                echo "  Deleting joestump/$repo_name (created $created_at)..."
+                if gh repo delete "joestump/$repo_name" --yes 2>&1; then
+                  DELETED=$((DELETED + 1))
+                else
+                  echo "  Warning: failed to delete joestump/$repo_name — skipping"
+                  ERRORS=$((ERRORS + 1))
+                fi
+              fi
+            fi
+          done <<< "$REPOS"
+
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "Janitor (dry-run): found $DELETED orphan sdd-eval-* repos (not deleted)"
+          elif [[ "$DELETED" -eq 0 ]]; then
+            echo "Janitor: no orphans found"
+          else
+            echo "Janitor: deleted $DELETED orphan sdd-eval-* repos"
+          fi
+
+          if [[ "$ERRORS" -gt 0 ]]; then
+            echo "::warning::$ERRORS repo(s) could not be deleted — check GH_JANITOR_TOKEN has delete_repo scope"
+          fi
