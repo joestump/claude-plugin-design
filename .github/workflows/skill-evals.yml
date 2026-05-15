@@ -275,8 +275,8 @@ jobs:
                - "local-tmp-init": mktemp -d, cd into it, git init, write
                  setup.seed.claude_md to ./CLAUDE.md, write each
                  setup.seed.files entry, git add + initial commit.
-               - "gh-template": gh repo create with --template, clone, then
-                 enter the clone. Record the repo URL for cleanup.
+               - "gh-disposable": gh repo create --private joestump/sdd-eval-{id}-{run-id},
+                 seed from setup.seed via local push, record repo name for cleanup.
             3. Execute each step in order:
                a. cd into the test repo.
                b. Invoke the named skill via the matching slash command
@@ -288,7 +288,7 @@ jobs:
             4. Run final_assertions against the final repo state.
             5. Clean up:
                - local-tmp-init: rm -rf the temp dir.
-               - gh-template: gh repo delete --yes the created repo.
+               - gh-disposable: gh repo delete --yes the created repo.
 
             Output results to eval-results/pipeline.json:
             {
