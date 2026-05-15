@@ -170,7 +170,6 @@ const HTML_TAGS = new Set([
 const JSX_COMPONENTS = new Set([
   'StatusBadge', 'DateBadge', 'DomainBadge', 'PriorityBadge', 'SeverityBadge',
   'RFCLevelBadge', 'RequirementBox', 'Field', 'FieldGroup',
-  'CommandTile',
   'Tabs', 'TabItem', 'Admonition',
 ]);
 
@@ -1038,111 +1037,6 @@ JSON output (\`--json\`) is the stable contract for any future MCP, IDE plugin, 
 }
 
 // ============================================================================
-// Command Tiles Generation (from generate-commands.js)
-// ============================================================================
-
-function parseSkillFrontmatter(content) {
-  const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n?/);
-  if (!fmMatch) return {};
-
-  const fm = {};
-  for (const line of fmMatch[1].split('\n')) {
-    if (!line.trim() || line.trimStart().startsWith('#')) continue;
-    const m = line.match(/^([A-Za-z0-9_-]+):\s*(.*)$/);
-    if (!m) continue;
-    const [, key, rawValue] = m;
-    let value = rawValue.trim();
-    const isFlowArray =
-      value.startsWith('[') && value.endsWith(']') &&
-      value.indexOf(',') !== -1 && value.indexOf('[', 1) === -1;
-    if (isFlowArray) {
-      value = value.slice(1, -1).split(',')
-        .map((v) => v.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
-    } else if (/^(true|false)$/i.test(value)) {
-      value = /^true$/i.test(value);
-    } else {
-      value = value.replace(/^['"]|['"]$/g, '');
-    }
-    fm[key] = value;
-  }
-  return fm;
-}
-
-function truncateDescription(description, max = 140) {
-  if (!description || description.length <= max) return description || '';
-  const slice = description.slice(0, max);
-  const lastSpace = slice.lastIndexOf(' ');
-  return (lastSpace > 0 ? slice.slice(0, lastSpace) : slice).trimEnd() + '…';
-}
-
-function normalizeArgumentHint(argumentHint) {
-  if (argumentHint == null) return '';
-  if (Array.isArray(argumentHint)) return argumentHint.map(String).join(' ').trim();
-  return String(argumentHint).trim();
-}
-
-function generateCommandsPage(skillsSource, docsDest) {
-  const manifestPath = path.join(skillsSource, '_index.json');
-  if (!fs.existsSync(manifestPath)) return;
-
-  let manifest;
-  try {
-    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-  } catch (e) {
-    console.warn(`  [sdd-content] Could not parse skills manifest: ${e.message}`);
-    return;
-  }
-
-  const parts = [
-    '---',
-    'title: "Commands — Quick Reference"',
-    'sidebar_label: "Quick Reference"',
-    'sidebar_position: 1',
-    'description: "Quick-access tiles for all SDD plugin skills, organized by workflow stage."',
-    '---',
-    '',
-    '# Commands',
-    '',
-    'All SDD plugin skills are invoked as Claude Code slash commands. Browse by workflow stage:',
-    '',
-  ];
-
-  for (const [groupName, skillNames] of Object.entries(manifest)) {
-    parts.push(`## ${groupName}`, '');
-    parts.push('<div className="command-tiles">', '');
-    for (const name of skillNames) {
-      const skillMd = path.join(skillsSource, name, 'SKILL.md');
-      if (!fs.existsSync(skillMd)) {
-        console.warn(`  [sdd-content] ${name}/SKILL.md not found, skipping tile`);
-        continue;
-      }
-      const fm = parseSkillFrontmatter(fs.readFileSync(skillMd, 'utf-8'));
-      const description = truncateDescription((fm.description || '').trim());
-      const argHint = normalizeArgumentHint(fm['argument-hint']);
-      const safeName = JSON.stringify(name);
-      const safeDesc = JSON.stringify(description);
-      const safeHint = JSON.stringify(argHint);
-      const safeHref = JSON.stringify(`/skills/${name}`);
-      parts.push(
-        `  <CommandTile name={${safeName}} description={${safeDesc}} argumentHint={${safeHint}} href={${safeHref}} />`
-      );
-    }
-    parts.push('</div>', '');
-  }
-
-  parts.push(
-    '<div className="note">',
-    'For detailed reference, see the <a href="/guides/commands-reference">commands reference</a>.',
-    '</div>',
-    ''
-  );
-
-  const guidesDir = path.join(docsDest, 'guides');
-  fs.mkdirSync(guidesDir, { recursive: true });
-  fs.writeFileSync(path.join(guidesDir, 'commands.mdx'), parts.join('\n'));
-}
-
-// ============================================================================
 // Plugin Export
 // ============================================================================
 
@@ -1153,12 +1047,10 @@ module.exports = function(context, options) {
   const adrsDir = opts.adrsDir || '../docs/adrs';
   const specsDir = opts.specsDir || '../docs/openspec/specs';
   const outputDir = opts.outputDir || '../docs-generated';
-  const skillsDir = opts.skillsDir ?? null;
 
   const adrsSource = path.resolve(siteDir, adrsDir);
   const specsSource = path.resolve(siteDir, specsDir);
   const docsDest = path.resolve(siteDir, outputDir);
-  const skillsSource = skillsDir ? path.resolve(siteDir, skillsDir) : null;
 
   let baseUrl = '';
   const configPath = path.resolve(siteDir, 'docusaurus.config.ts');
@@ -1277,14 +1169,6 @@ module.exports = function(context, options) {
       generateGraphPage(graph, docsDest);
       console.log(`  Generated graph page`);
 
-      // Generate command tiles (only when skills manifest is present)
-      if (skillsSource) {
-        generateCommandsPage(skillsSource, docsDest);
-        if (fs.existsSync(path.join(skillsSource, '_index.json'))) {
-          console.log(`  Generated command tiles`);
-        }
-      }
-
       console.log('[sdd-content] Documentation content build complete!');
 
       // Return undefined (MDX writing is a side effect, same as sync-spec-docs)
@@ -1292,17 +1176,10 @@ module.exports = function(context, options) {
     },
 
     getPathsToWatch() {
-      const paths = [
+      return [
         path.join(adrsSource, '**/*.md'),
         path.join(specsSource, '**/*.md'),
       ];
-      if (skillsSource) {
-        paths.push(
-          path.join(skillsSource, '_index.json'),
-          path.join(skillsSource, '*/SKILL.md'),
-        );
-      }
-      return paths;
     },
   };
 };

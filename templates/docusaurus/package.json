@@ -21,7 +21,8 @@
     "lib-artifact-transforms": "github:joestump/lib-artifact-transforms#main",
     "plugin-content-adrs": "github:joestump/plugin-content-adrs#main",
     "plugin-content-openspec": "github:joestump/plugin-content-openspec#main",
-    "plugin-content-skills": "github:joestump/plugin-content-skills#main",
+    "plugin-content-claude-plugin-commands": "github:joestump/plugin-content-claude-plugin-commands#main",
+    "plugin-content-claude-plugin-skills": "github:joestump/plugin-content-claude-plugin-skills#main",
     "prism-react-renderer": "^2.3.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0"
