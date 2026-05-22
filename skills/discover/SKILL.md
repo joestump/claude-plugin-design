@@ -117,14 +117,14 @@ Explore an existing codebase to discover implicit architectural decisions and sp
 
    4. **Embed if available**: If `call_graphs[0].mermaid` is non-null, embed the normalized Mermaid diagram in the ADR suggestion's `## Architecture Diagram` section in the discovery report, using the embedding format from `references/cgg-integration.md` § "Embedding in markdown":
 
-      ```markdown
+      ````markdown
       <!-- Call graph: <filter used>, generated <YYYY-MM-DD> -->
       ```mermaid
       graph TD
           ...
       %% Showing entry points + main flow; internal helpers omitted
       ```
-      ```
+      ````
 
    5. **Graceful degradation**: If `/sdd:search` is unavailable, errors, or returns `call_graphs[0].mermaid: null` (cgg degraded), record the failure and continue. After enriching all ADRs, if any call graphs could not be generated, add a single notice line at the top of the discovery report:
 

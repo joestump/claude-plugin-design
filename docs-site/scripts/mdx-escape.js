@@ -10,6 +10,7 @@ function escapeMdxUnsafe(content) {
   const result = [];
   let inCodeBlock = false;
   let codeFencePattern = null;
+  let codeFenceLength = 0; // CommonMark: closing fence must be >= opening fence length
 
   for (const line of lines) {
     const trimmed = line.trimStart();
@@ -21,9 +22,10 @@ function escapeMdxUnsafe(content) {
       if (!inCodeBlock) {
         inCodeBlock = true;
         codeFencePattern = fence[0]; // track whether ` or ~
+        codeFenceLength = fence.length;
         result.push(line);
         continue;
-      } else if (fence[0] === codeFencePattern && trimmed.replace(/^[`~]+/, '').trim() === '') {
+      } else if (fence[0] === codeFencePattern && fence.length >= codeFenceLength && trimmed.replace(/^[`~]+/, '').trim() === '') {
         inCodeBlock = false;
         codeFencePattern = null;
         result.push(line);
