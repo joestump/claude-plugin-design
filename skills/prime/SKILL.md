@@ -2,7 +2,7 @@
 name: prime
 description: Load ADR and spec context into the session for architecture-aware responses. Use when the user says "prime context", "load architecture", starts a new session, or wants Claude to know about existing decisions.
 allowed-tools: Read, Glob, Grep, Bash
-argument-hint: [topic] [--module <name>]
+argument-hint: "[topic] [--module <name>]"
 ---
 
 # Prime Architecture Context

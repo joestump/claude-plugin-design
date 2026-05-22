@@ -4,7 +4,7 @@
 name: work
 description: Pick up tracker issues and implement them in parallel using git worktrees. Use when the user says "work on issues", "implement the spec", "start coding", or wants agents to build from planned issues.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task, WebFetch, WebSearch, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList, TaskGet, SendMessage, AskUserQuestion, ToolSearch, EnterWorktree
-argument-hint: [SPEC-XXXX | issue numbers | (empty = propose from backlog)] [--max-agents N] [--draft] [--dry-run] [--no-tests] [--module <name>] [--loop [--max-iterations N] [--max-prs N] [--max-minutes N] [--max-dollars N] [--lock={skip|wait|force}] [--resume] [--budget-file PATH]] [--no-chain]
+argument-hint: "[SPEC-XXXX | issue numbers | (empty = propose from backlog)] [--max-agents N] [--draft] [--dry-run] [--no-tests] [--module <name>] [--loop [--max-iterations N] [--max-prs N] [--max-minutes N] [--max-dollars N] [--lock={skip|wait|force}] [--resume] [--budget-file PATH]] [--no-chain]"
 ---
 
 <!-- Governing: ADR-0015 (Markdown-Native Configuration), SPEC-0014 REQ "Config Resolution Pattern" -->

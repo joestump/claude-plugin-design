@@ -2,7 +2,7 @@
 name: organize
 description: Retroactively group existing issues into tracker-native projects. Use when the user says "organize issues", "group issues into projects", or wants to create project boards for existing sprint issues.
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, ToolSearch, AskUserQuestion
-argument-hint: [SPEC-XXXX or spec-name] [--project <name>] [--dry-run] [--module <name>]
+argument-hint: "[SPEC-XXXX or spec-name] [--project <name>] [--dry-run] [--module <name>]"
 ---
 
 <!-- Governing: ADR-0015 (Markdown-Native Configuration), SPEC-0014 REQ "Config Resolution Pattern" -->

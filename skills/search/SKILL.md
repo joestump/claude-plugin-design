@@ -2,7 +2,7 @@
 name: search
 description: Unified semantic exploration skill combining qmd hybrid retrieval with cgg call graph generation. Use when the user says "search the codebase", "find ADRs about X", "what specs cover Y", "search architecture", or wants to semantically explore design artifacts and code together.
 allowed-tools: Bash, Read, Glob, Grep, mcp__plugin_qmd_qmd__query, mcp__plugin_qmd_qmd__status
-argument-hint: [query] [--output markdown|json] [--unfiltered] [--module <name>]
+argument-hint: "[query] [--output markdown|json] [--unfiltered] [--module <name>]"
 ---
 
 # Unified Semantic Search

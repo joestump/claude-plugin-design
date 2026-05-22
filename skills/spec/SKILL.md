@@ -2,7 +2,7 @@
 name: spec
 description: Create a specification with requirements, scenarios, and design rationale. Use when the user wants to write a spec, formalize requirements, convert an ADR to a specification, or says "create a spec".
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task, WebFetch, WebSearch, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList, TaskGet, SendMessage, AskUserQuestion
-argument-hint: [capability name or ADR reference] [--review] [--module <name>]
+argument-hint: "[capability name or ADR reference] [--review] [--module <name>]"
 ---
 
 # Create an OpenSpec Specification

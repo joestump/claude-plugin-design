@@ -2,7 +2,7 @@
 name: docs
 description: Generate a documentation site from your ADRs and specs. Use when the user says "generate docs", "create a docs site", or wants to publish their architecture decisions.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task, AskUserQuestion
-argument-hint: [project name or options] [--module <name>]
+argument-hint: "[project name or options] [--module <name>]"
 context: fork  # Runs in a forked context to avoid polluting the main session with docs-site npm operations
 ---
 

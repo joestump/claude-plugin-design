@@ -2,7 +2,7 @@
 name: discover
 description: Discover implicit architectural decisions and spec-worthy subsystems in an existing codebase. Use when the user says "discover architecture", "what decisions exist in this code", "bootstrap ADRs", or wants to reverse-engineer design artifacts from code.
 allowed-tools: Bash, Read, Glob, Grep, Task, AskUserQuestion
-argument-hint: [scope] [--module <name>] [--with-graphs]
+argument-hint: "[scope] [--module <name>] [--with-graphs]"
 ---
 
 # Discover Implicit Architecture

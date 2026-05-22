@@ -4,7 +4,7 @@
 name: review
 description: Review and merge PRs produced by /sdd:work using reviewer-responder agent pairs. Use when the user says "review PRs", "review the spec PRs", or wants automated spec-aware code review.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task, WebFetch, WebSearch, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList, TaskGet, SendMessage, AskUserQuestion, ToolSearch
-argument-hint: [SPEC-XXXX or PR numbers] [--pairs N] [--no-merge] [--dry-run] [--module <name>] [--loop [--pr N] [--max-iterations N] [--max-prs N] [--max-minutes N] [--max-dollars N] [--lock={skip|wait|force}] [--resume] [--budget-file PATH]]
+argument-hint: "[SPEC-XXXX or PR numbers] [--pairs N] [--no-merge] [--dry-run] [--module <name>] [--loop [--pr N] [--max-iterations N] [--max-prs N] [--max-minutes N] [--max-dollars N] [--lock={skip|wait|force}] [--resume] [--budget-file PATH]]"
 ---
 
 <!-- Governing: ADR-0015 (Markdown-Native Configuration), SPEC-0014 REQ "Config Resolution Pattern" -->

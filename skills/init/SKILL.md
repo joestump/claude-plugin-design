@@ -2,7 +2,7 @@
 name: init
 description: Set up CLAUDE.md with SDD plugin references for architecture-aware sessions. Use when the user installs the plugin, says "initialize sdd", or wants to configure CLAUDE.md for the SDD plugin.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
-argument-hint: [--module <name>]
+argument-hint: "[--module <name>]"
 ---
 
 <!-- Governing: ADR-0015 (Markdown-Native Configuration), ADR-0020 (Governing Comment Reform), ADR-0024 (qmd as hard dependency), ADR-0025 (.sdd/ directory rationale), SPEC-0002 REQ "Project Initialization", SPEC-0014 REQ "Migration from JSON to CLAUDE.md", SPEC-0019 REQ "qmd Preflight Enforcement", SPEC-0019 REQ "qmd Assumption in Consumer Skills", SPEC-0019 REQ ".sdd Gitignore Enforcement" -->

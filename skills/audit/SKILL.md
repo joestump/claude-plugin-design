@@ -2,7 +2,7 @@
 name: audit
 description: Comprehensive audit of design artifact alignment across the project. Use when the user says "audit the architecture", "full drift report", or wants a thorough review of spec compliance and ADR adherence.
 allowed-tools: Read, Glob, Grep, Task, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList, TaskGet, SendMessage, AskUserQuestion
-argument-hint: [scope] [--review] [--scrum] [--module <name>]
+argument-hint: "[scope] [--review] [--scrum] [--module <name>]"
 ---
 
 # Comprehensive Design Audit

@@ -4,7 +4,7 @@
 name: graph
 description: Build and query the SDD artifact graph. Use when the user wants to validate frontmatter edges, find impact/ancestors/chain for an ADR or spec, detect orphans or cycles, or backfill edges from prose. Currently supports validate / impact / ancestors / chain / orphans / cycles, with workspace-mode aggregation; backfill lands in Story 7.
 allowed-tools: Bash, Read, Glob, Grep, Task
-argument-hint: <verb> [<artifact-id>] [--scope <subtree>] [--module <name>] [--table | --mermaid | --json]
+argument-hint: "<verb> [<artifact-id>] [--scope <subtree>] [--module <name>] [--table | --mermaid | --json]"
 ---
 
 # /sdd:graph — Artifact Graph Skill

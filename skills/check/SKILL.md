@@ -2,7 +2,7 @@
 name: check
 description: Quick-check code against ADRs and specs for drift. Use when the user says "check for drift", "does this match the spec", or wants a fast alignment check on a specific file or directory.
 allowed-tools: Read, Glob, Grep
-argument-hint: [target] [--module <name>]
+argument-hint: "[target] [--module <name>]"
 ---
 
 # Quick Drift Check

@@ -2,7 +2,7 @@
 name: enrich
 description: Retroactively add branch naming and PR convention sections to existing issue bodies. Use when the user says "add branch names to issues", "enrich issues", or wants to add developer workflow conventions to existing issues.
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit, ToolSearch, AskUserQuestion
-argument-hint: [SPEC-XXXX or spec-name] [--branch-prefix <prefix>] [--dry-run] [--module <name>]
+argument-hint: "[SPEC-XXXX or spec-name] [--branch-prefix <prefix>] [--dry-run] [--module <name>]"
 ---
 
 <!-- Governing: ADR-0015 (Markdown-Native Configuration), SPEC-0014 REQ "Config Resolution Pattern" -->

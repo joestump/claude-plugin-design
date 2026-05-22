@@ -2,7 +2,7 @@
 name: list
 description: List all architecture decisions and specs with their status. Use when the user asks "what decisions have we made", "list ADRs", "show specs", or wants an overview.
 allowed-tools: Read, Glob, Grep
-argument-hint: [filter: adr|spec|all] [--module <name>]
+argument-hint: "[filter: adr|spec|all] [--module <name>]"
 disable-model-invocation: true
 ---
 

@@ -2,7 +2,7 @@
 name: index
 description: Index a repository's ADRs, OpenSpec specs, and source code into qmd collections for hybrid (BM25 + vector + reranker) semantic search. Use when the user says "index this repo", "load into qmd", "make my code/specs searchable", "set up qmd for this project", or wants agents to be able to search architecture artifacts and code semantically.
 allowed-tools: Bash, Read, Glob, Grep, AskUserQuestion
-argument-hint: [add|update|embed|status|remove] [--module <name>] [--foreground|--skip] [--reprobe]
+argument-hint: "[add|update|embed|status|remove] [--module <name>] [--foreground|--skip] [--reprobe]"
 ---
 
 <!-- Governing: ADR-0015 (Markdown-Native Configuration), ADR-0016 (Workspace Mode), ADR-0024 (qmd hard dependency), ADR-0025 (Tracker Issues as Fourth qmd Collection), ADR-0026 (Tiered Index Freshness), ADR-0031 (Embed-Session Retry Loop), ADR-0032 (qmd Version-Staleness Check), SPEC-0019 REQ "Issues Collection Layout", SPEC-0019 REQ "Issues Collection Sync via /sdd:index" -->

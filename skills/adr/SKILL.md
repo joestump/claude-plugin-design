@@ -2,7 +2,7 @@
 name: adr
 description: Create a new Architecture Decision Record (ADR) using MADR format. Use when the user wants to document an architectural decision, says "create an ADR", "we need an ADR for", or discusses a decision that should be recorded.
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Task, WebFetch, WebSearch, TeamCreate, TeamDelete, TaskCreate, TaskUpdate, TaskList, TaskGet, SendMessage, AskUserQuestion
-argument-hint: [short description of the decision] [--review] [--module <name>]
+argument-hint: "[short description of the decision] [--review] [--module <name>]"
 ---
 
 # Create an Architecture Decision Record (ADR)
